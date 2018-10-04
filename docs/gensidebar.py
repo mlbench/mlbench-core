@@ -59,7 +59,7 @@ def generate_sidebar(conf, conf_api):
         if project != conf_api:
             if do_gen:
                 args = desc, project, version
-                lines.append('    %s <https://mlbench.readthedocs.io/projects/%s/en/%s/index.html>' % args)
+                lines.append('    %s <https://mlbench.readthedocs.io/projects/%s/en/%s/readme.html>' % args)
         else:
             lines.append('    %s <readme>' % desc)
 
