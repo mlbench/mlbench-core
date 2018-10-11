@@ -2,7 +2,7 @@ from .parser import *
 from .dataset import create_dataset, _DATASET_NAMES
 
 
-def load(train, name='', line_args=None, parser=None):
+def load(train, parser, line_args=None, **kwargs):
     """Create a data loader.
 
     If `line_args` and `parser` are not None, then use line arguments to parse.
@@ -15,14 +15,14 @@ def load(train, name='', line_args=None, parser=None):
     :type parser: ArgumentParser, optional
     """
     if line_args is None:
-        line_args = ['--dataset', name]
+        line_args = []
+        for k, v in kwargs.items():
+            line_args.append('--' + str(k))
+            if v is not None:
+                line_args.append(str(v))
 
     if not (isinstance(line_args, list) and all(isinstance(el, str) for el in line_args)):
         raise ValueError("line_args should be a list of strings. Got {}".format(line_args))
-
-    # Parser
-    if parser is None:
-        parser = DatasetLoaderParser()
 
     if not isinstance(parser, argparse.ArgumentParser):
         raise ValueError("parser should be argparse.ArgumentParser type. Got {}".format(type(parser)))
