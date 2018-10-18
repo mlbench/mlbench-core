@@ -25,10 +25,10 @@ def _ranks_on_same_node(rank, world_size):
 
 
 class FCGraph(object):
-    def __init__(self, options):
-        self.rank = options.rank
-        self.world_size = options.world_size
-        self.use_cuda = options.use_cuda
+    def __init__(self, config):
+        self.rank = config.rank
+        self.world_size = config.world_size
+        self.use_cuda = config.use_cuda
 
     @property
     def current_device_name(self):

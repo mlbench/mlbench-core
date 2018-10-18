@@ -41,35 +41,35 @@ def determine_restore_ckpt_path(rank, checkpoint_root, run_id):
         raise FileNotFoundError("Found {} ; Expect {}".format(found_ckpts, ))
 
 
-def save(options, model, optimizer, scheduler, is_best):
-    if options.checkpoint == 'never':
+def save(config, model, optimizer, scheduler, is_best):
+    if config.checkpoint == 'never':
         return
 
     state = {
-        'options_runtime': options.runtime,
+        'config_runtime': config.runtime,
         'state_dict': model.state_dict(),
         'optimizer': optimizer.state_dict(),
         'scheduler': scheduler.state_dict(),
     }
 
-    dirname = options.ckpt_run_dir
-    filename = get_ckpt_id(options.runtime['current_epoch'], options.rank)
+    dirname = config.ckpt_run_dir
+    filename = get_ckpt_id(config.runtime['current_epoch'], config.rank)
     checkpoint_path = os.path.join(dirname, filename)
     best_model_path = os.path.join(dirname, 'model_best.pth.tar')
 
-    if options.checkpoint == 'all':
+    if config.checkpoint == 'all':
         torch.save(state, checkpoint_path)
         if is_best:
             shutil.copyfile(checkpoint_path, best_model_path)
-    elif options.checkpoint == 'best':
+    elif config.checkpoint == 'best':
         torch.save(state, best_model_path)
     else:
         raise NotImplementedError
 
 
-def resume(options, model, optimizer, scheduler):
+def resume(config, model, optimizer, scheduler):
     checkpoint_path = determine_restore_ckpt_path(
-        options.rank, options.checkpoint_root, options.run_id)
+        config.rank, config.checkpoint_root, config.run_id)
 
     print('Try to load previous model from the path:{}'.format(checkpoint_path))
     if os.path.isfile(checkpoint_path):
@@ -83,18 +83,18 @@ def resume(options, model, optimizer, scheduler):
 
         # logging.
         print("Loaded checkpoint '{}' (epoch {})".format(
-            checkpoint_path, checkpoint['options_runtime']['current_epoch']))
-        checkpoint['options_runtime']['current_epoch'] = checkpoint['options_runtime']['current_epoch'] + 1
+            checkpoint_path, checkpoint['config_runtime']['current_epoch']))
+        checkpoint['config_runtime']['current_epoch'] = checkpoint['config_runtime']['current_epoch'] + 1
     else:
-        raise FileNotFoundError("No checkpoint found at '{}'".format(options.resume))
-    return checkpoint['options_runtime']
+        raise FileNotFoundError("No checkpoint found at '{}'".format(config.resume))
+    return checkpoint['config_runtime']
 
 
-def maybe_resume(options, model, optimizer, scheduler):
-    """Recover the state of options, model, optimizer and scheduler."""
-    if options.resume:
+def maybe_resume(config, model, optimizer, scheduler):
+    """Recover the state of config, model, optimizer and scheduler."""
+    if config.resume:
         # reload model from the latest checkpoint.
-        options.runtime = resume(options, model, optimizer, scheduler)
+        config.runtime = resume(config, model, optimizer, scheduler)
     else:
-        options.runtime = {}
-    return options
+        config.runtime = {}
+    return config
