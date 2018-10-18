@@ -1,11 +1,9 @@
 from .resnet import get_resnet_model
 
-__all__ = ['Models']
+__all__ = ['get_model']
 
 
-class Models(object):
-    @staticmethod
-    def create(config):
-        if 'resnet' in config.model:
-            return get_resnet_model(config)
-        raise NotImplementedError
+def get_model(config):
+    if 'resnet' in config.model:
+        return get_resnet_model(config)
+    raise NotImplementedError

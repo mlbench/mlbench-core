@@ -162,17 +162,18 @@ def multistep_learning_rates_with_warmup(config, optimizer):
     return LambdaLR(optimizer, lr_lambda=f)
 
 
-class Scheduler(object):
-    @staticmethod
-    def create(config, optimizer):
-        if config.lr_scheduler == 'const':
-            return const(optimizer)
-        elif config.lr_scheduler == 'CLR':
-            return cyclical_learning_rates(config, optimizer)
-        elif config.lr_scheduler == 'MultiStepLRW':
-            return multistep_learning_rates_with_warmup(config, optimizer)
-        else:
-            raise NotImplementedError
+def get_scheduler(config, optimizer):
+    if config.lr_scheduler == 'const':
+        return const(optimizer)
+    elif config.lr_scheduler == 'CLR':
+        return cyclical_learning_rates(config, optimizer)
+    elif config.lr_scheduler == 'MultiStepLR':
+        milestones = config.multisteplr_milestones
+        return MultiStepLR(optimizer, milestones=milestones, gamma=config.multisteplr_gamma)
+    elif config.lr_scheduler == 'MultiStepLRW':
+        return multistep_learning_rates_with_warmup(config, optimizer)
+    else:
+        raise NotImplementedError
 
 
 if __name__ == '__main__':

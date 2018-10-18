@@ -52,12 +52,10 @@ class TopKAccuracy(object):
         return "Prec@{}".format(self.topk)
 
 
-class Metrics(object):
-    @staticmethod
-    def create(config):
-        if config.metrics == 'topk':
-            return [TopKAccuracy(topk=1), TopKAccuracy(topk=5)]
-        if config.metrics == 'none':
-            return []
-        else:
-            raise NotImplementedError('No metrics name {} found.'.format(config.metrics))
+def get_metrics(metrics):
+    if metrics.startswith('top'):
+        return TopKAccuracy(topk=int(metrics[3:]))
+    if metrics == 'none':
+        return []
+    else:
+        raise NotImplementedError('No metrics name {} found.'.format(metrics))

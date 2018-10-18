@@ -3,7 +3,7 @@ import random
 
 import numpy as np
 import torch
-import mlbench_core.utils.distributed as dist
+import torch.distributed as dist
 
 
 class Partition(object):

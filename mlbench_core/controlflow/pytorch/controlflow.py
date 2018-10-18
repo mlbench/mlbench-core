@@ -1,84 +1,105 @@
+r"""Control flow for pytorch applications."""
 import torch
 import torch.distributed as dist
 
 from mlbench_core.utils.pytorch import checkpoint
-from mlbench_core.utils.pytorch.metrics import AverageMeter
+from mlbench_core.evaluation.pytorch.metrics import AverageMeter
 from mlbench_core.utils.pytorch.distributed import aggregate_gradients, global_average
-from mlbench_core.utils.pytorch.utils import convert_dtype, Timeit, maybe_range, update_best_runtime_metric
-from mlbench_core.utils.pytorch.utils import log_metrics
+from mlbench_core.utils.pytorch.helpers import convert_dtype, Timeit, maybe_range, \
+    update_best_runtime_metric, iterate_dataloader, log_metrics
 
 
-def train_epoch(model, optimizer, criterion, scheduler, config, timeit, dataloader):
+def train_epoch(model, optimizer, loss_function, scheduler, config, timeit, dataloader):
     """Train model for one epoch of data."""
     # switch to train mode
     model.train()
 
-    for batch_idx, (data, target) in zip(maybe_range(config.max_batch_per_epoch),
-                                         dataloader):
+    for batch_idx, (data, target) in enumerate(iterate_dataloader(dataloader, config)):
         if config.lr_scheduler_level == 'batch':
             scheduler.step()
 
-        data = convert_dtype(config.dtype, data)
-        if config.transform_target_type:
-            target = convert_dtype(config.dtype, target)
-
-        if config.use_cuda:
-            data, target = data.cuda(), target.cuda()
-
+        # Clear gradients in the optimizer.
         optimizer.zero_grad()
+
+        # Compute the output
         output = model(data)
-        loss = criterion(output, target)
+
+        # Compute the loss
+        loss = loss_function(output, target)
+
+        # Backprop
         loss.backward()
-        aggregate_gradients(model, config.world_size)
+
+        # Aggregate gradients from all workers
+        aggregate_gradients(model, config)
+
+        # Apply updates to model
         optimizer.step()
 
+        timeit.pause()
         with torch.no_grad():
             loss = loss.item()
             loss = global_average(loss, 1).item()
-            if config.rank == 0:
-                print("Train Batch {:5}: loss={:.3f}".format(batch_idx, loss))
             log_metrics(config, 'train_loss', loss)
-
-            timeit.pause()
             config.runtime['cumu_time_train'].append(timeit.cumu)
-            timeit.resume()
+
+        if config.rank == 0:
+            print("Train Batch {:5}: loss={:.3f}".format(batch_idx, loss))
+        timeit.resume()
 
 
-def validate(model, optimizer, criterion, metrics, config, dataloader):
+def validate(model, loss_function, metrics, config, dataloader):
+    r"""Validate the quality of the model in terms of loss and metrics.
+
+    :param model: PyTorch Models.
+    :type model: nn.Module
+    :param loss_function: A loss function
+    :type loss_function: nn.modules.loss
+    :param metrics: metrics to measure
+    :type metrics: list
+    :param config: configurations of the training.
+    :type config: argparse.Namespace
+    :param dataloader: load data in batches.
+    :type dataloader: torch.utils.data.dataloader.DataLoader
+    :returns: global metrics and loss related to current model
+    :rtype: dict, float
+    """
+    # Turn on evaluation mode for the model
     model.eval()
 
+    # Initialize the accumulators for loss and metrics
     losses = AverageMeter()
     for metric in metrics:
         metric.reset()
 
-    for batch_idx, (data, target) in zip(maybe_range(config.max_batch_per_epoch),
-                                         dataloader):
-        data = convert_dtype(config.dtype, data)
-        if config.transform_target_type:
-            target = convert_dtype(config.dtype, target)
-
-        if config.use_cuda:
-            data, target = data.cuda(), target.cuda()
-
-        with torch.no_grad():
+    # Each worker computer their own losses and metrics
+    with torch.no_grad():
+        for data, target in iterate_dataloader(dataloader, config):
+            # Inference
             output = model(data)
 
-            loss = criterion(output, target)
+            # Compute loss
+            loss = loss_function(output, target)
+
+            # Update loss
             losses.update(loss.item(), data.size(0))
 
+            # Update metrics
             for metric in metrics:
                 metric_value = metric(output, target)
                 metric.update(metric_value, data.size(0))
 
+    # Aggregate metrics and loss for all workers
     metrics_averages = {metric.name: metric.average().item() for metric in metrics}
     loss_average = global_average(losses.sum, losses.count).item()
     return metrics_averages, loss_average
 
 
-def do_validate(model, optimizer, criterion, metrics, scheduler, config, timeit, dataloader):
+def do_validate(model, optimizer, loss_function, metrics, scheduler, config, timeit, dataloader):
     """Evaluate the model on the test dataset and save to the checkpoint."""
     # evaluate the model.
-    metrics_values, loss = validate(model, optimizer, criterion, metrics, config, dataloader)
+    metrics_values, loss = validate(
+        model, loss_function, metrics, config, dataloader)
 
     config.runtime['cumu_time_val'].append(timeit.cumu)
 
@@ -87,7 +108,8 @@ def do_validate(model, optimizer, criterion, metrics, scheduler, config, timeit,
         prim_metric = metrics[0]
         prim_metric_value = metrics_values[prim_metric.name]
 
-        is_best, best_metric_name = update_best_runtime_metric(config, prim_metric_value, prim_metric.name)
+        is_best, best_metric_name = update_best_runtime_metric(
+            config, prim_metric_value, prim_metric.name)
 
         if config.rank == 0:
             print('{} for rank {}:(best epoch {}, current epoch {}): {:.3f}'.format(
@@ -110,13 +132,13 @@ def do_validate(model, optimizer, criterion, metrics, scheduler, config, timeit,
 
 
 class TrainValidation(object):
-    def __call__(self, model, optimizer, criterion, metrics, scheduler, config, dataloader_fn):
+    def __call__(self, model, optimizer, loss_function, metrics, scheduler, config, dataloader_fn):
         """Train models and perform validation.
 
         :param model: a pytorch model to be trained and validated.
         :type model: nn.Module
         :param optimizer: an optimizer for the given model.
-        :param criterion: loss function. 
+        :param loss_function: loss function. 
         :param metrics: metrics like TopKAccuracy.
         :param scheduler: a scheduler for hyperparameters.
         :param config: a global object containing all of the config.
@@ -152,19 +174,14 @@ class TrainValidation(object):
             print("Current epoch : {} : lr={} : time={:10.3e}"
                   .format(epoch, scheduler.get_lr(), timeit.cumu))
 
-            train_epoch(model, optimizer, criterion, scheduler, config, timeit, dataloader_train)
+            train_epoch(model, optimizer, loss_function, scheduler,
+                        config, timeit, dataloader_train)
 
             if config.validation:
                 timeit.pause()
-                do_validate(model, optimizer, criterion, metrics, scheduler, config, timeit, dataloader_val)
+                do_validate(model, optimizer, loss_function, metrics,
+                            scheduler, config, timeit, dataloader_val)
                 timeit.resume()
 
             if config.repartition_per_epoch:
                 dataloader_train, dataloader_val = dataloader_fn(config)
-
-
-class ControlFlow(object):
-    @staticmethod
-    def create(config):
-        # TODO:
-        return TrainValidation()

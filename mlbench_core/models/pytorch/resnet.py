@@ -36,7 +36,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-from mlbench_core.utils.pytorch.utils import convert_dtype
+from mlbench_core.utils.pytorch.helpers import convert_dtype
 
 _DEFAULT_RESNETCIFAR_VERSION = 1
 

@@ -1,8 +1,6 @@
 import torch
 import torch.distributed as dist
 
-# TODO: change the backend of broadcast/... based on pytorch/tensorflow/...
-
 
 def broadcast(tensor, src):
     return dist.broadcast(tensor, src=src)
@@ -13,13 +11,15 @@ def elementwise_min(tensor):
     return tensor
 
 
-def aggregate_gradients(model, world_size):
+def aggregate_gradients(model, config):
     """Average gradients of models across all processes."""
     # all_reduce the gradients.
     for ind, param in enumerate(model.parameters()):
         # all reduce.
         dist.all_reduce(param.grad.data, op=dist.reduce_op.SUM)
-        param.grad.data /= world_size
+
+        if config.average_models:
+            param.grad.data /= config.world_size
 
 
 def global_average(sum, count):

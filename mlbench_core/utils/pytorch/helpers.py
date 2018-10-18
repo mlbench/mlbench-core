@@ -185,14 +185,15 @@ def config_path(config):
     os.makedirs(config.ckpt_run_dir, exist_ok=True)
 
 
-def initialize(config):
-    if not (hasattr(dist, '_initialized') and dist._initialized):
-        dist.init_process_group(config.comm_backend)
+def iterate_dataloader(dataloader, config):
+    for batch_idx, (data, target) in zip(maybe_range(config.max_batch_per_epoch),
+                                         dataloader):
 
-    config_logging(config)
+        data = convert_dtype(config.dtype, data)
+        if config.transform_target_type:
+            target = convert_dtype(config.dtype, target)
 
-    config_pytorch(config)
+        if config.use_cuda:
+            data, target = data.cuda(), target.cuda()
 
-    config_path(config)
-
-    return config
+        yield data, target

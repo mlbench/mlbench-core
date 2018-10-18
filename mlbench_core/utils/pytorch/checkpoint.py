@@ -2,7 +2,7 @@ import os
 import shutil
 import torch
 
-import mlbench_core.utils.pytorch.distributed as comm
+from mlbench_core.utils.pytorch.distributed import elementwise_min
 
 
 def get_ckpt_run_dir(checkpoint_root, run_id, dataset_name, model_name, optimizer_name):
@@ -32,7 +32,7 @@ def determine_restore_ckpt_path(rank, checkpoint_root, run_id):
         ckpt_ids = list(set(ckpt_ids) - set(['model_best.pth.tar']))
 
         latest = sorted(map(lambda x: x.split("_")[:2], ckpt_ids))[-1]
-        latest = comm.elementwise_min(torch.tensor([int(latest[0])]))
+        latest = elementwise_min(torch.tensor([int(latest[0])]))
         epoch = latest[0]
 
         path = os.path.join(checkpoint_root, found_ckpts, get_ckpt_id(epoch, rank))

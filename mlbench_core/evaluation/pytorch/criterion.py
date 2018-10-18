@@ -45,21 +45,19 @@ class MSELossRegularized(nn.modules.loss._WeightedLoss):
         return output
 
 
-class Criterion(object):
-    @staticmethod
-    def create(config, model):
-        if config.criterion == 'BCELossRegularized':
-            criterion = BCELossRegularized(l1=config.l1_coef, l2=config.l2_coef, model=model)
-        elif config.criterion == 'MSELossRegularized':
-            criterion = MSELossRegularized(l1=config.l1_coef, l2=config.l2_coef, model=model)
-        else:
-            try:
-                pytorch_criterion_class = getattr(torch.nn.modules.loss, config.criterion)
-                criterion = pytorch_criterion_class()
-            except Exception as e:
-                raise NotImplementedError(criterion)
+def get_loss_function(config, model):
+    if config.loss_function == 'BCELossRegularized':
+        loss_function = BCELossRegularized(l1=config.l1_coef, l2=config.l2_coef, model=model)
+    elif config.loss_function == 'MSELossRegularized':
+        loss_function = MSELossRegularized(l1=config.l1_coef, l2=config.l2_coef, model=model)
+    else:
+        try:
+            pytorch_loss_function_class = getattr(torch.nn.modules.loss, config.loss_function)
+            loss_function = pytorch_loss_function_class()
+        except Exception as e:
+            raise NotImplementedError(loss_function)
 
-        if config.use_cuda:
-            criterion.cuda()
+    if config.use_cuda:
+        loss_function.cuda()
 
-        return criterion
+    return loss_function
