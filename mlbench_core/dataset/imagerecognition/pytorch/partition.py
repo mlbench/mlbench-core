@@ -8,7 +8,7 @@ import torch.distributed as dist
 
 
 class Partition(object):
-    """ Dataset-like object, but only access a subset of it. """
+    r""" Dataset-like object, but only access a subset of it. """
 
     def __init__(self, data, indices):
         self.data = data
@@ -26,7 +26,7 @@ class Partitioner(object):
     r"""Use a partition of dataset."""
 
     def consistent_indices(self, rank, indices, shuffle):
-        """ synchronize indices among workers. """
+        r""" synchronize indices among workers. """
         if rank == 0 and shuffle:
             random.shuffle(indices)
 
