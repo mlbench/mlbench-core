@@ -1,5 +1,4 @@
-import torch
-import torch.distributed as dist
+r"""Unilities for measuring the performance of a model."""
 
 from mlbench_core.utils.pytorch.distributed import global_average
 
@@ -11,12 +10,14 @@ class AverageMeter(object):
         self.reset()
 
     def reset(self):
+        """Reset all stats."""
         self.val = 0
         self.avg = 0
         self.sum = 0
         self.count = 0
 
     def update(self, val, n=1):
+        """Update stats given input val and n."""
         self.val = val
         self.sum += val * n
         self.count += n
@@ -24,6 +25,8 @@ class AverageMeter(object):
 
 
 class TopKAccuracy(object):
+    r"""Compute Top K accuracy of an output."""
+
     def __init__(self, topk=1):
         self.topk = topk
         self.reset()
@@ -39,23 +42,18 @@ class TopKAccuracy(object):
         return correct_k.mul_(100.0 / batch_size)
 
     def reset(self):
+        r"""Reset the stats."""
         self.top = AverageMeter()
 
     def update(self, prec, size):
+        r"""Update stats."""
         self.top.update(prec, size)
 
     def average(self):
+        r"""Average stats."""
         return global_average(self.top.sum, self.top.count)
 
     @property
     def name(self):
+        r"""Name of the metric."""
         return "Prec@{}".format(self.topk)
-
-
-def get_metrics(metrics):
-    if metrics.startswith('top'):
-        return TopKAccuracy(topk=int(metrics[3:]))
-    if metrics == 'none':
-        return []
-    else:
-        raise NotImplementedError('No metrics name {} found.'.format(metrics))

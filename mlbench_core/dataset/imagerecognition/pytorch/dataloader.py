@@ -23,8 +23,8 @@ class CIFAR10V1(datasets.CIFAR10):
 
         if train:
             transform = transforms.Compose([
-                transforms.RandomCrop(32, padding=4),
                 transforms.RandomHorizontalFlip(),
+                transforms.RandomCrop(32, padding=4),
                 transforms.ToTensor(),
                 transforms.Normalize(cifar10_stats['mean'], cifar10_stats['std']),
             ])
@@ -90,17 +90,4 @@ def create_partition_transform_dataset(train, config):
     else:
         config.num_samples_per_device_val = num_samples_per_device
         config.num_batches_per_device_val = num_batches_per_device
-
-        # TODO: determine the rtype
     return partitioned_dataset
-
-
-class UniformPartitionedDataloader(object):
-    @staticmethod
-    def create(train, config):
-        dataset = create_partition_transform_dataset(train, config)
-
-        data_loader = torch.utils.data.DataLoader(
-            dataset, batch_size=config.batch_size, shuffle=train,
-            num_workers=config.num_parallel_workers, pin_memory=config.use_cuda, drop_last=False)
-        return data_loader

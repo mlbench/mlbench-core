@@ -1,3 +1,5 @@
+r"""Helper functions."""
+
 import time
 import datetime
 import itertools
@@ -6,6 +8,7 @@ import os
 import logging
 import socket
 import random
+import argparse
 import torch
 import torch.distributed as dist
 
@@ -35,6 +38,11 @@ class Timeit(object):
         return self._cumu
 
 
+class Tracker(argparse.Namespace):
+    def __init__(self, config):
+        pass
+
+
 def maybe_range(maximum):
     """Map an integer or None to an integer iterator starting from 0 with strid 1.
 
@@ -48,18 +56,17 @@ def maybe_range(maximum):
     return counter
 
 
-def update_best_runtime_metric(config, metric_value, metric_name):
+def update_best_runtime_metric(config, tracker, metric_value, metric_name):
     """Update the runtime information to config if the metric value is the best."""
     best_metric_name = "best_{}".format(metric_name)
-    if best_metric_name in config.runtime:
-        is_best = metric_value > config.runtime[best_metric_name]
+    if best_metric_name in tracker.records:
+        is_best = metric_value > tracker.records[best_metric_name]
     else:
         is_best = True
 
     if is_best:
-        config.runtime[best_metric_name] = metric_value
-        config.runtime['best_epoch'] = config.runtime['current_epoch']
-
+        tracker.records[best_metric_name] = metric_value
+        tracker.records['best_epoch'] = tracker.current_epoch
     return is_best, best_metric_name
 
 
@@ -123,7 +130,7 @@ def config_pytorch(config):
     # Unexpected behavior may also be observed from checkpoint.
     # See: https: // github.com/pytorch/examples/blob/master/imagenet/main.py
     if config.cudnn_deterministic:
-        cudnn.deterministic = True
+        # cudnn.deterministic = True
         print('You have chosen to seed training. '
               'This will turn on the CUDNN deterministic setting, '
               'which can slow down your training considerably! '
@@ -156,18 +163,18 @@ def config_pytorch(config):
             torch.cuda.current_device()))
 
 
-def log_metrics(config, metric_name, value):
+def log_metrics(config, tracker, metric_name, value):
     data = {
         "run_id": config.run_id,
         "rank": config.rank,
         "name": metric_name,
         "value": "{:.6f}".format(value),
         "date": str(datetime.datetime.now()),
-        "epoch": str(config.runtime['current_epoch']),
+        "epoch": str(tracker.current_epoch),
         "cumulative": "False",
         "metadata": ""
     }
-    config.runtime['records'].append(data)
+    tracker.records[metric_name].append(data)
 
 
 def config_path(config):
@@ -186,8 +193,8 @@ def config_path(config):
 
 
 def iterate_dataloader(dataloader, config):
-    for batch_idx, (data, target) in zip(maybe_range(config.max_batch_per_epoch),
-                                         dataloader):
+    for _, (data, target) in zip(maybe_range(config.max_batch_per_epoch),
+                                 dataloader):
 
         data = convert_dtype(config.dtype, data)
         if config.transform_target_type:
@@ -197,3 +204,9 @@ def iterate_dataloader(dataloader, config):
             data, target = data.cuda(), target.cuda()
 
         yield data, target
+
+
+def maybe_cuda(module, config):
+    if config.use_cuda:
+        module.cuda()
+    return module
