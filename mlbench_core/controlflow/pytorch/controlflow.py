@@ -19,13 +19,17 @@ def record_train_batch_stats(batch_idx, loss, output, target, metrics, config, t
     progress = batch_idx / config.num_batches_per_device_train
     progress += tracker.current_epoch
 
-    str_builder = ["Epoch {:5.2f} Batch {:4}: loss={:6.2e}"
-                   .format(progress, batch_idx, loss)]
+    tracker.epoch_stats["loss"].update(loss, output.size())
+
+    str_builder = ["Epoch {:5.2f} Batch {:4}: loss={:6.2e}".format(
+        progress, batch_idx, tracker.epoch_stats["loss"].avg)]
 
     # Compute metrics for one batch
     for metric in metrics:
         metric_value = metric(output, target).item()
-        str_builder.append("{} {:.2e}".format(metric.name, metric_value))
+        tracker.epoch_stats[metric.name].update(metric_value, output.size())
+        str_builder.append("{} {:.2e}".format(
+            metric.name, tracker.epoch_stats[metric.name].avg))
 
     # Compute time spent on each step
     for (_, t1), (name, t2) in zip(tracker.batch_stats[:-1], tracker.batch_stats[1:]):
@@ -43,6 +47,8 @@ def record_train_batch_stats(batch_idx, loss, output, target, metrics, config, t
 
 def train_epoch(model, optimizer, loss_function, scheduler, config, metrics, timeit, dataloader, tracker):
     """Train model for one epoch of data."""
+    tracker.epoch_stats = {k: AverageMeter()
+                           for k in ["loss"] + [m.name for m in metrics]}
     # switch to train mode
     model.train()
     for batch_idx, (data, target) in enumerate(iterate_dataloader(dataloader, config)):

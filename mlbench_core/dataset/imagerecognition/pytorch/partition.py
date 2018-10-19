@@ -1,3 +1,4 @@
+r"""Partition PyTorch datasets."""
 # -*- coding: utf-8 -*-
 import random
 
@@ -22,6 +23,8 @@ class Partition(object):
 
 
 class Partitioner(object):
+    r"""Use a partition of dataset."""
+
     def consistent_indices(self, rank, indices, shuffle):
         """ synchronize indices among workers. """
         if rank == 0 and shuffle:
@@ -49,10 +52,11 @@ class DataPartitioner(Partitioner):
         # partition indices.
         sizes = np.cumsum(sizes)
         from_index = 0
-        for ind, frac in enumerate(sizes):
+        for ind, _ in enumerate(sizes):
             to_index = int(sizes[ind] * self.data_size)
             self.partitions.append(indices[from_index: to_index])
             from_index = to_index
 
     def use(self, partition_ind):
+        r"""Return a partition of data."""
         return Partition(self.data, self.partitions[partition_ind])

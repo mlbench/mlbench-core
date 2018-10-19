@@ -4,7 +4,7 @@ Residual networks were originally proposed in KaXS15_ . Then they improve the Ka
 Here we refer to the settings in KaXS15_ as `v1` and KaXS16_  as `v2`.
 
 Since `torchvision resnet <https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py>`_
-has already implemented
+has already implemented.
 
 * ResNet-18
 * ResNet-34
@@ -47,13 +47,13 @@ def batch_norm(num_features):
     See the Disclaimers in Kaiming's
     `github repository <https://github.com/KaimingHe/deep-residual-networks/tree/a7026cb6d478e131b765b898c312e25f9f6dc031>`_
 
-    * they compute the mean and variance on a sufficiently large traing batch instead of moving average;
-    * they learn gamma and beta in affine function.
+    * compute the mean and variance on a sufficiently large traing batch instead of moving average;
+    * learn gamma and beta in affine function.
 
     :param num_features: number of features passed to batch normalization
     :type num_features: int
     """
-    return nn.BatchNorm2d(num_features=num_features, eps=1e-05, momentum=0, affine=True, track_running_stats=False)
+    return nn.BatchNorm2d(num_features=num_features, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
 
 
 def conv3x3(in_channels, out_channels, stride=1):
@@ -150,14 +150,14 @@ class BasicBlockV2(nn.Module):
         return out
 
 
-class BottleneckBlockV1(nn.Module):
-    """Bottleneck building block proposed in KaXS15_ (post-activation)."""
-    pass
+# class BottleneckBlockV1(nn.Module):
+#     """Bottleneck building block proposed in KaXS15_ (post-activation)."""
+#     pass
 
 
-class BottleneckBlockV2(nn.Module):
-    """Bottleneck building block proposed in KaXS16_ (post-activation)."""
-    pass
+# class BottleneckBlockV2(nn.Module):
+#     """Bottleneck building block proposed in KaXS16_ (post-activation)."""
+#     pass
 
 
 class ResNetCIFAR(nn.Module):
@@ -178,7 +178,8 @@ class ResNetCIFAR(nn.Module):
         num_blocks = (resnet_size - 2) // 6
 
         if version not in (1, 2):
-            raise ValueError("Resnet version should be 1 or 2, got {}.".format(version))
+            raise ValueError(
+                "Resnet version should be 1 or 2, got {}.".format(version))
 
         if bottleneck:
             raise NotImplementedError
@@ -210,13 +211,15 @@ class ResNetCIFAR(nn.Module):
         # Add an average pooling layer:
         # the output of conv_3 has shape H=W=8
         # the output average pooling will be (batch_size, channels, 1, 1)
-        self.avgpool = nn.AvgPool2d(8, stride=1)
+        self.avgpool = nn.AvgPool2d(8, stride=8)
 
-        self.classifier = nn.Linear(in_features=64, out_features=num_classes, bias=True)
+        self.classifier = nn.Linear(
+            in_features=64, out_features=num_classes, bias=True)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                nn.init.kaiming_normal_(
+                    m.weight, mode='fan_out', nonlinearity='relu')
             elif isinstance(m, nn.BatchNorm2d):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
@@ -238,12 +241,14 @@ class ResNetCIFAR(nn.Module):
         else:
             # Use projection when the dimension of channel increases.
             downsample = nn.Sequential(
-                nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=init_stride, bias=False),
+                nn.Conv2d(in_channels, out_channels, kernel_size=1,
+                          stride=init_stride, bias=False),
                 batch_norm(num_features=out_channels))
 
         # Maybe use downsample in the first block.
-        layers = [block(in_channels, out_channels, stride=init_stride, downsample=downsample)]
-        for i in range(1, num_blocks):
+        layers = [block(in_channels, out_channels,
+                        stride=init_stride, downsample=downsample)]
+        for _ in range(1, num_blocks):
             layers.append(block(out_channels, out_channels))
 
         return nn.Sequential(*layers)
@@ -261,21 +266,26 @@ class ResNetCIFAR(nn.Module):
         return x
 
 
-################################################################################################################
+""" Version 2 of ResNet. """
+
 
 class PreActBlock(nn.Module):
+    r""""Pre-activation Resnet Block used in ResNet-18"""
 
     def __init__(self, in_channels, out_channels, stride=1):
         super(PreActBlock, self).__init__()
 
         self.bn1 = nn.BatchNorm2d(in_channels)
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(
+            in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(out_channels)
-        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv2 = nn.Conv2d(out_channels, out_channels,
+                               kernel_size=3, stride=1, padding=1, bias=False)
 
         if stride != 1 or in_channels != out_channels:
             self.shortcut = nn.Sequential(
-                nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, bias=False)
+                nn.Conv2d(in_channels, out_channels,
+                          kernel_size=1, stride=stride, bias=False)
             )
 
     def forward(self, x):
@@ -307,10 +317,11 @@ class ResNet18_CIFAR10(nn.Module):
 
     def _make_layer(self, in_channels, out_channels, num_blocks, stride):
 
-        strides = [stride] + [1] * (num_blocks-1)
+        strides = [stride] + [1] * (num_blocks - 1)
         layers = []
         for stride in strides:
-            layers.append(PreActBlock(in_channels=in_channels, out_channels=out_channels, stride=stride))
+            layers.append(PreActBlock(in_channels=in_channels,
+                                      out_channels=out_channels, stride=stride))
             in_channels = out_channels
 
         return nn.Sequential(*layers)
