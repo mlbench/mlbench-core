@@ -39,6 +39,48 @@ class CIFAR10V1(datasets.CIFAR10):
                                         transform=transform, download=download)
 
 
+class Imagenet(datasets.ImageFolder):
+    """Imagenet (ILSVRC2017) Dataset.
+
+    Loads Imagenet images with mean and std-dev normalisation.
+    Performs random crop and random horizontal flip on train and
+    resize + center crop on val.
+    Based on `torchvision.datasets.ImageFolder`
+
+    Attributes:
+        root (str): Root folder of Imagenet dataset (without `train/` or `val/`)
+        train (bool): Whether to get the train or validation set (default=True)
+    """
+    def __init__(self, root, train=True):
+        self.train = train
+
+        imagenet_stats = {
+            "mean": [0.485, 0.456, 0.406],
+            "std": [0.229, 0.224, 0.225]
+        }
+
+        if train:
+            transform = transforms.Compose([
+                    transforms.RandomResizedCrop(224),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.ToTensor(),
+                    transforms.Normalize(
+                        imagenet_stats['mean'], imagenet_stats['std']),
+                ])
+            self.root = os.path.join(self.root, 'train')
+        else:
+            transform = transforms.Compose([
+                    transforms.Resize(256),
+                    transforms.CenterCrop(224),
+                    transforms.ToTensor(),
+                    transforms.Normalize(
+                        imagenet_stats['mean'], imagenet_stats['std'])
+                ])
+            self.root = os.path.join(self.root, 'val')
+
+        super().__init__(self.root, transform)
+
+
 # Map dataset name and version to class
 _VERSIONED_DATASET_MAP = {
     ('cifar10', 1): CIFAR10V1,
