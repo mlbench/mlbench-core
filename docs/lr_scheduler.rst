@@ -23,3 +23,10 @@ multistep_learning_rates_with_warmup
 ++++++++++++++++++++++++++++++++++++
 
 .. autofunction:: multistep_learning_rates_with_warmup
+
+
+.. rubric:: References
+
+
+.. bibliography:: lr_scheduler.bib
+   :cited:

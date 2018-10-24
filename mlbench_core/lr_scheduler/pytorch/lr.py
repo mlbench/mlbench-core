@@ -56,12 +56,12 @@ def cyclical_learning_rates(config, optimizer):
     If one cycle is applied with length smaller than the total number of iterations, then
     use small learning rate for the remaining iterations.
 
-    Since [leslie2017cyclical]_ mentioned that triangular, Welch, Hann windows produce equivalent results,
+    Since :cite:`smith2017cyclical` mentioned that triangular, Welch, Hann windows produce equivalent results,
     we only implement triangular learning rate policy, also known as **linear cycle**.
 
-    The original implementation of [leslie2017cyclical]_ can be found from `here <https://github.com/bckenstler/CLR>`_.
+    The original implementation of :cite:`smith2017cyclical` can be found from `here <https://github.com/bckenstler/CLR>`_.
 
-    [smith2017super]_ uses one cycle with extra epochs.
+    :cite:`smith2017super` uses one cycle with extra epochs.
 
     Args:
         config (:obj:`types.SimpleNamespace`): a global object containing all of the config.
@@ -97,10 +97,10 @@ def cyclical_learning_rates(config, optimizer):
 def multistep_learning_rates_with_warmup(config, optimizer):
     """ Multistep Learning Rate Schedule with warmup
 
-    In [goyal2017accurate]_, warmup is used in order to apply the ``Linear Scaling Rule``.
+    In :cite:`goyal2017accurate`, warmup is used in order to apply the ``Linear Scaling Rule``.
     Starting from the ``base_lr``, lr gradually increases to ``base_lr * scaling_factor``.
     Then use multiply the learning rate by ``gamma`` at specified milestones.
-    See [ginsburg2018large]_
+    See :cite:`ginsburg2018large`
 
     Args:
         config (:obj:`types.SimpleNamespace`): a global object containing all of the config.

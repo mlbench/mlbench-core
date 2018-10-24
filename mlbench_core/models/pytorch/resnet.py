@@ -1,7 +1,7 @@
 """Contains definitions for Residual Networks.
 
-Residual networks were originally proposed in [KaXS15]_ . Then they improve the [KaXS16]_
-Here we refer to the settings in [KaXS15]_ as `v1` and [KaXS16]_  as `v2`.
+Residual networks were originally proposed in :cite:`he2016deep` . Then they improve the :cite:`he2016identity`
+Here we refer to the settings in :cite:`he2016deep` as `v1` and :cite:`he2016identity`  as `v2`.
 
 Since `torchvision resnet <https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py>`_
 has already implemented.
@@ -20,15 +20,6 @@ for image net. Here we only implemented the remaining models
 * ResNet-56
 
 for CIFAR-10 dataset. Besides, their implementation uses projection shortcut by default.
-
-
-.. rubric:: References
-
-.. [KaXS15] Kaiming He, Xiangyu Zhang, Shaoqing Ren, Jian Sun
-    Deep Residual Learning for Image Recognition. arXiv:1512.03385
-
-.. [KaXS16] Kaiming He, Xiangyu Zhang, Shaoqing Ren, Jian Sun
-    Identity Mappings in Deep Residual Networks. arXiv: 1603.05027
 
 """
 
@@ -62,7 +53,7 @@ def conv3x3(in_channels, out_channels, stride=1):
 
 
 class BasicBlockV1(nn.Module):
-    """The basic block in [KaXS15]_ is used for shallower ResNets.
+    """The basic block in :cite:`he2016deep` is used for shallower ResNets.
 
     The activation functions (ReLU and BN) are viewed as post-activation of the weight layer.
 
@@ -109,7 +100,7 @@ class BasicBlockV1(nn.Module):
 
 
 class BasicBlockV2(nn.Module):
-    """The basic block in [KaXS16]_ is used for shallower ResNets.
+    """The basic block in :cite:`he2016identity` is used for shallower ResNets.
 
     The activation functions (ReLU and BN) are viewed as pre-activation of the weight layer.
     """
@@ -151,12 +142,12 @@ class BasicBlockV2(nn.Module):
 
 
 # class BottleneckBlockV1(nn.Module):
-#     """Bottleneck building block proposed in [KaXS15]_ (post-activation)."""
+#     """Bottleneck building block proposed in :cite:`he2016deep` (post-activation)."""
 #     pass
 
 
 # class BottleneckBlockV2(nn.Module):
-#     """Bottleneck building block proposed in [KaXS16]_ (post-activation)."""
+#     """Bottleneck building block proposed in :cite:`he2016identity` (post-activation)."""
 #     pass
 
 
@@ -230,7 +221,7 @@ class ResNetCIFAR(nn.Module):
         """Create a block of 2*n depth.
 
         .. note::
-            In [KaXS15]_ there are two types of shortcuts: identity and projection. Here we use the following:
+            In :cite:`he2016deep` there are two types of shortcuts: identity and projection. Here we use the following:
             * identity shortcut for same number of channels
             * projection shortcut for increasing number of channels
 
@@ -301,7 +292,7 @@ class PreActBlock(nn.Module):
 class ResNet18_CIFAR10(nn.Module):
     """ResNet implementation for CIFAR-10
 
-    The ResNet structure defined in [KaXS15]_ and [KaXS16]_.
+    The ResNet structure defined in :cite:`he2016deep` and :cite:`he2016identity`.
 
     For CIFAR-10 dataset, the ResNet are configured to have 6n+2 layers where fixing n={3,5,7,9}
     gives ResNet-20,32,44,56 seperately. The input image is assumed to have a shape of 32*32 pixels.

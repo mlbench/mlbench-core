@@ -26,3 +26,9 @@ ResNet18_CIFAR10
 
 .. autoclass:: ResNetCIFAR
     :members:
+
+
+.. rubric:: References
+
+.. bibliography:: models.bib
+   :cited:
