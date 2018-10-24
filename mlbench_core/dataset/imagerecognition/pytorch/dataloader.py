@@ -11,8 +11,20 @@ _logger = logging.getLogger('mlbench')
 
 
 class CIFAR10V1(datasets.CIFAR10):
-    """
-    * https://github.com/kuangliu/pytorch-cifar/blob/master/main.py
+    """CIFAR10V1 Dataset.
+
+    Loads CIFAR10V1 images with mean and std-dev normalisation.
+    Performs random crop and random horizontal flip on train and
+    only normalisation on val.
+    Based on `torchvision.datasets.CIFAR10` and `Pytorch CIFAR 10 Example`_.
+
+    Args:
+        root (str): Root folder for the dataset
+        train (bool): Whether to get the train or validation set (default=True)
+        download (bool): Whether to download the dataset if it's not present
+
+    .. _Pytorch CIFAR 10 Example:
+       https://github.com/kuangliu/pytorch-cifar/blob/master/main.py
     """
 
     def __init__(self, root, train=True, download=False):
@@ -47,7 +59,7 @@ class Imagenet(datasets.ImageFolder):
     resize + center crop on val.
     Based on `torchvision.datasets.ImageFolder`
 
-    Attributes:
+    Args:
         root (str): Root folder of Imagenet dataset (without `train/` or `val/`)
         train (bool): Whether to get the train or validation set (default=True)
     """

@@ -1,22 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Scheduling Learning Rates.
 
-.. rubric:: References
-
-.. [ginsburg2018large] Ginsburg, Boris and Gitman, Igor and You, Yang
-    Large Batch Training of Convolutional Networks with Layer-wise Adaptive Rate Scaling
-
-.. [leslie2017cyclical] Leslie N. Smith
-    Cyclical Learning Rates for Training Neural Networks
-
-.. [goyal2017accurate] Goyal, Priya, et al.
-    Accurate, large minibatch SGD: training imagenet in 1 hour.
-
-.. [smith2017super] Smith, Leslie N., and Nicholay Topin.
-    Super-Convergence: Very Fast Training of Residual Networks Using Large Learning Rates.
-
-
-"""
 import argparse
 import numpy as np
 import re
@@ -29,23 +12,18 @@ def const(optimizer):
 
 
 def triangular_learning_rates(optimizer, base_lr, max_lr, cycle_length, scale_fn, extra, mode):
-    """Linearly scale the learning rates.
+    """ Linearily Scale Learning Rate
 
     If one cycle is applied with length smaller than the total number of iterations, then
     use small learning rate for the remaining iterations.
 
-    :param optimizer: an optimizer whose learning rate is scheduled.
-    :type optimizer: torch.nn.optim.optimizer
-    :param base_lr: lower bound and initial lr in a cycle.
-    :type base_lr: float
-    :param max_lr: upper bound in a cycle
-    :type max_lr: float
-    :param cycle_length: length of a cycle in terms of batches.
-    :type cycle_length: int
-    :param scale_fn: custom scaling policy defined by a single argument lambda function, defaults to None
-    :type scale_fn: callable, optional
-    :returns: a learning rate scheduler
-    :rtype: LambdaLR
+    Args:
+        optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
+        base_lr (float): Lower bound and initial learning rate in a cycle.
+        max_lr (float): Upper bound in a cycle
+        cycle_length (int): Length of a cycle in terms of batches.
+    Returns:
+        A learning rate scheduler (:obj:`torch.optim.lr_scheduler.LambdaLR`)
     """
     step_size = cycle_length / 2
 
@@ -73,13 +51,23 @@ def triangular_learning_rates(optimizer, base_lr, max_lr, cycle_length, scale_fn
 
 
 def cyclical_learning_rates(config, optimizer):
-    """
-    Since leslie2017cyclical_ mentioned that traingular, Welch, Hann windows produce equivalent results,
+    """ Cyclically Scale Learning Rate
+
+    If one cycle is applied with length smaller than the total number of iterations, then
+    use small learning rate for the remaining iterations.
+
+    Since [leslie2017cyclical]_ mentioned that triangular, Welch, Hann windows produce equivalent results,
     we only implement triangular learning rate policy, also known as **linear cycle**.
 
-    The original implementation of leslie2017cyclical_ can be found from `here <https://github.com/bckenstler/CLR>`_.
+    The original implementation of [leslie2017cyclical]_ can be found from `here <https://github.com/bckenstler/CLR>`_.
 
-    smith2017super_ uses one cycle with extra epochs.
+    [smith2017super]_ uses one cycle with extra epochs.
+
+    Args:
+        config (:obj:`types.SimpleNamespace`): a global object containing all of the config.
+        optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
+    Returns:
+        A learning rate scheduler (:obj:`torch.optim.lr_scheduler.LambdaLR`)
     """
     if config.lr_scheduler_level != 'batch':
         raise ValueError("The scheduler should be updated at batch level. Got {}."
@@ -107,19 +95,18 @@ def cyclical_learning_rates(config, optimizer):
 
 
 def multistep_learning_rates_with_warmup(config, optimizer):
-    """Use multistep learning rate schedule with warmup.
+    """ Multistep Learning Rate Schedule with warmup
 
-    In goyal2017accurate_, warmup is used in order to apply the ``Linear Scaling Rule``.
+    In [goyal2017accurate]_, warmup is used in order to apply the ``Linear Scaling Rule``.
     Starting from the ``base_lr``, lr gradually increases to ``base_lr * scaling_factor``.
     Then use multiply the learning rate by ``gamma`` at specified milestones.
+    See [ginsburg2018large]_
 
-    :param config: all configs
-    :type config: argparse.Namespace
-    :param optimizer: optimizer associated with the scheduler
-    :type optimizer: torch.nn.optim.optimizer
-    :returns: a learning rate scheduler
-    :rtype: LambdaLR
-    :raises: ValueError, ValueError, ValueError
+    Args:
+        config (:obj:`types.SimpleNamespace`): a global object containing all of the config.
+        optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
+    Returns:
+        A learning rate scheduler (:obj:`torch.optim.lr_scheduler.LambdaLR`)
     """
     scaling_factor = config.world_size if config.warmup_linear_scaling else 1
     if config.warmup_init_lr_nonscale and (not config.lr):

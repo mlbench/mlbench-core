@@ -8,7 +8,15 @@ import torch.distributed as dist
 
 
 class Partition(object):
-    r""" Dataset-like object, but only access a subset of it. """
+    """Dataset-like object, but only access a subset of it.
+
+    Wraps a dataset, only exposing the entries selected by the `indices`
+    parameter.
+
+    Args:
+        data (:obj:`list` of data entries): The data to partition over
+        indices (:obj:`list` of :obj:`int`): indices of entries to use
+    """
 
     def __init__(self, data, indices):
         self.data = data
@@ -23,7 +31,7 @@ class Partition(object):
 
 
 class Partitioner(object):
-    r"""Use a partition of dataset."""
+    """Use a partition of dataset."""
 
     def consistent_indices(self, rank, indices, shuffle):
         r""" synchronize indices among workers. """
@@ -37,7 +45,17 @@ class Partitioner(object):
 
 
 class DataPartitioner(Partitioner):
-    """ Partitions a dataset into different chuncks. """
+    """ Partitions a dataset into different sized chunks.
+
+    Used for train:test:validation split.
+
+    Args:
+        data (:obj:`list` of data entries): The data to partition over
+        rank (int): The rank of the current node
+        shuffle (bool): Whether to shuffle entries or not
+        sizes (:obj:`list` of :obj:`float`): The relative sizes of the
+            splits. Should sum up to 1.0. (Default = [0.7, 0.2, 0.1])
+    """
 
     def __init__(self, data, rank, shuffle, sizes=[0.7, 0.2, 0.1]):
         # prepare info.
@@ -58,5 +76,9 @@ class DataPartitioner(Partitioner):
             from_index = to_index
 
     def use(self, partition_ind):
-        r"""Return a partition of data."""
+        """Return a partition of data.
+
+        Args:
+            partition_ind (int): The index of the partition to get
+        """
         return Partition(self.data, self.partitions[partition_ind])

@@ -176,16 +176,16 @@ class TrainValidation(object):
     r"""Train and validate a model."""
 
     def __call__(self, model, optimizer, loss_function, metrics, scheduler, config, dataloader_fn):
-        r"""Train models and perform validation.
+        """Train models and perform validation.
 
-        :param model: a pytorch model to be trained and validated.
-        :type model: nn.Module
-        :param optimizer: an optimizer for the given model.
-        :param loss_function: loss function.
-        :param metrics: metrics like TopKAccuracy.
-        :param scheduler: a scheduler for hyperparameters.
-        :param config: a global object containing all of the config.
-        :type config: argparse.Namespace
+        Args:
+            model (:obj:`torch.nn.Module`): a pytorch model to be trained and validated.
+            optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
+            loss_function (:obj:`torch.nn.modules.loss._Loss`): loss function.
+            metrics (:obj:`list` of :obj:`mlbench_core.evaluation.pytorch.*`): metrics like TopKAccuracy.
+            scheduler (:obj:`mlbench_core.lr_scheduler.pytorch.lr.*`): a scheduler for hyperparameters.
+            config (:obj:`types.SimpleNamespace`): a global object containing all of the config.
+            dataloader_fn (:func:`Function`): A function returning a :obj:`torch.utils.data.DataLoader`.
         """
         # TODO: resume a tracker
         tracker = Tracker(config)
