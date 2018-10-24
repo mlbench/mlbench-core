@@ -13,7 +13,30 @@ from os.path import abspath, join, dirname
 sys.path.insert(0, abspath(join(dirname(__file__))))
 sys.path.insert(0, abspath(join(dirname(__file__), '..')))
 
-#import mlbench_core
+import sys
+from unittest.mock import MagicMock
+
+class Mock(MagicMock):
+    @classmethod
+    def __getattr__(cls, name):
+        return MagicMock()
+
+MOCK_MODULES = [
+    'torch',
+    'torch.distributed',
+    'torch.nn',
+    'torch.nn.functional',
+    'torch.nn.modules',
+    'torch.nn.modules.loss',
+    'torch.utils',
+    'torch.utils.model_zoo',
+    'torch.nn.init',
+    'torch.utils.data',
+    'torch.optim',
+    'torch.optim.lr_scheduler']
+sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
+
+import mlbench_core
 
 
 # -- RTD configuration ------------------------------------------------
