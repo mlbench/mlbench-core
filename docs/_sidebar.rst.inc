@@ -5,19 +5,30 @@
     :caption: MLBench
     :maxdepth: 2
 
+    Prerequisites <https://mlbench.readthedocs.io/en/latest/prerequisites.html>
+    Installation <https://mlbench.readthedocs.io/en/latest/installation.html>
+    Component Overview <https://mlbench.readthedocs.io/en/latest/overview.html>
+    Benchmarking Tasks <https://mlbench.readthedocs.io/en/latest/benchmark-tasks.html>
 
 .. toctree::
     :caption: Components
     :maxdepth: 2
 
+    Helm Chart <https://mlbench.readthedocs.io/projects/mlbench_helm/en/latest/readme.html>
+    Dashboard <https://mlbench.readthedocs.io/projects/mlbench_dashboard/en/latest/readme.html>
+    Benchmarks <https://mlbench.readthedocs.io/projects/mlbench_benchmarks/en/latest/readme.html>
     Core API <api>
 
 .. toctree::
     :caption: Additional Info
     :maxdepth: 2
 
+    Developer Guide <https://mlbench.readthedocs.io/en/latest/devguide.html>
+    Contributing <https://mlbench.readthedocs.io/en/latest/contributing.html>
+    Changelog <https://mlbench.readthedocs.io/en/latest/changelog.html>
 
 .. toctree::
     :caption: MLBench Developers
     :maxdepth: 2
 
+    Authors <https://mlbench.readthedocs.io/en/latest/authors.html>

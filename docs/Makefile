@@ -4,8 +4,12 @@
 # You can set these variables from the command line.
 SPHINXOPTS    = -W
 SPHINXBUILD   = sphinx-build
+SPHINXAPIDOC  = sphinx-apidoc
+APIDOCOPTS    = -f --implicit-namespaces
 PAPER         =
 BUILDDIR      = _build
+APIDIR        = api/
+SOURCEDIR     = ../mlbench_core/
 
 # User-friendly check for sphinx-build
 ifeq ($(shell which $(SPHINXBUILD) >/dev/null 2>&1; echo $$?), 1)
@@ -49,6 +53,8 @@ help:
 
 
 html:
+	#rm -Rf $(APIDIR)
+	#$(SPHINXAPIDOC) $(APIDOCOPTS) -o $(APIDIR) $(SOURCEDIR)
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."

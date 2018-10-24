@@ -25,6 +25,12 @@ def _ranks_on_same_node(rank, world_size):
 
 
 class FCGraph(object):
+    """Fully-Connected Network Graph
+
+    Args:
+        config (:obj:`types.SimpleNamespace`): a global object containing all of the config.
+    """
+
     def __init__(self, config):
         self.rank = config.rank
         self.world_size = config.world_size

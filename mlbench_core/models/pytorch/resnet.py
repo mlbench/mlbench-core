@@ -1,7 +1,7 @@
 """Contains definitions for Residual Networks.
 
-Residual networks were originally proposed in KaXS15_ . Then they improve the KaXS16_
-Here we refer to the settings in KaXS15_ as `v1` and KaXS16_  as `v2`.
+Residual networks were originally proposed in [KaXS15]_ . Then they improve the [KaXS16]_
+Here we refer to the settings in [KaXS15]_ as `v1` and [KaXS16]_  as `v2`.
 
 Since `torchvision resnet <https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py>`_
 has already implemented.
@@ -62,7 +62,7 @@ def conv3x3(in_channels, out_channels, stride=1):
 
 
 class BasicBlockV1(nn.Module):
-    """The basic block in KaXS15_ is used for shallower ResNets.
+    """The basic block in [KaXS15]_ is used for shallower ResNets.
 
     The activation functions (ReLU and BN) are viewed as post-activation of the weight layer.
 
@@ -109,7 +109,7 @@ class BasicBlockV1(nn.Module):
 
 
 class BasicBlockV2(nn.Module):
-    """The basic block in KaXS16_ is used for shallower ResNets.
+    """The basic block in [KaXS16]_ is used for shallower ResNets.
 
     The activation functions (ReLU and BN) are viewed as pre-activation of the weight layer.
     """
@@ -151,21 +151,23 @@ class BasicBlockV2(nn.Module):
 
 
 # class BottleneckBlockV1(nn.Module):
-#     """Bottleneck building block proposed in KaXS15_ (post-activation)."""
+#     """Bottleneck building block proposed in [KaXS15]_ (post-activation)."""
 #     pass
 
 
 # class BottleneckBlockV2(nn.Module):
-#     """Bottleneck building block proposed in KaXS16_ (post-activation)."""
+#     """Bottleneck building block proposed in [KaXS16]_ (post-activation)."""
 #     pass
 
 
 class ResNetCIFAR(nn.Module):
-    """
-    The ResNet struction defined in KaXS15_ and KaXS16_.
+    """Basic ResNet implementation.
 
-    For CIFAR-10 dataset, the ResNet are configured to have 6n+2 layers where fixing n={3,5,7,9}
-    gives ResNet-20,32,44,56 seperately. The input image is assumed to have a shape of 32*32 pixels.
+    Args:
+        resnet_size (int): Number of layers
+        bottleneck (bool): Whether to use a bottleneck layer (``Not Implemented``)
+        num_classes (int): Number of output classes
+        version (int): Resnet version (1 or 2). Default: ``1``
     """
 
     def __init__(self, resnet_size, bottleneck, num_classes, version=_DEFAULT_RESNETCIFAR_VERSION):
@@ -228,7 +230,7 @@ class ResNetCIFAR(nn.Module):
         """Create a block of 2*n depth.
 
         .. note::
-            In KaXS15_ there are two types of shortcuts: identity and projection. Here we use the following:
+            In [KaXS15]_ there are two types of shortcuts: identity and projection. Here we use the following:
             * identity shortcut for same number of channels
             * projection shortcut for increasing number of channels
 
@@ -297,6 +299,17 @@ class PreActBlock(nn.Module):
 
 
 class ResNet18_CIFAR10(nn.Module):
+    """ResNet implementation for CIFAR-10
+
+    The ResNet structure defined in [KaXS15]_ and [KaXS16]_.
+
+    For CIFAR-10 dataset, the ResNet are configured to have 6n+2 layers where fixing n={3,5,7,9}
+    gives ResNet-20,32,44,56 seperately. The input image is assumed to have a shape of 32*32 pixels.
+
+    Args:
+        layers (:obj:`list` of :obj:`int`): List of resnet blocks per layer. Must contain 4 elements.
+        num_classes (int): Number of output classes. Default: ``1000``
+    """
 
     def __init__(self, layers, num_classes=1000):
         super(ResNet18_CIFAR10, self).__init__()

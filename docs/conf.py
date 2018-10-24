@@ -13,8 +13,7 @@ from os.path import abspath, join, dirname
 sys.path.insert(0, abspath(join(dirname(__file__))))
 sys.path.insert(0, abspath(join(dirname(__file__), '..')))
 
-import mlbench_core
-
+#import mlbench_core
 
 
 # -- RTD configuration ------------------------------------------------
@@ -38,10 +37,12 @@ extensions = [
     'sphinx.ext.autosummary',
     'sphinx.ext.intersphinx',
     'sphinx.ext.viewcode',
+    'sphinxcontrib.napoleon',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
+html_static_path = ['_static']
 
 # The suffix of source filenames.
 source_suffix = '.rst'
@@ -49,10 +50,15 @@ source_suffix = '.rst'
 # The master toctree document.
 master_doc = 'index'
 
+autodoc_mock_imports = ["torch"]
+
 # General information about the project.
 project = 'MLBench Core'
 copyright = '2018 MLBench development team'
 
+# napoleon
+napoleon_google_docstring = True
+napoleon_numpy_docstring = False
 
 
 autoclass_content = 'both'
@@ -72,8 +78,13 @@ if not on_rtd:  # only import and set the theme if we're building docs locally
     import sphinx_rtd_theme
     html_theme = 'sphinx_rtd_theme'
     html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
+    print(html_theme_path)
 else:
     html_theme = 'default'
+
+html_theme_options = {
+    'navigation_depth': 5
+}
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'MLBench_Core'
@@ -144,4 +155,6 @@ def doctree_read(app, doctree):
         process_child(child)
 
 def setup(app):
+    print("Yay!")
+    app.add_css_file('css/custom.css')
     app.connect('doctree-read', doctree_read)

@@ -17,24 +17,43 @@ from mlbench_core.utils.pytorch.topology import FCGraph
 
 
 class Timeit(object):
+    """Training Time Tracker
+
+    Used to track training time for timing comparison
+
+    Args:
+        cumu (float, optional): starting time in seconds. Default: ``0.0``
+
+    Example:
+        >>> t = Timeit()
+        >>> [... Do some training...]
+        >>> t.pause()
+        >>> [... do some non-training related things ...]
+        >>> t.resume()
+        >>> print(t.cumu)
+    """
+
     def __init__(self, cumu=0):
         self.t = time.time()
         self._cumu = cumu
         self._paused = False
 
     def pause(self):
+        """ Pause Time Tracking"""
         if not self._paused:
             self._cumu += time.time() - self.t
             self.t = time.time()
             self._paused = True
 
     def resume(self):
+        """ Resume Time Tracking"""
         if self._paused:
             self.t = time.time()
             self._paused = False
 
     @property
     def cumu(self):
+        """ float: total tracked time in seconds"""
         return self._cumu
 
 
@@ -47,7 +66,7 @@ def maybe_range(maximum):
     """Map an integer or None to an integer iterator starting from 0 with strid 1.
 
     If maximum number of batches per epoch is limited, then return an finite
-    iterator. Otherwise, return an iterator of infinite length. 
+    iterator. Otherwise, return an iterator of infinite length.
     """
     if maximum is None:
         counter = itertools.count(0)

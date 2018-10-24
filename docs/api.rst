@@ -1,14 +1,21 @@
 
 .. _mlbench_core_api:
 
-API Reference
-=============
+MLBench Core API
+================
 
 .. toctree::
+   :caption: Examples
 
-    examples
+   examples
 
-MLBench Core API
------------------
+.. toctree::
+   :maxdepth: 1
 
-.. automodule:: mlbench_core
+   controlflow
+   dataset
+   evaluation
+   lr_scheduler
+   models
+   optim
+   utils
