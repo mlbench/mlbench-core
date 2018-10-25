@@ -10,7 +10,11 @@ from kubernetes import config, client
 OFFICIAL_IMAGES = {
     'Test Image': 'mlbench/mlbench_worker'
 }
-"""dict of official benchmark images {name: image}"""
+r"""
+Dict of official benchmark images
+
+Note:
+    Format: ``{name: image_name}``"""
 
 
 class ApiClient(object):
