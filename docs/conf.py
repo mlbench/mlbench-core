@@ -33,7 +33,10 @@ MOCK_MODULES = [
     'torch.nn.init',
     'torch.utils.data',
     'torch.optim',
-    'torch.optim.lr_scheduler']
+    'torch.optim.lr_scheduler',
+    'torchvision',
+    'torchvision.datasets',
+    'torchvision.transforms']
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 import mlbench_core
