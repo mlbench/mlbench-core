@@ -63,6 +63,7 @@ class Imagenet(datasets.ImageFolder):
         root (str): Root folder of Imagenet dataset (without `train/` or `val/`)
         train (bool): Whether to get the train or validation set (default=True)
     """
+
     def __init__(self, root, train=True):
         self.train = train
 
@@ -73,21 +74,21 @@ class Imagenet(datasets.ImageFolder):
 
         if train:
             transform = transforms.Compose([
-                    transforms.RandomResizedCrop(224),
-                    transforms.RandomHorizontalFlip(),
-                    transforms.ToTensor(),
-                    transforms.Normalize(
-                        imagenet_stats['mean'], imagenet_stats['std']),
-                ])
+                transforms.RandomResizedCrop(224),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    imagenet_stats['mean'], imagenet_stats['std']),
+            ])
             self.root = os.path.join(self.root, 'train')
         else:
             transform = transforms.Compose([
-                    transforms.Resize(256),
-                    transforms.CenterCrop(224),
-                    transforms.ToTensor(),
-                    transforms.Normalize(
-                        imagenet_stats['mean'], imagenet_stats['std'])
-                ])
+                transforms.Resize(256),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    imagenet_stats['mean'], imagenet_stats['std'])
+            ])
             self.root = os.path.join(self.root, 'val')
 
         super().__init__(self.root, transform)
