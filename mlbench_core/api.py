@@ -233,7 +233,7 @@ class ApiClient(object):
         return future
 
     def post_metric(self, run_id, name, value, cumulative=False,
-                    metadata=None, date=None):
+                    metadata="", date=None):
         """ Save a metric to the master node for a run.
 
         Args:
@@ -352,8 +352,8 @@ class ApiClient(object):
             data['custom_image_name'] = custom_image_name
             data['custom_image_command'] = custom_image_command
             data['custom_image_all_nodes'] = custom_image_all_nodes
-        elif image in self.OFFICIAL_IMAGES:
-            data['image_name'] = self.OFFICIAL_IMAGES[image]
+        elif image in OFFICIAL_IMAGES:
+            data['image_name'] = OFFICIAL_IMAGES[image]
         else:
             raise ValueError("Image {image} not found".format(image=image))
 
