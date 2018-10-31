@@ -1,6 +1,6 @@
-r"""Test the tensorflow load and preprocess cifar10 correctly.
+r"""Test the tensorflow load and preprocess cifar-10 correctly.
 
-Credit https://github.com/tensorflow/models/blob/master/tutorials/image/cifar10/cifar10_input.py
+Credit https://github.com/tensorflow/models/blob/master/tutorials/image/cifar-10/cifar-10_input.py
 """
 import types
 import os
@@ -33,7 +33,7 @@ class DatasetCifar(object):
         self.image_size = 32
         self.image_channel = 3
 
-        if config.dataset == 'cifar10':
+        if config.dataset == 'cifar-10':
             self.label_bytes = 1
             self.label_offset = 0
             self.num_classes = 10
@@ -80,7 +80,7 @@ class DatasetCifar(object):
         else:
             print('retrieve file to the path:' + filepath)
 
-        if self.dataset == 'cifar10':
+        if self.dataset == 'cifar-10':
             self.data_dir = os.path.join(
                 dest_directory, self.dataset + '-batches-bin')
         else:
@@ -99,12 +99,12 @@ class DatasetCifar(object):
         if is_training:
             filenames = [
                 os.path.join(self.data_dir, 'data_batch_%d.bin' % i)
-                for i in xrange(1, 6)] if self.dataset == 'cifar10' \
+                for i in xrange(1, 6)] if self.dataset == 'cifar-10' \
                 else [os.path.join(self.data_dir, 'train.bin')]
         else:
             filenames = [
                 os.path.join(self.data_dir, 'test_batch.bin')] \
-                if self.dataset == 'cifar10' \
+                if self.dataset == 'cifar-10' \
                 else [os.path.join(self.data_dir, 'test.bin')]
         return filenames
 
@@ -160,7 +160,7 @@ class DatasetCifar(object):
             image = tf.image.resize_image_with_crop_or_pad(
                 image, self.image_size, self.image_size)
 
-        if self.dataset == 'cifar10':
+        if self.dataset == 'cifar-10':
             stats = {
                 "mean": tf.constant([0.4914, 0.4822, 0.4465], dtype=tf.float32),
                 "std": tf.constant([0.2023, 0.1994, 0.2010], dtype=tf.float32)
@@ -189,7 +189,7 @@ class DatasetCifar(object):
             # we choose to shuffle the full epoch.
             dataset = dataset.shuffle(
                 buffer_size=self.num_examples_per_epoch_for_train,
-                seed=config.seed, reshuffle_each_iteration=True)
+                seed=self.config.seed, reshuffle_each_iteration=True)
 
         dataset = dataset.map(self.parse_record, num_parallel_calls=8)
         # TODO: change num_parallel_calls?

@@ -45,7 +45,8 @@ def record_train_batch_stats(batch_idx, loss, output, target, metrics, config, t
     log_metrics(config, tracker, 'train_loss', loss)
 
 
-def train_epoch(model, optimizer, loss_function, scheduler, config, metrics, timeit, dataloader, tracker):
+def train_epoch(model, optimizer, loss_function, scheduler, config, metrics, timeit,
+                dataloader, tracker):
     """Train model for one epoch of data."""
     tracker.epoch_stats = {k: AverageMeter()
                            for k in ["loss"] + [m.name for m in metrics]}
