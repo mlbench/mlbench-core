@@ -4,6 +4,7 @@
 
 __version__ = '0.1.0'
 
+from . import api
 from . import controlflow
 from . import dataset
 from . import evaluation
