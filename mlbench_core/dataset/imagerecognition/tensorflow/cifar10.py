@@ -198,7 +198,8 @@ class DatasetCifar(object):
                 self.preprocess_image(image, is_train), label),
             num_parallel_calls=8
         )
-        # TODO: change prefetch size?
+        # TODO: change prefetch size? to `tf.contrib.data.AUTOTUNE`
+        # https://github.com/tensorflow/models/blob/master/official/resnet/resnet_run_loop.py#L103
         dataset = dataset.prefetch(2 * self.batch_size)
 
         # We call repeat after shuffling, rather than before,
@@ -209,6 +210,9 @@ class DatasetCifar(object):
         dataset = dataset.batch(self.batch_size)
         iterator = dataset.make_one_shot_iterator()
 
+        # TODO: add a private threadpool?
+
         next_batch = iterator.get_next()
+        # TODO: amke it clear what kind of initializer to use.
         data_init_op = iterator.make_initializer(dataset)
         return data_init_op, next_batch
