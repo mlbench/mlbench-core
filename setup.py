@@ -11,9 +11,9 @@ with open('README.rst') as readme_file:
 with open('CHANGELOG.md') as history_file:
     history = history_file.read()
 
-requirements = ['Click>=6.0', ]
+requirements = ['kubernetes==7.0.0', ]
 
-setup_requirements = ['pytest-runner', ]
+setup_requirements = ['pytest-runner',]
 
 test_requirements = ['pytest', ]
 
@@ -39,11 +39,11 @@ setup(
     include_package_data=True,
     keywords='mlbench',
     name='mlbench_core',
-    packages=find_packages(include=['mlbench_core']),
+    packages=find_packages(),
     setup_requires=setup_requirements,
     test_suite='tests',
     tests_require=test_requirements,
     url='https://github.com/mlbench/mlbench_core',
-    version='0.1.1',
+    version='0.1.1.dev4',
     zip_safe=False,
 )

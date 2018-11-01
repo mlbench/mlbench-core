@@ -14,6 +14,7 @@ import torch.distributed as dist
 
 from mlbench_core.utils.pytorch import checkpoint
 from mlbench_core.utils.pytorch.topology import FCGraph
+from mlbench_core.api import ApiClient
 
 
 class Timeit(object):
@@ -183,17 +184,12 @@ def config_pytorch(config):
 
 
 def log_metrics(config, tracker, metric_name, value):
-    data = {
-        "run_id": config.run_id,
-        "rank": config.rank,
-        "name": metric_name,
-        "value": "{:.6f}".format(value),
-        "date": str(datetime.datetime.now()),
-        "epoch": str(tracker.current_epoch),
-        "cumulative": "False",
-        "metadata": ""
-    }
-    tracker.records[metric_name].append(data)
+    api = ApiClient()
+    api.post_metric(
+        config.run_id,
+        metric_name,
+        value,
+        metadata="{{rank: {}, epoch:{}}}".format(config.rank, config.epoch))
 
 
 def config_path(config):
