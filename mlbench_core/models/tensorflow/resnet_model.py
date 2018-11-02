@@ -1,9 +1,18 @@
-r"""
-Adapted from official implementation
-
-    https://github.com/tensorflow/models/blob/master/official/resnet/resnet_model.py
-
-Contains definitions for Residual Networks.
+# Copyright 2017 The TensorFlow Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+"""Contains definitions for Residual Networks.
 Residual networks ('v1' ResNets) were originally proposed in:
 [1] Kaiming He, Xiangyu Zhang, Shaoqing Ren, Jian Sun
     Deep Residual Learning for Image Recognition. arXiv:1512.03385
@@ -14,6 +23,10 @@ The key difference of the full preactivation 'v2' variant compared to the
 'v1' variant in [1] is the use of batch normalization before every weight layer
 rather than after.
 """
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import tensorflow as tf
 
@@ -501,3 +514,45 @@ class Model(object):
             inputs = tf.layers.dense(inputs=inputs, units=self.num_classes)
             inputs = tf.identity(inputs, 'final_dense')
             return inputs
+
+
+class Cifar10Model(Model):
+    """Model class with appropriate defaults for CIFAR-10 data."""
+
+    def __init__(self, resnet_size, data_format=None,
+                 num_classes=10,
+                 resnet_version=2,
+                 dtype=tf.float32):
+        """These are the parameters that work for CIFAR-10 data.
+        Args:
+          resnet_size: The number of convolutional layers needed in the model.
+          data_format: Either 'channels_first' or 'channels_last', specifying which
+            data format to use when setting up the model.
+          num_classes: The number of output classes needed from the model. This
+            enables users to extend the same model to their own datasets.
+          resnet_version: Integer representing which version of the ResNet network
+          to use. See README for details. Valid values: [1, 2]
+          dtype: The TensorFlow dtype to use for calculations.
+        Raises:
+          ValueError: if invalid resnet_size is chosen
+        """
+        if resnet_size % 6 != 2:
+            raise ValueError('resnet_size must be 6n + 2:', resnet_size)
+
+        num_blocks = (resnet_size - 2) // 6
+
+        super(Cifar10Model, self).__init__(
+            resnet_size=resnet_size,
+            bottleneck=False,
+            num_classes=num_classes,
+            num_filters=16,
+            kernel_size=3,
+            conv_stride=1,
+            first_pool_size=None,
+            first_pool_stride=None,
+            block_sizes=[num_blocks] * 3,
+            block_strides=[1, 2, 2],
+            resnet_version=resnet_version,
+            data_format=data_format,
+            dtype=dtype
+        )

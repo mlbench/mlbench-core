@@ -17,6 +17,8 @@ from tensorflow.contrib.data.python.ops import threadpool
 
 from . import resnet_model
 
+from mlbench_core.utils.tensorflow import distribution_utils
+
 
 def resnet_model_fn(features, labels, mode, model_class,
                     resnet_size, weight_decay, learning_rate_fn, momentum,
@@ -201,9 +203,11 @@ def override_flags_and_set_envars_for_gpu_thread_pool(config):
 
     # Sets up thread pool for each GPU for op scheduling.
     per_gpu_thread_count = 1
-    total_gpu_thread_count = per_gpu_thread_count * config.num_gpus
+    total_gpu_thread_count = per_gpu_thread_count * config.world_size
     os.environ['TF_GPU_THREAD_MODE'] = config.tf_gpu_thread_mode
     os.environ['TF_GPU_THREAD_COUNT'] = str(per_gpu_thread_count)
+
+    # TODO: logging with `tf.logging` or native logger?
     tf.logging.info('TF_GPU_THREAD_COUNT: %s',
                     os.environ['TF_GPU_THREAD_COUNT'])
     tf.logging.info('TF_GPU_THREAD_MODE: %s', os.environ['TF_GPU_THREAD_MODE'])
@@ -215,15 +219,17 @@ def override_flags_and_set_envars_for_gpu_thread_pool(config):
     # Sets thread count for tf.data. Logical cores minus threads assign to the
     # private GPU pool along with 2 thread per GPU for event monitoring and
     # sending / receiving tensors.
-    num_monitoring_threads = 2 * config.num_gpus
+    num_monitoring_threads = 2 * config.world_size
     config.datasets_num_private_threads = (cpu_count - total_gpu_thread_count
                                            - num_monitoring_threads)
 
 
 def resnet_main(config, model_function, input_function, dataset_name, shape=None):
     """Shared main loop for ResNet Models.
+
+    TODO: Put the resnet main to controlflow.
+
     Args:
-    # TODO: update
     config: An object containing parsed flags. See define_resnet_flags()
         for details.
     model_function: the function that instantiates the Model and builds the
@@ -248,13 +254,15 @@ def resnet_main(config, model_function, input_function, dataset_name, shape=None
         intra_op_parallelism_threads=config.intra_op_parallelism_threads,
         allow_soft_placement=True)
 
+    # all_reduce_alg
     distribution_strategy = distribution_utils.get_distribution_strategy(
         config.world_size, config.all_reduce_alg)
 
     # Creates a `RunConfig` that checkpoints every 24 hours which essentially
     # results in checkpoints determined only by `epochs_between_evals`.
     run_config = tf.estimator.RunConfig(
-        train_distribute=distribution_strategy,
+        # TODO:
+        # train_distribute=distribution_strategy,
         session_config=session_config,
         save_checkpoints_secs=60 * 60 * 24)
 
@@ -291,23 +299,26 @@ def resnet_main(config, model_function, input_function, dataset_name, shape=None
         'train_epochs': config.train_epochs,
     }
 
-    benchmark_logger = logger.get_benchmark_logger()
-    benchmark_logger.log_run_info('resnet', dataset_name, run_params,
-                                  test_id=config.benchmark_test_id)
+    # TODO: add back logger
+    # benchmark_logger = logger.get_benchmark_logger()
+    # benchmark_logger.log_run_info('resnet', dataset_name, run_params,
+    #                               test_id=config.benchmark_test_id)
 
-    train_hooks = hooks_helper.get_train_hooks(
-        config.hooks,
-        model_dir=config.model_dir,
-        batch_size=config.batch_size)
+    # TODO: add hooks for training
+    train_hooks = []
+    # train_hooks = hooks_helper.get_train_hooks(
+    #     config.hooks,
+    #     model_dir=config.model_dir,
+    #     batch_size=config.batch_size)
 
     def input_fn_train(num_epochs):
         return input_function(
             is_training=True,
             data_dir=config.data_dir,
             batch_size=distribution_utils.per_device_batch_size(
-                config.batch_size, flags_core.get_num_gpus(config)),
+                config.batch_size, config.world_size),
             num_epochs=num_epochs,
-            dtype=flags_core.get_tf_dtype(config),
+            dtype=config.tf_dtype,
             datasets_num_private_threads=config.datasets_num_private_threads,
             num_parallel_batches=config.datasets_num_parallel_batches)
 
@@ -316,9 +327,9 @@ def resnet_main(config, model_function, input_function, dataset_name, shape=None
             is_training=False,
             data_dir=config.data_dir,
             batch_size=distribution_utils.per_device_batch_size(
-                config.batch_size, flags_core.get_num_gpus(config)),
+                config.batch_size, config.world_size),
             num_epochs=1,
-            dtype=flags_core.get_tf_dtype(config))
+            dtype=config.tf_dtype)
 
     if config.eval_only or not config.train_epochs:
         # If --eval_only is set, perform a single loop with zero train epochs.
@@ -343,6 +354,7 @@ def resnet_main(config, model_function, input_function, dataset_name, shape=None
         tf.logging.info('Starting cycle: %d/%d', cycle_index, int(n_loops))
 
         if num_train_epochs:
+            print("classifier.train")
             classifier.train(input_fn=lambda: input_fn_train(num_train_epochs),
                              hooks=train_hooks, max_steps=config.max_train_steps)
 
@@ -365,7 +377,7 @@ def resnet_main(config, model_function, input_function, dataset_name, shape=None
 
     if config.export_dir is not None:
         # Exports a saved model for the given classifier.
-        export_dtype = flags_core.get_tf_dtype(config)
+        export_dtype = config.dtype
         if config.image_bytes_as_serving_input:
             input_receiver_fn = functools.partial(
                 image_bytes_serving_input_fn, shape, dtype=export_dtype)

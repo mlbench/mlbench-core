@@ -57,6 +57,15 @@ class DatasetCifar(object):
             self.val_data_init_op, self.val_next_batch = self.input_fn(
                 is_train=False)
 
+        # Placeholders
+        self.inputs = tf.placeholder(
+            config.tf_dtype,
+            (None, self.image_size, self.image_size, self.image_channel),
+            name='inputs')
+
+        self.labels = tf.placeholder(
+            config.tf_dtype, (None, self.num_classes), name='labels')
+
     def maybe_download_and_extract(self):
         """Download and extract the tarball from Alex's website."""
         dest_directory = os.path.join(self.dataset_dir,
@@ -213,6 +222,6 @@ class DatasetCifar(object):
         # TODO: add a private threadpool?
 
         next_batch = iterator.get_next()
-        # TODO: amke it clear what kind of initializer to use.
+        # TODO: make it clear what kind of initializer to use.
         data_init_op = iterator.make_initializer(dataset)
         return data_init_op, next_batch
