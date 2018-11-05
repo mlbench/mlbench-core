@@ -25,9 +25,9 @@ def topk_accuracy_with_logits(logits, labels, k=1):
     # get metrics.
     with tf.name_scope("metrics"):
         if k == 1:
-            return tf.reduce_mean(
-                tf.cast(tf.equal(true_classes, pred_classes), tf.float32))
+            return {"name": "top1", "value": tf.reduce_mean(
+                tf.cast(tf.equal(true_classes, pred_classes), tf.float32))}
         else:
             topk = tf.nn.in_top_k(predictions=pred_probs,
                                   targets=true_classes, k=k)
-            return tf.reduce_mean(tf.cast(topk, tf.float32))
+            return {"name": "top" + str(k), "value": tf.reduce_mean(tf.cast(topk, tf.float32))}
