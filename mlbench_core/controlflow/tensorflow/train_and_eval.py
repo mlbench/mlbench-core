@@ -1,25 +1,6 @@
 import tensorflow as tf
 
-
-class AverageMeter(object):
-    """Computes and stores the average and current value."""
-
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        """Reset all stats."""
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def update(self, val, n=1):
-        """Update stats given input val and n."""
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count
+from mlbench_core.evaluation import AverageMeter
 
 
 class ControlFlow(object):
@@ -68,9 +49,9 @@ class ControlFlow(object):
             prec1.update(p1, n=target.shape[0])
             prec5.update(p5, n=target.shape[0])
 
-        print("{}/{} loss={:10.3e} prec1={:10.2f}% prec5={:10.2f}%"
-              .format(i_epoch, i_batch, losses.val, prec1.val * 100,
-                      prec5.val * 100))
+            print("{}/{} loss={:10.3e} prec1={:10.2f}% prec5={:10.2f}%"
+                  .format(i_epoch, i_batch, losses.val, prec1.val * 100,
+                          prec5.val * 100))
 
     def valid_one_epoch(self, i_epoch):
         self.sess.run(self.data_loader.val_data_init_op)
@@ -109,11 +90,19 @@ class ControlFlow(object):
               .format(i_epoch, losses.val, prec1.val * 100,
                       prec5.val * 100))
 
-    def train_and_eval(self, initial_epoch=0):
+    def train_and_eval(self, initial_epoch=0, lr_scheduler=None):
         # Initialize Variables
         self.sess.run(tf.group(tf.global_variables_initializer()))
-        for i_epoch in range(initial_epoch, self.config.train_epochs):
+        final_epoch = min(self.config.max_train_steps,
+                          self.config.train_epochs)
+        for i_epoch in range(initial_epoch, final_epoch):
             print("=> Epoch {}".format(i_epoch))
 
-            self.train_one_epoch(i_epoch)
-            self.valid_one_epoch(i_epoch)
+            if (self.config.lr_scheduler_level == "epoch" and lr_scheduler is not None):
+                self.sess.run(lr_scheduler.assign(i_epoch))
+                print(i_epoch, self.sess.run(
+                    tf.get_default_graph().get_tensor_by_name("learning_rate:0")
+                ))
+
+            # self.train_one_epoch(i_epoch)
+            # self.valid_one_epoch(i_epoch)
