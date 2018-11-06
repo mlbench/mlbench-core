@@ -36,7 +36,6 @@ class Checkpointer(object):
         else:
             torch.save(state, best_model_path)
 
-
     @staticmethod
     def load(ckpt_run_dir, rank, model, optimizer, scheduler):
         checkpoint_path = determine_restore_ckpt_path(rank, ckpt_run_dir)

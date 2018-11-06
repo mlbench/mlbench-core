@@ -100,14 +100,11 @@ def convert_dtype(dtype, obj):
         raise NotImplementedError('dtype {} not supported.'.format(dtype))
 
 
-def config_logging(config):
+def config_logging(logging_level='info', logging_file='/mlbench.log'):
     """Setup logging modules.
 
     A stream handler and file handler are added to default logger `mlbench`.
     """
-
-    level = config['logging_level']
-    logging_file = config['logging_file']
 
     class RankFilter(logging.Filter):
         def filter(self, record):
@@ -118,7 +115,7 @@ def config_logging(config):
     if len(logger.handlers) >= 2:
         return
 
-    logger.setLevel(level)
+    logger.setLevel(logging_level)
     logger.addFilter(RankFilter())
 
     formatter = logging.Formatter(
@@ -126,17 +123,17 @@ def config_logging(config):
         "%Y-%m-%d %H:%M:%S")
 
     ch = logging.StreamHandler()
-    ch.setLevel(level)
+    ch.setLevel(logging_level)
     ch.setFormatter(formatter)
     logger.addHandler(ch)
 
     fh = logging.FileHandler(logging_file)
-    fh.setLevel(level)
+    fh.setLevel(logging_level)
     fh.setFormatter(formatter)
     logger.addHandler(fh)
 
 
-def config_pytorch(config):
+def config_pytorch(use_cuda=False, seed=None, cudnn_deterministic=False):
     """Config pytorch packages.
 
     Fix random number for packages and initialize distributed environment for pytorch.
@@ -149,7 +146,7 @@ def config_pytorch(config):
     # CUDNN deterministic setting which can slow down training considerably.
     # Unexpected behavior may also be observed from checkpoint.
     # See: https: // github.com/pytorch/examples/blob/master/imagenet/main.py
-    if 'cudnn_deterministic' in config and config['cudnn_deterministic']:
+    if cudnn_deterministic:
         # cudnn.deterministic = True
         print('You have chosen to seed training. '
               'This will turn on the CUDNN deterministic setting, '
@@ -157,21 +154,21 @@ def config_pytorch(config):
               'You may see unexpected behavior when restarting '
               'from checkpoints.')
 
-    if 'seed' in config:
-        random.seed(config['seed'])
-        torch.manual_seed(config['seed'])
+    if seed:
+        random.seed(seed)
+        torch.manual_seed(seed)
 
     # define the graph for the computation.
-    if 'use_cuda' in config and config['use_cuda']:
+    if use_cuda:
         assert torch.cuda.is_available()
 
-    config['rank'] = dist.get_rank()
-    config['world_size'] = dist.get_world_size()
-    config['graph'] = FCGraph(config)
+    rank = dist.get_rank()
+    world_size = dist.get_world_size()
+    graph = FCGraph(config)
 
     # enable cudnn accelerator if we are using cuda.
-    if 'use_cuda' in config and config['use_cuda']:
-        config['graph'].assigned_gpu_id()
+    if use_cuda:
+        graph.assigned_gpu_id()
         torch.backends.cudnn.enabled = True
         torch.backends.cudnn.benchmark = True
 
@@ -179,8 +176,10 @@ def config_pytorch(config):
             print("CUDNN not found on device.")
 
         print("World size={}, Rank={}, hostname={}, cuda_available={}, cuda_device={}".format(
-            config['world_size'], config['rank'], socket.gethostname(), torch.cuda.is_available(),
+            world_size, rank, socket.gethostname(), torch.cuda.is_available(),
             torch.cuda.current_device()))
+
+    return rank, world_size, graph
 
 
 def log_metrics(run_id, rank, epoch, metric_name, value):
@@ -192,19 +191,14 @@ def log_metrics(run_id, rank, epoch, metric_name, value):
         metadata="{{rank: {}, epoch:{}}}".format(rank, epoch))
 
 
-def config_path(config):
+def config_path(ckpt_run_dir, resume=False):
     """Config the path used during the experiments."""
 
-    # Checkpoint for the current run
-    config['ckpt_run_dir'] = checkpoint['get_ckpt_run_dir'](
-        config['checkpoint_root'], config['run_id'],
-        config['dataset'], config['model'], config['optim'])
-
-    if 'resume' not in config or not config['resume']:
+    if resume:
         print("Remove previous checkpoint directory : {}".format(
-            config['ckpt_run_dir']))
-        shutil.rmtree(config['ckpt_run_dir'], ignore_errors=True)
-    os.makedirs(config['ckpt_run_dir'], exist_ok=True)
+            ckpt_run_dir))
+        shutil.rmtree(ckpt_run_dir, ignore_errors=True)
+    os.makedirs(ckpt_run_dir, exist_ok=True)
 
 
 def iterate_dataloader(dataloader, max_batch_per_epoch, use_cuda=False,

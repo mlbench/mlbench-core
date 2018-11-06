@@ -8,7 +8,10 @@ from .topology import FCGraph
 __all__ = ['initialize_backends', 'Timeit', 'FCGraph']
 
 
-def initialize_backends(config):
+def initialize_backends(comm_backend='mpi', logging_level='info',
+                        logging_file='/mlbench.log', use_cuda=False,
+                        seed=None, cudnn_deterministic=False,
+                        ckpt_run_dir='/checkpoints', resume=False):
     """Initializes the backends.
 
     Sets up logging, sets up pytorch and configures paths
@@ -22,12 +25,13 @@ def initialize_backends(config):
     """
 
     if not (hasattr(dist, '_initialized') and dist._initialized):
-        dist.init_process_group(config['comm_backend'])
+        dist.init_process_group(comm_backend)
 
-    config_logging(config)
+    config_logging(logging_level, logging_file)
 
-    config_pytorch(config)
+    rank, world_size, graph = config_pytorch(use_cuda, seed,
+                                             cudnn_deterministic)
 
-    config_path(config)
+    config_path(ckpt_run_dir, resume)
 
-    return config
+    return rank, world_size, graph
