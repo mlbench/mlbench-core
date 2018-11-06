@@ -1,3 +1,5 @@
+r"""A controlflow which train and evaluate a model."""
+
 import tensorflow as tf
 from collections import defaultdict
 
@@ -6,10 +8,22 @@ from mlbench_core.utils import Tracker
 
 
 class ControlFlow(object):
+    """A control flow to train and evaluate a model."""
+
     def __init__(self, train_op, data_loader, sess, is_training, config, loss, metrics):
+        """
+        Args:
+            train_op (:obj:`tf.Operation`): An operation for training models.
+            data_loader (:obj:`DatasetCifar`): An data loader for both train and validation.
+            sess (:obj:`tf.Session`): A session which the control flow will communicate.
+            is_training (bool or :obj:`tf.Tensor`): training the model with the number of atrs
+            config (:obj:`Namespace`): A namespace containing the configurations
+            loss (:obj:`tf.Tensor`): The loss tensor.
+            metrics (list of :obj:`tf.Tensor`): A list of metrics tensors.
+        """
+
         # Save the placeholders
         self.is_training = is_training
-
         self.data_loader = data_loader
         self.sess = sess
         self.loss = loss
@@ -18,6 +32,7 @@ class ControlFlow(object):
         self.config = config
 
     def train_one_epoch(self, tracker):
+        """Train a model for an epoch and use tracker to log stats."""
         self.sess.run(self.data_loader.tr_data_init_op)
 
         num_batches = self.data_loader.num_batches_per_epoch_for_train
@@ -48,12 +63,14 @@ class ControlFlow(object):
             for meter, o in zip(metrics_meter, out['metrics']):
                 meter.update(o, n=target.shape[0])
 
+            # Print logging information.
             print(("{}/{} loss={:10.3e} | metrics: [" + " ".join
                    (["{: 10.2e}" for _ in metrics_meter]) + "] | best epoch {} ({:10.2e})")
                   .format(tracker.current_epoch, i_batch, loss_meter.avg,
-                          *[m.avg for m in metrics_meter], tracker.best_epoch, tracker.best_epoch_value))
+                          *[m.avg for m in metrics_meter], tracker.best_epoch,
+                          tracker.best_epoch_value))
 
-        # Record
+        # Record training loss and metrics.
         tracker.records['train_loss'].append(loss_meter.avg)
         for metric, meter in zip(self.metrics, metrics_meter):
             tracker.records['train_' + metric['name']].append(meter.avg)
@@ -107,6 +124,16 @@ class ControlFlow(object):
             tracker.records[metric_name].append(meter.avg)
 
     def train_and_eval(self, initial_epoch=0, lr_scheduler=None):
+        """Train and evaluate one epoch.
+
+        Args:
+            initial_epoch (int, optional): Defaults to 0. Initial epoch of training.
+            lr_scheduler ([type], optional): Defaults to None. [description]
+
+        Returns:
+            {Namespace}: 
+        """
+
         # Initialize Variables
         self.sess.run(tf.group(tf.global_variables_initializer()))
 
@@ -123,7 +150,7 @@ class ControlFlow(object):
             print("=> Epoch {}".format(i_epoch))
             tracker.current_epoch = i_epoch
 
-            if (self.config.lr_scheduler_level == "epoch" and lr_scheduler is not None):
+            if self.config.lr_scheduler_level == "epoch" and lr_scheduler is not None:
                 self.sess.run(lr_scheduler.assign(i_epoch))
                 print(i_epoch, self.sess.run(
                     tf.get_default_graph().get_tensor_by_name("learning_rate:0")

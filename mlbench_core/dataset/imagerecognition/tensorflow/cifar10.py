@@ -176,6 +176,8 @@ class DatasetCifar(object):
             }
             image = (image / 256 - stats['mean']) / stats['std']
         else:
+            # Subtract off the mean and divide by the variance of the pixels.
+            # image = tf.image.per_image_standardization(image)
             raise NotImplementedError
         return image
 
@@ -220,7 +222,6 @@ class DatasetCifar(object):
         iterator = dataset.make_one_shot_iterator()
 
         # TODO: add a private threadpool?
-
         next_batch = iterator.get_next()
         # TODO: make it clear what kind of initializer to use.
         data_init_op = iterator.make_initializer(dataset)

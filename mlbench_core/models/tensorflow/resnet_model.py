@@ -34,7 +34,8 @@ from __future__ import print_function
 
 import tensorflow as tf
 
-_BATCH_NORM_DECAY = 0.997
+# _BATCH_NORM_DECAY = 0.997
+_BATCH_NORM_DECAY = 0.1
 _BATCH_NORM_EPSILON = 1e-5
 DEFAULT_VERSION = 2
 DEFAULT_DTYPE = tf.float32
@@ -445,21 +446,24 @@ class Model(object):
 
     def _model_variable_scope(self):
         """Returns a variable scope that the model should be created under.
+
         If self.dtype is a castable type, model variable will be created in fp32
         then cast to self.dtype before being used.
+
         Returns:
           A variable scope for the model.
         """
-
         return tf.variable_scope('resnet_model',
                                  custom_getter=self._custom_dtype_getter)
 
     def __call__(self, inputs, training):
         """Add operations to classify a batch of input images.
+
         Args:
           inputs: A Tensor representing a batch of input images.
           training: A boolean. Set to True to add operations required only when
             training the classifier.
+
         Returns:
           A logits Tensor with shape [<batch_size>, self.num_classes].
         """
