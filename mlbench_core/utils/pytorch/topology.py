@@ -31,10 +31,10 @@ class FCGraph(object):
         config (dict): a global object containing all of the config.
     """
 
-    def __init__(self, config):
-        self.rank = config['rank']
-        self.world_size = config['world_size']
-        self.use_cuda = config['use_cuda']
+    def __init__(self, rank, world_size, use_cuda=False):
+        self.rank = rank
+        self.world_size = world_size
+        self.use_cuda = use_cuda
 
     @property
     def current_device_name(self):
