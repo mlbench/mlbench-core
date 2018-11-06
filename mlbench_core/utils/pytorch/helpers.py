@@ -58,8 +58,8 @@ class Timeit(object):
         return self._cumu
 
 
-class Tracker(argparse.Namespace):
-    def __init__(self, config):
+class Tracker(object):
+    def __init__(self):
         pass
 
 
@@ -76,7 +76,7 @@ def maybe_range(maximum):
     return counter
 
 
-def update_best_runtime_metric(config, tracker, metric_value, metric_name):
+def update_best_runtime_metric(tracker, metric_value, metric_name):
     """Update the runtime information to config if the metric value is the best."""
     best_metric_name = "best_{}".format(metric_name)
     if best_metric_name in tracker.records:
@@ -183,13 +183,13 @@ def config_pytorch(config):
             torch.cuda.current_device()))
 
 
-def log_metrics(config, tracker, metric_name, value):
+def log_metrics(run_id, rank, epoch, metric_name, value):
     api = ApiClient()
     api.post_metric(
-        config['run_id'],
+        run_id,
         metric_name,
         value,
-        metadata="{{rank: {}, epoch:{}}}".format(config['rank'], config['epoch']))
+        metadata="{{rank: {}, epoch:{}}}".format(rank, epoch))
 
 
 def config_path(config):
@@ -207,21 +207,22 @@ def config_path(config):
     os.makedirs(config['ckpt_run_dir'], exist_ok=True)
 
 
-def iterate_dataloader(dataloader, config):
-    for _, (data, target) in zip(maybe_range(config['max_batch_per_epoch']),
+def iterate_dataloader(dataloader, max_batch_per_epoch, use_cuda=False,
+                       transform_target_type=None, dtype=None):
+    for _, (data, target) in zip(maybe_range(max_batch_per_epoch),
                                  dataloader):
 
-        data = convert_dtype(config['dtype'], data)
-        if 'transform_target_type' in config and config['transform_target_type']:
-            target = convert_dtype(config['dtype'], target)
+        data = convert_dtype(dtype, data)
+        if transform_target_type:
+            target = convert_dtype(dtype, target)
 
-        if 'use_cuda' in config and config['use_cuda']:
+        if use_cuda:
             data, target = data.cuda(), target.cuda()
 
         yield data, target
 
 
-def maybe_cuda(module, config):
-    if 'use_cuda' in config and config['use_cuda']:
+def maybe_cuda(module, use_cuda):
+    if use_cuda:
         module.cuda()
     return module

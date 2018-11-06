@@ -6,7 +6,6 @@ import math
 import torch.distributed as dist
 from collections import defaultdict
 
-from mlbench_core.utils.pytorch import checkpoint
 from mlbench_core.evaluation.pytorch.metrics import AverageMeter
 from mlbench_core.utils.pytorch.distributed import aggregate_gradients, global_average
 from mlbench_core.utils.pytorch.helpers import Timeit, update_best_runtime_metric, \
@@ -15,169 +14,42 @@ from mlbench_core.utils.pytorch.helpers import Timeit, update_best_runtime_metri
 logger = logging.getLogger('mlbench')
 
 
-def record_train_batch_stats(batch_idx, loss, output, target, metrics, config, timeit, tracker):
-    r"""Record the stats in a training batch."""
-    progress = batch_idx / config['num_batches_per_device_train']
-    progress += tracker.current_epoch
-
-    tracker.epoch_stats["loss"].update(loss, output.size())
-
-    str_builder = ["Epoch {:5.2f} Batch {:4}: loss={:6.2e}".format(
-        progress, batch_idx, tracker.epoch_stats["loss"].avg)]
-
-    # Compute metrics for one batch
-    for metric in metrics:
-        metric_value = metric(output, target).item()
-        tracker.epoch_stats[metric.name].update(metric_value, output.size())
-        str_builder.append("{} {:.2e}".format(
-            metric.name, tracker.epoch_stats[metric.name].avg))
-
-    # Compute time spent on each step
-    for (_, t1), (name, t2) in zip(tracker.batch_stats[:-1], tracker.batch_stats[1:]):
-        str_builder.append("{} {:.1e}".format(name, t2 - t1))
-
-    logger.info(" | ".join(str_builder))
-
-    if not hasattr(tracker, 'cumu_time_train'):
-        tracker.cumu_time_train = []
-    tracker.cumu_time_train.append(
-        tracker.batch_stats[-1][1] - tracker.batch_stats[0][1])
-
-    log_metrics(config, tracker, 'train_loss', loss)
-
-
-def train_epoch(model, optimizer, loss_function, scheduler, config, metrics, timeit, dataloader, tracker):
-    """Train model for one epoch of data."""
-    tracker.epoch_stats = {k: AverageMeter()
-                           for k in ["loss"] + [m.name for m in metrics]}
-    # switch to train mode
-    model.train()
-    for batch_idx, (data, target) in enumerate(iterate_dataloader(dataloader, config)):
-        tracker.batch_stats = [("start", time.time())]
-
-        if config['lr_scheduler_level'] == 'batch':
-            scheduler.step()
-
-        # Clear gradients in the optimizer.
-        optimizer.zero_grad()
-        tracker.batch_stats.append(('init', time.time()))
-
-        # Compute the output
-        output = model(data)
-        tracker.batch_stats.append(('fwd_pass', time.time()))
-
-        # Compute the loss
-        loss = loss_function(output, target)
-        tracker.batch_stats.append(('comp_loss', time.time()))
-
-        # Backprop
-        loss.backward()
-        tracker.batch_stats.append(('backprop', time.time()))
-
-        # Aggregate gradients from all workers
-        aggregate_gradients(model, config)
-        tracker.batch_stats.append(('aggr_grad', time.time()))
-
-        # Apply updates to model
-        optimizer.step()
-        tracker.batch_stats.append(('opt_step', time.time()))
-
-        record_train_batch_stats(batch_idx, loss.item(
-        ), output, target, metrics, config, timeit, tracker)
-
-
-def validate(model, loss_function, metrics, config, dataloader):
-    r"""Validate the quality of the model in terms of loss and metrics.
-
-    :param model: PyTorch Models.
-    :type model: nn.Module
-    :param loss_function: A loss function
-    :type loss_function: nn.modules.loss
-    :param metrics: metrics to measure
-    :type metrics: list
-    :param config: configurations of the training.
-    :type config: argparse.Namespace
-    :param dataloader: load data in batches.
-    :type dataloader: torch.utils.data.dataloader.DataLoader
-    :returns: global metrics and loss related to current model
-    :rtype: dict, float
-    """
-    # Turn on evaluation mode for the model
-    model.eval()
-
-    # Initialize the accumulators for loss and metrics
-    losses = AverageMeter()
-    for metric in metrics:
-        metric.reset()
-
-    # Each worker computer their own losses and metrics
-    with torch.no_grad():
-        for data, target in iterate_dataloader(dataloader, config):
-            # Inference
-            output = model(data)
-
-            # Compute loss
-            loss = loss_function(output, target)
-
-            # Update loss
-            losses.update(loss.item(), data.size(0))
-
-            # Update metrics
-            for metric in metrics:
-                metric_value = metric(output, target)
-                metric.update(metric_value, data.size(0))
-
-    # Aggregate metrics and loss for all workers
-    metrics_averages = {metric.name: metric.average().item()
-                        for metric in metrics}
-    loss_average = global_average(losses.sum, losses.count).item()
-    return metrics_averages, loss_average
-
-
-def do_validate(model, optimizer, loss_function, metrics, scheduler, config, timeit, dataloader, tracker):
-    """Evaluate the model on the test dataset and save to the checkpoint."""
-    # evaluate the model.
-    metrics_values, loss = validate(
-        model, loss_function, metrics, config, dataloader)
-
-    if not hasattr(tracker, 'cumu_time_val'):
-        tracker.cumu_time_val = []
-    tracker.cumu_time_val.append(time.time() - tracker.start_time)
-
-    if len(metrics_values) > 0:
-        # Assume the first metric is used to determine the best model to checkpoint.
-        prim_metric = metrics[0]
-        prim_metric_value = metrics_values[prim_metric.name]
-
-        is_best, best_metric_name = update_best_runtime_metric(
-            config, tracker, prim_metric_value, prim_metric.name)
-
-        # Save
-        for name, value in metrics_values.items():
-            log_metrics(config, tracker, name, value)
-
-        if config['rank'] == 0:
-            logger.info('{} for rank {}:(best epoch {}, current epoch {}): {:.3f}'.format(
-                best_metric_name,
-                config['rank'],
-                tracker.records['best_epoch'],
-                tracker.current_epoch,
-                tracker.records[best_metric_name]))
-    else:
-        is_best = False
-        if config['rank'] == 0:
-            logger.info("Validation loss={:.3f}".format(loss))
-
-    log_metrics(config, tracker, 'val_loss', loss)
-
-    checkpoint.save(config, tracker, model, optimizer, scheduler, is_best)
-
-
 class TrainValidation(object):
     r"""Train and validate a model."""
+    def __init__(self, model, optimizer, loss_function, metrics, scheduler,
+                 batch_size, train_epochs, rank, world_size, run_id, validate=True,
+                 schedule_per='epoch', checkpoint=None, transform_target_type=None,
+                 average_models=False, use_cuda=False):
+        self.tracker = Tracker()
+        self.batch_size = batch_size
+        self.train_epochs = train_epochs
+        self.model = model
+        self.optimizer = optimizer
+        self.loss_function = loss_function
+        self.metrics = metrics
+        self.scheduler = scheduler
+        self.schedule_per = schedule_per
+        self.perform_validation = validate
+        self.rank = rank
+        self.world_size = world_size
+        self.checkpoint = checkpoint
+        self.run_id = run_id
+        self.transform_target_type = transform_target_type
+        self.average_models = average_models
+        self.use_cuda = use_cuda
 
-    def __call__(self, model, optimizer, loss_function, metrics, scheduler,
-                 config, dataloader_train, dataloader_val):
+    def _get_dataloader_stats(self, dataloader_train, dataloader_val):
+        self.num_samples_per_device_train = len(dataloader_train)
+        self.num_batches_per_device_train = math.ceil(
+            1.0 * self.num_samples_per_device_train / self.batch_size)
+        self.num_samples_per_device_val = len(dataloader_train)
+        self.num_batches_per_device_val = math.ceil(
+            1.0 * self.num_samples_per_device_val / self.batch_size)
+
+
+    def run(self, dataloader_train=None, dataloader_val=None,
+            dataloader_train_fn=None, dataloader_val_fn=None, resume=False,
+            repartition_per_epoch=False):
         """Train models and perform validation.
 
         Args:
@@ -189,62 +61,263 @@ class TrainValidation(object):
             config (:obj:`types.SimpleNamespace`): a global object containing all of the config.
             dataloader_fn (:func:`Function`): A function returning a :obj:`torch.utils.data.DataLoader`.
         """
-        # TODO: resume a tracker
-        tracker = Tracker(config)
 
-        config['num_samples_per_device_train'] = len(dataloader_train)
-        config['num_batches_per_device_train'] = math.ceil(
-            1.0 * config['num_samples_per_device_train'] / config['batch_size'])
+        if not dataloader_train_fn and not dataloader_train:
+            raise ValueError("One of dataloader_train_fn or dataloader_train must be set")
 
-        config['num_samples_per_device_val'] = len(dataloader_train)
-        config['num_batches_per_device_val'] = math.ceil(
-            1.0 * config['num_samples_per_device_val'] / config['batch_size'])
+        if not dataloader_val_fn and not dataloader_val:
+            raise ValueError("One of dataloader_val_fn or dataloader_val must be set")
+
+        if dataloader_train_fn:
+            dataloader_train = dataloader_train_fn()
+
+        if dataloader_val_fn:
+            dataloader_val = dataloader_val_fn()
+
+        self._get_dataloader_stats(dataloader_train, dataloader_val)
 
         # define some parameters for training.
-        logger.info("There are {train_epochs} epochs, {num_batches_per_device_train} "
+        logger.info("There are {train_epochs} epochs, {num_batches} "
                     "mini-batches per epoch (batch size: {batch_size})."
-                    .format(config))
-
-        # train the model and evaluate the model per args.eval_freq
-        max_epochs = min(config['train_epochs'], config['max_train_steps'])\
-            if 'max_train_steps' in config else config['train_epochs']
+                    .format(
+                        train_epochs=self.train_epochs,
+                        num_batches=self.num_batches_per_device_train,
+                        batch_size=self.batch_size))
 
         # Initialize Tracker or resume from checkpoint
-        if 'resume' in config:
+        if resume:
             # TODO: Update the resume part in checkpoint.py
-            start_epoch = tracker.current_epoch + 1 if config['resume'] else 0
-            timeit = Timeit(config['runtime']['cumu_time_val'][-1])
+            start_epoch = self.tracker.current_epoch + 1 if resume else 0
+            self.timeit = Timeit(self.checkpoint.runtime['cumu_time_val'][-1])
             raise NotImplementedError
         else:
             start_epoch = 0
-            timeit = Timeit(0.)
+            self.timeit = Timeit(0.)
 
             # Initialize Tracker
-            tracker.current_epoch = 0
-            tracker.best_epoch = 0
-            tracker.records = defaultdict(list)
-            tracker.start_time = time.time()
+            self.tracker.current_epoch = 0
+            self.tracker.best_epoch = 0
+            self.tracker.records = defaultdict(list)
+            self.tracker.start_time = time.time()
 
         dist.barrier()
-        for epoch in range(start_epoch, max_epochs):
-            tracker.current_epoch = epoch
+        for epoch in range(start_epoch, self.train_epochs):
+            self.tracker.current_epoch = epoch
 
             # schedule learning rates
-            if config['lr_scheduler_level'] == 'epoch':
-                scheduler.step()
+            if self.schedule_per == 'epoch':
+                self.scheduler.step()
 
             # Per epoch information.
             logger.info("Current epoch : {} : lr={} : time={:10.3e}"
-                        .format(epoch, scheduler.get_lr(), timeit.cumu))
+                        .format(
+                            epoch,
+                            self.scheduler.get_lr(),
+                            self.timeit.cumu))
 
             # FIXME: The Timeit object can be a problem.
-            train_epoch(model, optimizer, loss_function, scheduler,
-                        config, metrics, timeit, dataloader_train, tracker)
+            self.train_epoch(dataloader_train)
 
-            if 'validation' in config and config['validation']:
-                do_validate(model, optimizer, loss_function, metrics,
-                            scheduler, config, timeit, dataloader_val, tracker)
+            if self.perform_validation:
+                self.do_validate(dataloader_val)
 
             # Shuffle the dataset across nodes
-            if 'repartition_per_epoch' in config and config['repartition_per_epoch']:
-                dataloader_train = dataloader_fn(train=True, config=config)
+            if repartition_per_epoch:
+                if dataloader_train_fn:
+                    dataloader_train = dataloader_train_fn()
+
+                if dataloader_val_fn:
+                    dataloader_val = dataloader_val_fn()
+
+                self._get_dataloader_stats(dataloader_train, dataloader_val)
+
+    def train_epoch(self, dataloader):
+        """Train model for one epoch of data."""
+        self.tracker.epoch_stats = {
+            k: AverageMeter()
+            for k in ["loss"] + [m.name for m in self.metrics]}
+        # switch to train mode
+        self.model.train()
+        data_iter = iterate_dataloader(dataloader)
+
+        for batch_idx, (data, target) in enumerate(data_iter):
+            self.tracker.batch_stats = [("start", time.time())]
+
+            if self.schedule_per == 'batch':
+                self.scheduler.step()
+
+            # Clear gradients in the optimizer.
+            self.optimizer.zero_grad()
+            self.tracker.batch_stats.append(('init', time.time()))
+
+            # Compute the output
+            output = self.model(data)
+            self.tracker.batch_stats.append(('fwd_pass', time.time()))
+
+            # Compute the loss
+            loss = self.loss_function(output, target)
+            self.tracker.batch_stats.append(('comp_loss', time.time()))
+
+            # Backprop
+            loss.backward()
+            self.tracker.batch_stats.append(('backprop', time.time()))
+
+            # Aggregate gradients from all workers
+            aggregate_gradients(self.model, self.world_size,
+                                self.average_models)
+            self.tracker.batch_stats.append(('aggr_grad', time.time()))
+
+            # Apply updates to model
+            self.optimizer.step()
+            self.tracker.batch_stats.append(('opt_step', time.time()))
+
+            self.record_train_batch_stats(
+                batch_idx,
+                loss.item(),
+                output,
+                target)
+
+    def record_train_batch_stats(self, batch_idx, loss, output, target):
+        r"""Record the stats in a training batch."""
+        progress = batch_idx / self.num_batches_per_device_train
+        progress += self.tracker.current_epoch
+
+        self.tracker.epoch_stats["loss"].update(loss, output.size())
+
+        str_builder = ["Epoch {:5.2f} Batch {:4}: loss={:6.2e}".format(
+            progress, batch_idx, self.tracker.epoch_stats["loss"].avg)]
+
+        # Compute metrics for one batch
+        for metric in self.metrics:
+            metric_value = metric(output, target).item()
+
+            self.tracker.epoch_stats[metric.name].update(
+                metric_value,
+                output.size())
+
+            str_builder.append("{} {:.2e}".format(
+                metric.name, self.tracker.epoch_stats[metric.name].avg))
+
+        # Compute time spent on each step
+        tracker_stats = zip(
+            self.tracker.batch_stats[:-1],
+            self.tracker.batch_stats[1:])
+        for (_, t1), (name, t2) in tracker_stats:
+            str_builder.append("{} {:.1e}".format(name, t2 - t1))
+
+        logger.info(" | ".join(str_builder))
+
+        if not hasattr(self.tracker, 'cumu_time_train'):
+            self.tracker.cumu_time_train = []
+
+        self.tracker.cumu_time_train.append(
+            self.tracker.batch_stats[-1][1] - self.tracker.batch_stats[0][1])
+
+        log_metrics(
+            self.run_id,
+            self.rank,
+            self.tracker.current_epoch,
+            'train_loss',
+            loss)
+
+    def do_validate(self, dataloader):
+        """Evaluate the model on the test dataset and save to the checkpoint."""
+        # evaluate the model.
+        metrics_values, loss = self.validate(dataloader)
+
+        if not hasattr(self.tracker, 'cumu_time_val'):
+            self.tracker.cumu_time_val = []
+        self.tracker.cumu_time_val.append(
+            time.time() - self.tracker.start_time)
+
+        if len(metrics_values) > 0:
+            # Assume the first metric is used to determine the best model to checkpoint.
+            prim_metric = self.metrics[0]
+            prim_metric_value = metrics_values[prim_metric.name]
+
+            is_best, best_metric_name = update_best_runtime_metric(
+                self.tracker, prim_metric_value, prim_metric.name)
+
+            # Save
+            for name, value in metrics_values.items():
+                log_metrics(
+                    self.run_id,
+                    self.rank,
+                    self.tracker.current_epoch,
+                    name,
+                    value)
+
+            if self.rank == 0:
+                logger.info('{} for rank {}:(best epoch {}, current epoch {}): {:.3f}'.format(
+                    best_metric_name,
+                    self.rank,
+                    self.tracker.records['best_epoch'],
+                    self.tracker.current_epoch,
+                    self.tracker.records[best_metric_name]))
+        else:
+            is_best = False
+            if self.rank == 0:
+                logger.info("Validation loss={:.3f}".format(loss))
+
+        log_metrics(
+            self.run_id,
+            self.rank,
+            self.tracker.current_epoch,
+            'val_loss',
+            loss)
+
+        if self.checkpoint:
+            self.checkpoint.save(self.tracker, self.model,
+                                 self.optimizer, self.scheduler, is_best)
+
+    def validate(self, dataloader):
+        r"""Validate the quality of the model in terms of loss and metrics.
+
+        :param model: PyTorch Models.
+        :type model: nn.Module
+        :param loss_function: A loss function
+        :type loss_function: nn.modules.loss
+        :param metrics: metrics to measure
+        :type metrics: list
+        :param config: configurations of the training.
+        :type config: argparse.Namespace
+        :param dataloader: load data in batches.
+        :type dataloader: torch.utils.data.dataloader.DataLoader
+        :returns: global metrics and loss related to current model
+        :rtype: dict, float
+        """
+        # Turn on evaluation mode for the model
+        self.model.eval()
+
+        # Initialize the accumulators for loss and metrics
+        losses = AverageMeter()
+        for metric in self.metrics:
+            metric.reset()
+
+        # Each worker computer their own losses and metrics
+        with torch.no_grad():
+            data_iter = iterate_dataloader(
+                dataloader,
+                self.max_batch_per_epoch,
+                self.use_cuda)
+
+            for data, target in data_iter:
+                # Inference
+                output = self.model(data)
+
+                # Compute loss
+                loss = self.loss_function(output, target)
+
+                # Update loss
+                losses.update(loss.item(), data.size(0))
+
+                # Update metrics
+                for metric in self.metrics:
+                    metric_value = metric(output, target)
+                    metric.update(metric_value, data.size(0))
+
+        # Aggregate metrics and loss for all workers
+        metrics_averages = {metric.name: metric.average().item()
+                            for metric in self.metrics}
+        loss_average = global_average(losses.sum, losses.count).item()
+        return metrics_averages, loss_average

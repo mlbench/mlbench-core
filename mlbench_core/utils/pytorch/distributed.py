@@ -11,15 +11,15 @@ def elementwise_min(tensor):
     return tensor
 
 
-def aggregate_gradients(model, config):
+def aggregate_gradients(model, world_size, average_models=False):
     """Average gradients of models across all processes."""
     # all_reduce the gradients.
     for ind, param in enumerate(model.parameters()):
         # all reduce.
         dist.all_reduce(param.grad.data, op=dist.reduce_op.SUM)
 
-        if 'average_models' in config and config['average_models']:
-            param.grad.data /= config['world_size']
+        if average_models:
+            param.grad.data /= world_size
 
 
 def global_average(sum, count):
