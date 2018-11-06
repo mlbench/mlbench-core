@@ -106,8 +106,8 @@ def config_logging(config):
     A stream handler and file handler are added to default logger `mlbench`.
     """
 
-    level = config.logging_level
-    logging_file = config.logging_file
+    level = config['logging_level']
+    logging_file = config['logging_file']
 
     class RankFilter(logging.Filter):
         def filter(self, record):
@@ -149,7 +149,7 @@ def config_pytorch(config):
     # CUDNN deterministic setting which can slow down training considerably.
     # Unexpected behavior may also be observed from checkpoint.
     # See: https: // github.com/pytorch/examples/blob/master/imagenet/main.py
-    if config.cudnn_deterministic:
+    if 'cudnn_deterministic' in config and config['cudnn_deterministic']:
         # cudnn.deterministic = True
         print('You have chosen to seed training. '
               'This will turn on the CUDNN deterministic setting, '
@@ -157,21 +157,21 @@ def config_pytorch(config):
               'You may see unexpected behavior when restarting '
               'from checkpoints.')
 
-    if config.seed is not None:
-        random.seed(config.seed)
-        torch.manual_seed(config.seed)
+    if 'seed' in config:
+        random.seed(config['seed'])
+        torch.manual_seed(config['seed'])
 
     # define the graph for the computation.
-    if config.use_cuda:
+    if 'use_cuda' in config and config['use_cuda']:
         assert torch.cuda.is_available()
 
-    config.rank = dist.get_rank()
-    config.world_size = dist.get_world_size()
-    config.graph = FCGraph(config)
+    config['rank'] = dist.get_rank()
+    config['world_size'] = dist.get_world_size()
+    config['graph'] = FCGraph(config)
 
     # enable cudnn accelerator if we are using cuda.
-    if config.use_cuda:
-        config.graph.assigned_gpu_id()
+    if 'use_cuda' in config and config['use_cuda']:
+        config['graph'].assigned_gpu_id()
         torch.backends.cudnn.enabled = True
         torch.backends.cudnn.benchmark = True
 
@@ -179,49 +179,49 @@ def config_pytorch(config):
             print("CUDNN not found on device.")
 
         print("World size={}, Rank={}, hostname={}, cuda_available={}, cuda_device={}".format(
-            config.world_size, config.rank, socket.gethostname(), torch.cuda.is_available(),
+            config['world_size'], config['rank'], socket.gethostname(), torch.cuda.is_available(),
             torch.cuda.current_device()))
 
 
 def log_metrics(config, tracker, metric_name, value):
     api = ApiClient()
     api.post_metric(
-        config.run_id,
+        config['run_id'],
         metric_name,
         value,
-        metadata="{{rank: {}, epoch:{}}}".format(config.rank, config.epoch))
+        metadata="{{rank: {}, epoch:{}}}".format(config['rank'], config['epoch']))
 
 
 def config_path(config):
     """Config the path used during the experiments."""
 
     # Checkpoint for the current run
-    config.ckpt_run_dir = checkpoint.get_ckpt_run_dir(
-        config.checkpoint_root, config.run_id,
-        config.dataset, config.model, config.optim)
+    config['ckpt_run_dir'] = checkpoint['get_ckpt_run_dir'](
+        config['checkpoint_root'], config['run_id'],
+        config['dataset'], config['model'], config['optim'])
 
-    if not config.resume:
+    if 'resume' not in config or not config['resume']:
         print("Remove previous checkpoint directory : {}".format(
-            config.ckpt_run_dir))
-        shutil.rmtree(config.ckpt_run_dir, ignore_errors=True)
-    os.makedirs(config.ckpt_run_dir, exist_ok=True)
+            config['ckpt_run_dir']))
+        shutil.rmtree(config['ckpt_run_dir'], ignore_errors=True)
+    os.makedirs(config['ckpt_run_dir'], exist_ok=True)
 
 
 def iterate_dataloader(dataloader, config):
-    for _, (data, target) in zip(maybe_range(config.max_batch_per_epoch),
+    for _, (data, target) in zip(maybe_range(config['max_batch_per_epoch']),
                                  dataloader):
 
-        data = convert_dtype(config.dtype, data)
-        if config.transform_target_type:
-            target = convert_dtype(config.dtype, target)
+        data = convert_dtype(config['dtype'], data)
+        if 'transform_target_type' in config and config['transform_target_type']:
+            target = convert_dtype(config['dtype'], target)
 
-        if config.use_cuda:
+        if 'use_cuda' in config and config['use_cuda']:
             data, target = data.cuda(), target.cuda()
 
         yield data, target
 
 
 def maybe_cuda(module, config):
-    if config.use_cuda:
+    if 'use_cuda' in config and config['use_cuda']:
         module.cuda()
     return module

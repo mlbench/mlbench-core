@@ -22,7 +22,7 @@ def initialize_backends(config):
     """
 
     if not (hasattr(dist, '_initialized') and dist._initialized):
-        dist.init_process_group(config.comm_backend)
+        dist.init_process_group(config['comm_backend'])
 
     config_logging(config)
 

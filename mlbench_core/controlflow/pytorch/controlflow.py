@@ -17,7 +17,7 @@ logger = logging.getLogger('mlbench')
 
 def record_train_batch_stats(batch_idx, loss, output, target, metrics, config, timeit, tracker):
     r"""Record the stats in a training batch."""
-    progress = batch_idx / config.num_batches_per_device_train
+    progress = batch_idx / config['num_batches_per_device_train']
     progress += tracker.current_epoch
 
     tracker.epoch_stats["loss"].update(loss, output.size())
@@ -55,7 +55,7 @@ def train_epoch(model, optimizer, loss_function, scheduler, config, metrics, tim
     for batch_idx, (data, target) in enumerate(iterate_dataloader(dataloader, config)):
         tracker.batch_stats = [("start", time.time())]
 
-        if config.lr_scheduler_level == 'batch':
+        if config['lr_scheduler_level'] == 'batch':
             scheduler.step()
 
         # Clear gradients in the optimizer.
@@ -156,16 +156,16 @@ def do_validate(model, optimizer, loss_function, metrics, scheduler, config, tim
         for name, value in metrics_values.items():
             log_metrics(config, tracker, name, value)
 
-        if config.rank == 0:
+        if config['rank'] == 0:
             logger.info('{} for rank {}:(best epoch {}, current epoch {}): {:.3f}'.format(
                 best_metric_name,
-                config.rank,
+                config['rank'],
                 tracker.records['best_epoch'],
                 tracker.current_epoch,
                 tracker.records[best_metric_name]))
     else:
         is_best = False
-        if config.rank == 0:
+        if config['rank'] == 0:
             logger.info("Validation loss={:.3f}".format(loss))
 
     log_metrics(config, tracker, 'val_loss', loss)
@@ -192,28 +192,28 @@ class TrainValidation(object):
         # TODO: resume a tracker
         tracker = Tracker(config)
 
-        config.num_samples_per_device_train = len(dataloader_train)
-        config.num_batches_per_device_train = math.ceil(
-            1.0 * config.num_samples_per_device_train / config.batch_size)
+        config['num_samples_per_device_train'] = len(dataloader_train)
+        config['num_batches_per_device_train'] = math.ceil(
+            1.0 * config['num_samples_per_device_train'] / config['batch_size'])
 
-        config.num_samples_per_device_val = len(dataloader_train)
-        config.num_batches_per_device_val = math.ceil(
-            1.0 * config.num_samples_per_device_val / config.batch_size)
+        config['num_samples_per_device_val'] = len(dataloader_train)
+        config['num_batches_per_device_val'] = math.ceil(
+            1.0 * config['num_samples_per_device_val'] / config['batch_size'])
 
         # define some parameters for training.
         logger.info("There are {train_epochs} epochs, {num_batches_per_device_train} "
                     "mini-batches per epoch (batch size: {batch_size})."
-                    .format(**config.__dict__))
+                    .format(config))
 
         # train the model and evaluate the model per args.eval_freq
-        max_epochs = min(config.train_epochs, config.max_train_steps)\
-            if config.max_train_steps else config.train_epochs
+        max_epochs = min(config['train_epochs'], config['max_train_steps'])\
+            if 'max_train_steps' in config else config['train_epochs']
 
         # Initialize Tracker or resume from checkpoint
-        if config.resume:
+        if 'resume' in config:
             # TODO: Update the resume part in checkpoint.py
-            start_epoch = tracker.current_epoch + 1 if config.resume else 0
-            timeit = Timeit(config.runtime['cumu_time_val'][-1])
+            start_epoch = tracker.current_epoch + 1 if config['resume'] else 0
+            timeit = Timeit(config['runtime']['cumu_time_val'][-1])
             raise NotImplementedError
         else:
             start_epoch = 0
@@ -230,7 +230,7 @@ class TrainValidation(object):
             tracker.current_epoch = epoch
 
             # schedule learning rates
-            if config.lr_scheduler_level == 'epoch':
+            if config['lr_scheduler_level'] == 'epoch':
                 scheduler.step()
 
             # Per epoch information.
@@ -241,10 +241,10 @@ class TrainValidation(object):
             train_epoch(model, optimizer, loss_function, scheduler,
                         config, metrics, timeit, dataloader_train, tracker)
 
-            if config.validation:
+            if 'validation' in config and config['validation']:
                 do_validate(model, optimizer, loss_function, metrics,
                             scheduler, config, timeit, dataloader_val, tracker)
 
             # Shuffle the dataset across nodes
-            if config.repartition_per_epoch:
+            if 'repartition_per_epoch' in config and config['repartition_per_epoch']:
                 dataloader_train = dataloader_fn(train=True, config=config)

@@ -18,8 +18,8 @@ def aggregate_gradients(model, config):
         # all reduce.
         dist.all_reduce(param.grad.data, op=dist.reduce_op.SUM)
 
-        if config.average_models:
-            param.grad.data /= config.world_size
+        if 'average_models' in config and config['average_models']:
+            param.grad.data /= config['world_size']
 
 
 def global_average(sum, count):

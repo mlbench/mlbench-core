@@ -28,13 +28,13 @@ class FCGraph(object):
     """Fully-Connected Network Graph
 
     Args:
-        config (:obj:`types.SimpleNamespace`): a global object containing all of the config.
+        config (dict): a global object containing all of the config.
     """
 
     def __init__(self, config):
-        self.rank = config.rank
-        self.world_size = config.world_size
-        self.use_cuda = config.use_cuda
+        self.rank = config['rank']
+        self.world_size = config['world_size']
+        self.use_cuda = config['use_cuda']
 
     @property
     def current_device_name(self):

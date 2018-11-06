@@ -102,12 +102,12 @@ _VERSIONED_DATASET_MAP = {
 def _create_dataset(train, config):
     train_or_val = 'train' if train else 'val'
     _logger.debug("Using {} dataset version {}.".format(
-        train_or_val, config.dataset_version))
+        train_or_val, config['dataset_version']))
 
-    dataset_path = os.path.join(config.dataset_root, config.dataset)
+    dataset_path = os.path.join(config['dataset_root'], config['dataset'])
     _logger.debug("Loading/Downloading dataset from {}.".format(dataset_path))
 
-    versioned_dataset = (config.dataset, config.dataset_version)
+    versioned_dataset = (config['dataset'], config['dataset_version'])
     if versioned_dataset not in _VERSIONED_DATASET_MAP:
         raise ValueError("Versioned dataset {} not found in {}.".format(
             versioned_dataset, _VERSIONED_DATASET_MAP))
@@ -143,17 +143,17 @@ def create_partition_transform_dataset(train, config):
     """
     full_dataset = _create_dataset(train, config)
     partitioned_dataset = partition_dataset_by_rank(
-        full_dataset, config.rank, config.world_size,
-        shuffle=config.shuffle_before_partition)
+        full_dataset, config['rank'], config['world_size'],
+        shuffle=config['shuffle_before_partition'])
 
     num_samples_per_device = len(partitioned_dataset)
     num_batches_per_device = math.ceil(
-        1.0 * num_samples_per_device / config.batch_size)
+        1.0 * num_samples_per_device / config['batch_size'])
 
     if train:
-        config.num_samples_per_device_train = num_samples_per_device
-        config.num_batches_per_device_train = num_batches_per_device
+        config['num_samples_per_device_train'] = num_samples_per_device
+        config['num_batches_per_device_train'] = num_batches_per_device
     else:
-        config.num_samples_per_device_val = num_samples_per_device
-        config.num_batches_per_device_val = num_batches_per_device
+        config['num_samples_per_device_val'] = num_samples_per_device
+        config['num_batches_per_device_val'] = num_batches_per_device
     return partitioned_dataset

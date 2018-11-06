@@ -44,7 +44,7 @@ def determine_restore_ckpt_path(rank, checkpoint_root, run_id):
 
 
 def save(config, tracker, model, optimizer, scheduler, is_best):
-    if config.checkpoint == 'never':
+    if config['checkpoint'] == 'never':
         return
 
     state = {
@@ -54,16 +54,16 @@ def save(config, tracker, model, optimizer, scheduler, is_best):
         'scheduler': scheduler.state_dict(),
     }
 
-    dirname = config.ckpt_run_dir
-    filename = get_ckpt_id(tracker.current_epoch, config.rank)
+    dirname = config['ckpt_run_dir']
+    filename = get_ckpt_id(tracker.current_epoch, config['rank'])
     checkpoint_path = os.path.join(dirname, filename)
     best_model_path = os.path.join(dirname, 'model_best.pth.tar')
 
-    if config.checkpoint == 'all':
+    if config['checkpoint'] == 'all':
         torch.save(state, checkpoint_path)
         if is_best:
             shutil.copyfile(checkpoint_path, best_model_path)
-    elif config.checkpoint == 'best':
+    elif config['checkpoint'] == 'best':
         torch.save(state, best_model_path)
     else:
         raise NotImplementedError
@@ -72,7 +72,7 @@ def save(config, tracker, model, optimizer, scheduler, is_best):
 def resume(config, model, optimizer, scheduler):
     # FIXME: using tracker
     checkpoint_path = determine_restore_ckpt_path(
-        config.rank, config.checkpoint_root, config.run_id)
+        config['rank'], config['checkpoint_root'], config['run_id'])
 
     print('Try to load previous model from the path:{}'.format(checkpoint_path))
     if os.path.isfile(checkpoint_path):
@@ -92,15 +92,15 @@ def resume(config, model, optimizer, scheduler):
         checkpoint['config_runtime']['current_epoch'] = checkpoint['config_runtime']['current_epoch']
     else:
         raise FileNotFoundError(
-            "No checkpoint found at '{}'".format(config.resume))
+            "No checkpoint found at '{}'".format(config['resume']))
     return checkpoint['config_runtime']
 
 
 def maybe_resume(config, model, optimizer, scheduler):
     """Recover the state of config, model, optimizer and scheduler."""
-    if config.resume:
+    if 'resume' in config and config['resume']:
         # reload model from the latest checkpoint.
-        config.runtime = resume(config, model, optimizer, scheduler)
+        config['runtime'] = resume(config, model, optimizer, scheduler)
     else:
-        config.runtime = {}
+        config['runtime'] = {}
     return config
