@@ -50,7 +50,7 @@ def triangular_learning_rates(optimizer, base_lr, max_lr, cycle_length, scale_fn
     return LambdaLR(optimizer, lr_lambda=f)
 
 
-def cyclical_learning_rates(config, optimizer):
+def cyclical_learning_rates(optimizer, mode, gamma, cycle_length, base_lr, max_lr, extra_epochs):
     """ Cyclically Scale Learning Rate
 
     If one cycle is applied with length smaller than the total number of iterations, then
@@ -69,12 +69,6 @@ def cyclical_learning_rates(config, optimizer):
     Returns:
         A learning rate scheduler (:obj:`torch.optim.lr_scheduler.LambdaLR`)
     """
-    if config['lr_scheduler_level'] != 'batch':
-        raise ValueError("The scheduler should be updated at batch level. Got {}."
-                         .format(config['lr_scheduler_level']))
-
-    mode = config['clr_mode']
-    gamma = config['clr_gamma']
     if mode in ['linear', 'triangular', 'one_cycle']:
         def scale_fn(cycle, iterations): return 1.
     elif mode == 'triangular2':
@@ -84,17 +78,13 @@ def cyclical_learning_rates(config, optimizer):
     else:
         raise ValueError("Cycle mode {} not support.".format(mode))
 
-    _cycle_unit, _cycle_length = config['lr_scheduler_level'], config['clr_cycle_length'][config['lr_scheduler_level']]
-    cycle_length = int(_cycle_length) if _cycle_unit == 'batch' \
-        else float(_cycle_length) * config['train_num_batches']
-
-    return triangular_learning_rates(optimizer, config['clr_base_lr'], config['clr_max_lr'],
+    return triangular_learning_rates(optimizer, base_lr, max_lr,
                                      cycle_length=cycle_length, scale_fn=scale_fn,
-                                     extra=config['clr_extra'],
+                                     extra=extra_epochs,
                                      mode=mode)
 
 
-def multistep_learning_rates_with_warmup(config, optimizer):
+def multistep_learning_rates_with_warmup(optimizer, world_size, lr, gamma, milestones, warmup_duration=None, warmup_lr=None, warmup_linear_scaling=False):
     """ Multistep Learning Rate Schedule with warmup
 
     In :cite:`goyal2017accurate`, warmup is used in order to apply the ``Linear Scaling Rule``.
@@ -108,43 +98,34 @@ def multistep_learning_rates_with_warmup(config, optimizer):
     Returns:
         A learning rate scheduler (:obj:`torch.optim.lr_scheduler.LambdaLR`)
     """
+    if bool(warmup_duration) != bool(warmup_lr):
+        raise ValueError("Either both or none of warmup_duration and warmup_lr have to be set")
+
     scaling_factor = 1
 
-    if 'warmup_linear_scaling' in config and config['warmup_linear_scaling']:
-        scaling_factor = config['world_size']
-
-    if 'warmup_init_lr_nonscale' in config and config['warmup_init_lr_nonscale'] and ('lr' not in config):
-        lr = config['lr_per_sample'] * config['batch_size']
-    else:
-        lr = config['lr']
+    if warmup_linear_scaling:
+        scaling_factor = world_size
 
     base_lr = lr * scaling_factor
 
-    warmup_durations = config['warmup_durations'][config['lr_scheduler_level']]
-    milestones = config['multisteplr_milestones'][config['lr_scheduler_level']]
-
-    gamma = config['multisteplr_gamma']
-    warmup = config['warmup']
-
-    if config['warmup_init_lr_nonscale']:
-        warmup_init_lr = lr
-    else:
-        warmup_init_lr = config['warmup_init_lr']
+    warmup_init_lr = lr
+    if warmup_lr:
+        warmup_init_lr = warmup_lr
 
     if not list(milestones) == sorted(milestones):
         raise ValueError('Milestones should be a list of increasing integers.'
                          'Got {}'.format(milestones))
 
-    if warmup_durations >= milestones[0]:
+    if warmup_duration >= milestones[0]:
         raise ValueError("The scaling phase should be earlier than the first milestone."
-                         "Got {} and {}".format(warmup_durations, milestones[0]))
+                         "Got {} and {}".format(warmup_duration, milestones[0]))
 
-    def f(durations):
-        if warmup and durations <= warmup_durations:
-            warmup_progress = durations / warmup_durations
+    def f(duration):
+        if warmup_lr and duration <= warmup_duration:
+            warmup_progress = duration / warmup_duration
             lr = warmup_progress * base_lr + (1 - warmup_progress) * warmup_init_lr
         else:
-            lr = base_lr * gamma ** bisect_right(milestones, durations)
+            lr = base_lr * gamma ** bisect_right(milestones, duration)
         return lr / base_lr
 
     for group in optimizer.param_groups:
