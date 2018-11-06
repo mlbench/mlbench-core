@@ -348,7 +348,7 @@ class ResNet18_CIFAR10(nn.Module):
         return x
 
 
-def resnet18_bkj(config):
+def resnet18_bkj(num_classes):
     """Constructs a ResNet-18 model from DAWN.
 
     This
@@ -356,22 +356,21 @@ def resnet18_bkj(config):
     comes from which gives results in
     `DAWNBench <https://github.com/stanford-futuredata/dawn-bench-entries/blob/master/CIFAR10/train/basenet.json>`_.
     """
-    model = ResNet18_CIFAR10([2, 2, 2, 2], num_classes=config['num_classes'])
+    model = ResNet18_CIFAR10([2, 2, 2, 2], num_classes=num_classes)
     return model
 
 
-def get_resnet_model(config):
-    if config['model'] == 'resnet18':
-        model = resnet18_bkj(config)
-    elif config['model'] in ['resnet20', 'resnet32', 'resnet44', 'resnet56', 'resnet110']:
-        resnet_size = int(config['model'][len('resnet'):])
-        version = int(config['model_version'])
+def get_resnet_model(model, version, dtype, num_classes=1000, use_cuda=False):
+    if model == 'resnet18':
+        model = resnet18_bkj(num_classes)
+    elif model in ['resnet20', 'resnet32', 'resnet44', 'resnet56', 'resnet110']:
+        resnet_size = int(model[len('resnet'):])
         model = ResNetCIFAR(resnet_size, False, 10, version=version)
     else:
         raise NotImplementedError("{}_{} is not implemented.".format(
-            config['model'], config['model_version']))
+            model, version))
 
-    model = convert_dtype(config['dtype'], model)
-    if config['use_cuda']:
-        model.cuda()
+    model = convert_dtype(dtype, model)
+    if use_cuda:
+        model = model.cuda()
     return model
