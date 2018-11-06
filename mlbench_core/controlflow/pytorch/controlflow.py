@@ -2,6 +2,7 @@ r"""Control flow for pytorch applications."""
 import torch
 import logging
 import time
+import math
 import torch.distributed as dist
 from collections import defaultdict
 
@@ -175,7 +176,8 @@ def do_validate(model, optimizer, loss_function, metrics, scheduler, config, tim
 class TrainValidation(object):
     r"""Train and validate a model."""
 
-    def __call__(self, model, optimizer, loss_function, metrics, scheduler, config, dataloader_fn):
+    def __call__(self, model, optimizer, loss_function, metrics, scheduler,
+                 config, dataloader_train, dataloader_val):
         """Train models and perform validation.
 
         Args:
@@ -190,8 +192,13 @@ class TrainValidation(object):
         # TODO: resume a tracker
         tracker = Tracker(config)
 
-        dataloader_train = dataloader_fn(train=True, config=config)
-        dataloader_val = dataloader_fn(train=False, config=config)
+        config.num_samples_per_device_train = len(dataloader_train)
+        config.num_batches_per_device_train = math.ceil(
+            1.0 * config.num_samples_per_device_train / config.batch_size)
+
+        config.num_samples_per_device_val = len(dataloader_train)
+        config.num_batches_per_device_val = math.ceil(
+            1.0 * config.num_samples_per_device_val / config.batch_size)
 
         # define some parameters for training.
         logger.info("There are {train_epochs} epochs, {num_batches_per_device_train} "
