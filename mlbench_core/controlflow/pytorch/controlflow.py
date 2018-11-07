@@ -39,6 +39,7 @@ class TrainValidation(object):
         max_batch_per_epoch (int): Maximum number of batches per epoch. Whole dataset
             is used if not specified. Default: `None`
     """
+
     def __init__(self, model, optimizer, loss_function, metrics, scheduler,
                  batch_size, train_epochs, rank, world_size, run_id, dtype,
                  validate=True, schedule_per='epoch', checkpoint=None,
@@ -71,12 +72,8 @@ class TrainValidation(object):
             dataloader_train (:obj:`torch.utils.data.DataLoader`): The train set
             dataloader_val (:obj:`torch.utils.data.DataLoader`): The validation set
         """
-        self.num_samples_per_device_train = len(dataloader_train)
-        self.num_batches_per_device_train = math.ceil(
-            1.0 * self.num_samples_per_device_train / self.batch_size)
-        self.num_samples_per_device_val = len(dataloader_train)
-        self.num_batches_per_device_val = math.ceil(
-            1.0 * self.num_samples_per_device_val / self.batch_size)
+        self.num_batches_per_device_train = len(dataloader_train)
+        self.num_batches_per_device_val = len(dataloader_val)
 
     def run(self, dataloader_train=None, dataloader_val=None,
             dataloader_train_fn=None, dataloader_val_fn=None, resume=False,
@@ -101,10 +98,12 @@ class TrainValidation(object):
         """
 
         if not dataloader_train_fn and not dataloader_train:
-            raise ValueError("One of dataloader_train_fn or dataloader_train must be set")
+            raise ValueError(
+                "One of dataloader_train_fn or dataloader_train must be set")
 
         if not dataloader_val_fn and not dataloader_val:
-            raise ValueError("One of dataloader_val_fn or dataloader_val must be set")
+            raise ValueError(
+                "One of dataloader_val_fn or dataloader_val must be set")
 
         if dataloader_train_fn:
             dataloader_train = dataloader_train_fn()

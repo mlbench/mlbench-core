@@ -192,12 +192,16 @@ def log_metrics(run_id, rank, epoch, metric_name, value):
         metric_name (str): The name of the metric to save
         value (Any): The metric value
     """
-    api = ApiClient()
-    api.post_metric(
-        run_id,
-        metric_name,
-        value,
-        metadata="{{rank: {}, epoch:{}}}".format(rank, epoch))
+    in_cluster = os.getenv('MLBENCH_IN_DOCKER') is None
+    if in_cluster:
+        api = ApiClient()
+        api.post_metric(
+            run_id,
+            metric_name,
+            value,
+            metadata="{{rank: {}, epoch:{}}}".format(rank, epoch))
+    else:
+        pass
 
 
 def config_path(ckpt_run_dir, resume=False):
