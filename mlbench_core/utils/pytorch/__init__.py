@@ -8,7 +8,7 @@ from .topology import FCGraph
 __all__ = ['initialize_backends', 'Timeit', 'FCGraph']
 
 
-def initialize_backends(comm_backend='mpi', logging_level='info',
+def initialize_backends(comm_backend='mpi', logging_level='INFO',
                         logging_file='/mlbench.log', use_cuda=False,
                         seed=None, cudnn_deterministic=False,
                         ckpt_run_dir='/checkpoints', resume=False):

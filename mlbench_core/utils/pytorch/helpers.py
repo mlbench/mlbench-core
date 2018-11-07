@@ -100,7 +100,7 @@ def convert_dtype(dtype, obj):
         raise NotImplementedError('dtype {} not supported.'.format(dtype))
 
 
-def config_logging(logging_level='info', logging_file='/mlbench.log'):
+def config_logging(logging_level='INFO', logging_file='/mlbench.log'):
     """Setup logging modules.
 
     A stream handler and file handler are added to default logger `mlbench`.
@@ -201,8 +201,8 @@ def config_path(ckpt_run_dir, resume=False):
     os.makedirs(ckpt_run_dir, exist_ok=True)
 
 
-def iterate_dataloader(dataloader, max_batch_per_epoch, use_cuda=False,
-                       transform_target_type=None, dtype=None):
+def iterate_dataloader(dataloader, dtype, max_batch_per_epoch=None, use_cuda=False,
+                       transform_target_type=None):
     for _, (data, target) in zip(maybe_range(max_batch_per_epoch),
                                  dataloader):
 

@@ -17,9 +17,10 @@ logger = logging.getLogger('mlbench')
 class TrainValidation(object):
     r"""Train and validate a model."""
     def __init__(self, model, optimizer, loss_function, metrics, scheduler,
-                 batch_size, train_epochs, rank, world_size, run_id, validate=True,
-                 schedule_per='epoch', checkpoint=None, transform_target_type=None,
-                 average_models=False, use_cuda=False):
+                 batch_size, train_epochs, rank, world_size, run_id, dtype,
+                 validate=True, schedule_per='epoch', checkpoint=None,
+                 transform_target_type=None, average_models=False,
+                 use_cuda=False, max_batch_per_epoch=None):
         self.tracker = Tracker()
         self.batch_size = batch_size
         self.train_epochs = train_epochs
@@ -37,6 +38,8 @@ class TrainValidation(object):
         self.transform_target_type = transform_target_type
         self.average_models = average_models
         self.use_cuda = use_cuda
+        self.max_batch_per_epoch = max_batch_per_epoch
+        self.dtype = dtype
 
     def _get_dataloader_stats(self, dataloader_train, dataloader_val):
         self.num_samples_per_device_train = len(dataloader_train)
@@ -45,7 +48,6 @@ class TrainValidation(object):
         self.num_samples_per_device_val = len(dataloader_train)
         self.num_batches_per_device_val = math.ceil(
             1.0 * self.num_samples_per_device_val / self.batch_size)
-
 
     def run(self, dataloader_train=None, dataloader_val=None,
             dataloader_train_fn=None, dataloader_val_fn=None, resume=False,
@@ -138,7 +140,11 @@ class TrainValidation(object):
             for k in ["loss"] + [m.name for m in self.metrics]}
         # switch to train mode
         self.model.train()
-        data_iter = iterate_dataloader(dataloader)
+        data_iter = iterate_dataloader(
+            dataloader,
+            self.dtype,
+            self.max_batch_per_epoch,
+            self.use_cuda)
 
         for batch_idx, (data, target) in enumerate(data_iter):
             self.tracker.batch_stats = [("start", time.time())]
@@ -182,7 +188,7 @@ class TrainValidation(object):
         progress = batch_idx / self.num_batches_per_device_train
         progress += self.tracker.current_epoch
 
-        self.tracker.epoch_stats["loss"].update(loss, output.size())
+        self.tracker.epoch_stats["loss"].update(loss, output.size()[0])
 
         str_builder = ["Epoch {:5.2f} Batch {:4}: loss={:6.2e}".format(
             progress, batch_idx, self.tracker.epoch_stats["loss"].avg)]
@@ -193,7 +199,7 @@ class TrainValidation(object):
 
             self.tracker.epoch_stats[metric.name].update(
                 metric_value,
-                output.size())
+                output.size()[0])
 
             str_builder.append("{} {:.2e}".format(
                 metric.name, self.tracker.epoch_stats[metric.name].avg))
@@ -298,6 +304,7 @@ class TrainValidation(object):
         with torch.no_grad():
             data_iter = iterate_dataloader(
                 dataloader,
+                self.dtype,
                 self.max_batch_per_epoch,
                 self.use_cuda)
 
