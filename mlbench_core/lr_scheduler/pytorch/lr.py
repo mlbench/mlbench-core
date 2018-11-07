@@ -22,6 +22,11 @@ def triangular_learning_rates(optimizer, base_lr, max_lr, cycle_length, scale_fn
         base_lr (float): Lower bound and initial learning rate in a cycle.
         max_lr (float): Upper bound in a cycle
         cycle_length (int): Length of a cycle in terms of batches.
+        scale_fn(:func:`Function`): The scaling function.
+        extra (int): The number of extra epochs to perform after a cycle
+        mode (str): The scaling mode to use. One of `linear`, `triangular`, `one_cycle`,
+            `triangular2` or `exp_range`
+
     Returns:
         A learning rate scheduler (:obj:`torch.optim.lr_scheduler.LambdaLR`)
     """
@@ -64,8 +69,14 @@ def cyclical_learning_rates(optimizer, mode, gamma, cycle_length, base_lr, max_l
     :cite:`smith2017super` uses one cycle with extra epochs.
 
     Args:
-        config (:obj:`types.SimpleNamespace`): a global object containing all of the config.
         optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
+        mode (str): The scaling mode to use. One of `linear`, `triangular`, `one_cycle`,
+            `triangular2` or `exp_range`
+        base_lr (float): Lower bound and initial learning rate in a cycle.
+        max_lr (float): Upper bound in a cycle
+        max_lr (float): The maximum learning rate
+        extra_epochs (int): The number of extra epochs to perform after a cycle
+
     Returns:
         A learning rate scheduler (:obj:`torch.optim.lr_scheduler.LambdaLR`)
     """
@@ -93,8 +104,17 @@ def multistep_learning_rates_with_warmup(optimizer, world_size, lr, gamma, miles
     See :cite:`ginsburg2018large`
 
     Args:
-        config (:obj:`types.SimpleNamespace`): a global object containing all of the config.
         optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
+        world_size (int): The total number of workers
+        lr (float): The initial learning rate
+        gamma (float): Decay factor for learning rate
+        milestones (:obj:`list` of :obj:`int`): The epochs/steps at which to reduce the
+            learning rate
+        warmup_duration (int): The number of epochs to perform warmup before regular
+            lr scaling starts. Default: `None`
+        warmup_lr (float): The learning rate to use for the warmup epochs. Default: `None`
+        warmup_linear_scaling (bool): Whether or not to linearily scale lr during
+            warmup. Default: `False`
     Returns:
         A learning rate scheduler (:obj:`torch.optim.lr_scheduler.LambdaLR`)
     """

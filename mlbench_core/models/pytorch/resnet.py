@@ -355,12 +355,26 @@ def resnet18_bkj(num_classes):
     `implementation <https://github.com/bkj/basenet/blob/49b2b61e5b9420815c64227c5a10233267c1fb14/examples/cifar10.py>`_
     comes from which gives results in
     `DAWNBench <https://github.com/stanford-futuredata/dawn-bench-entries/blob/master/CIFAR10/train/basenet.json>`_.
+
+    Args:
+        num_classes (int): The number of output classes.
     """
     model = ResNet18_CIFAR10([2, 2, 2, 2], num_classes=num_classes)
     return model
 
 
 def get_resnet_model(model, version, dtype, num_classes=1000, use_cuda=False):
+    """ Create a resnet model
+
+    Args:
+        model (str): The name of the model, e.g. `resnet18`
+        version (int): The resnet version to use, `1`or `2`
+        num_classes (int): The number of output classes. Default: `1000`
+        use_cuda (bool): Whether to train on the GPU or not. Default: `False`
+
+    Returns:
+        A `torch.nn.Module` Resnet Model
+    """
     if model == 'resnet18':
         model = resnet18_bkj(num_classes)
     elif model in ['resnet20', 'resnet32', 'resnet44', 'resnet56', 'resnet110']:

@@ -15,7 +15,30 @@ logger = logging.getLogger('mlbench')
 
 
 class TrainValidation(object):
-    r"""Train and validate a model."""
+    r"""Train and validate a model.
+
+    Args:
+        model (:obj:`torch.nn.Module`): a pytorch model to be trained and validated.
+        optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
+        loss_function (:obj:`torch.nn.modules.loss._Loss`): loss function.
+        metrics (:obj:`list` of :obj:`mlbench_core.evaluation.pytorch.*`): metrics like TopKAccuracy.
+        scheduler (:obj:`mlbench_core.lr_scheduler.pytorch.lr.*`): a scheduler for hyperparameters.
+        batch_size (int): The size of batches provided by the dataloader
+        train_epochs (int): The number of epochs to train for
+        rank (int): The rank of the current workers
+        world_size (int): The total number of workers
+        run_id (str): The id of the current run
+        dtype (str): The datatype to use for the dataloader data
+        validate (bool): Whether to run validation on the val dataset. Default: `True`
+        schedule_per (str): When to perform a step for the lr scheduler, one of
+            `epoch` or `batch`. Default: `epoch`
+        checkpoint (:obj:`Checkpointer`): Class that handles checkpointing. Default: `None`
+        transform_target_type (str): dtype to transform the target to. Not used. Default: `None`
+        average_models (bool): Whether to average models together. Default: `False`
+        use_cuda (bool): Whether to train on GPU or not. Default: `False`
+        max_batch_per_epoch (int): Maximum number of batches per epoch. Whole dataset
+            is used if not specified. Default: `None`
+    """
     def __init__(self, model, optimizer, loss_function, metrics, scheduler,
                  batch_size, train_epochs, rank, world_size, run_id, dtype,
                  validate=True, schedule_per='epoch', checkpoint=None,
@@ -42,6 +65,12 @@ class TrainValidation(object):
         self.dtype = dtype
 
     def _get_dataloader_stats(self, dataloader_train, dataloader_val):
+        """ Sets the stats for the supplied dataloaders
+
+        Args:
+            dataloader_train (:obj:`torch.utils.data.DataLoader`): The train set
+            dataloader_val (:obj:`torch.utils.data.DataLoader`): The validation set
+        """
         self.num_samples_per_device_train = len(dataloader_train)
         self.num_batches_per_device_train = math.ceil(
             1.0 * self.num_samples_per_device_train / self.batch_size)
@@ -52,16 +81,23 @@ class TrainValidation(object):
     def run(self, dataloader_train=None, dataloader_val=None,
             dataloader_train_fn=None, dataloader_val_fn=None, resume=False,
             repartition_per_epoch=False):
-        """Train models and perform validation.
+        """Execute training and (possibly) validation
+
+        `dataloader_train` and `dataloader_train_fn` are mutually exclusive.
+        `dataloader_val` and `dataloader_val_fn` are mutually exclusive.
 
         Args:
-            model (:obj:`torch.nn.Module`): a pytorch model to be trained and validated.
-            optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
-            loss_function (:obj:`torch.nn.modules.loss._Loss`): loss function.
-            metrics (:obj:`list` of :obj:`mlbench_core.evaluation.pytorch.*`): metrics like TopKAccuracy.
-            scheduler (:obj:`mlbench_core.lr_scheduler.pytorch.lr.*`): a scheduler for hyperparameters.
-            config (:obj:`types.SimpleNamespace`): a global object containing all of the config.
-            dataloader_fn (:func:`Function`): A function returning a :obj:`torch.utils.data.DataLoader`.
+            dataloader_train (:obj:`torch.utils.data.DataLoader`): A dataloader for the train set.
+                Default: `None`
+            dataloader_val (:obj:`torch.utils.data.DataLoader`): A dataloader for the val set.
+                Default: `None`
+            dataloader_train_fn (:func:`Function`): A function returning a :obj:`torch.utils.data.DataLoader`
+                for the train set. Default: `None`
+            dataloader_val_fn (:func:`Function`): A function returning a :obj:`torch.utils.data.DataLoader`
+                for the val set. Default: `None`
+            resume (bool): Whether this is a resume of a previous run or not. Default: `False`
+            repartition_per_epoch (bool): Whether to repartition the dataset again every epoch.
+                Requires dataloader_train_fn and/or dataloader_val_fn to be set. Default: `False`
         """
 
         if not dataloader_train_fn and not dataloader_train:
@@ -134,7 +170,11 @@ class TrainValidation(object):
                 self._get_dataloader_stats(dataloader_train, dataloader_val)
 
     def train_epoch(self, dataloader):
-        """Train model for one epoch of data."""
+        """Train model for one epoch of data.
+
+        Args:
+            dataloader (:obj:`torch.utils.data.DataLoader`): The train set
+        """
         self.tracker.epoch_stats = {
             k: AverageMeter()
             for k in ["loss"] + [m.name for m in self.metrics]}
@@ -184,7 +224,14 @@ class TrainValidation(object):
                 target)
 
     def record_train_batch_stats(self, batch_idx, loss, output, target):
-        r"""Record the stats in a training batch."""
+        r"""Record the stats in a training batch.
+
+        Args:
+            batch_idx (int): The id of the current batch
+            loss (float): The loss of the batch
+            output (:obj:`torch.Tensor`): The model output
+            target (:obj:`torch.Tensor`): The labels for the current batch
+        """
         progress = batch_idx / self.num_batches_per_device_train
         progress += self.tracker.current_epoch
 
@@ -227,7 +274,11 @@ class TrainValidation(object):
             loss)
 
     def do_validate(self, dataloader):
-        """Evaluate the model on the test dataset and save to the checkpoint."""
+        """Evaluate the model on the test dataset and save to the checkpoint.
+
+        Args:
+            dataloader (:obj:`torch.utils.data.DataLoader`): The validation set
+        """
         # evaluate the model.
         metrics_values, loss = self.validate(dataloader)
 
@@ -279,18 +330,8 @@ class TrainValidation(object):
     def validate(self, dataloader):
         r"""Validate the quality of the model in terms of loss and metrics.
 
-        :param model: PyTorch Models.
-        :type model: nn.Module
-        :param loss_function: A loss function
-        :type loss_function: nn.modules.loss
-        :param metrics: metrics to measure
-        :type metrics: list
-        :param config: configurations of the training.
-        :type config: argparse.Namespace
-        :param dataloader: load data in batches.
-        :type dataloader: torch.utils.data.dataloader.DataLoader
-        :returns: global metrics and loss related to current model
-        :rtype: dict, float
+        Args:
+            dataloader (:obj:`torch.utils.data.DataLoader`): The validation set
         """
         # Turn on evaluation mode for the model
         self.model.eval()

@@ -183,6 +183,15 @@ def config_pytorch(use_cuda=False, seed=None, cudnn_deterministic=False):
 
 
 def log_metrics(run_id, rank, epoch, metric_name, value):
+    """ Log metrics to mlbench master/dashboard
+
+    Args:
+        run_id (str): The id of the current run
+        rank (int): The rank of the current worker
+        epoch (int): The current epoch
+        metric_name (str): The name of the metric to save
+        value (Any): The metric value
+    """
     api = ApiClient()
     api.post_metric(
         run_id,
