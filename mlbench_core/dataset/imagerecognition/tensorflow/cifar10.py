@@ -12,17 +12,17 @@ import tensorflow as tf
 
 class DatasetCifar(object):
 
-    def __init__(self, config):
+    def __init__(self, dataset, dataset_root, batch_size, world_size, seed, tf_dtype=tf.float32):
         """init parameters."""
         # define image size and some commonly used parameters.
         self.data_url = 'http://www.cs.toronto.edu/~kriz/{}-binary.tar.gz'.format(
-            config.dataset)
+            dataset)
 
-        self.config = config
-        self.dataset = config.dataset
-        self.dataset_dir = config.dataset_root
+        self.dataset = dataset
+        self.dataset_dir = dataset_root
+        self.seed = seed
 
-        self.batch_size = config.batch_size * config.world_size
+        self.batch_size = batch_size * world_size
         self.num_examples_per_epoch_for_train = 50000
         self.num_examples_per_epoch_for_eval = 10000
         self.num_batches_per_epoch_for_train = \
@@ -33,7 +33,7 @@ class DatasetCifar(object):
         self.image_size = 32
         self.image_channel = 3
 
-        if config.dataset == 'cifar-10':
+        if dataset == 'cifar-10':
             self.label_bytes = 1
             self.label_offset = 0
             self.num_classes = 10
@@ -59,12 +59,12 @@ class DatasetCifar(object):
 
         # Placeholders
         self.inputs = tf.placeholder(
-            config.tf_dtype,
+            tf_dtype,
             (None, self.image_size, self.image_size, self.image_channel),
             name='inputs')
 
         self.labels = tf.placeholder(
-            config.tf_dtype, (None, self.num_classes), name='labels')
+            tf_dtype, (None, self.num_classes), name='labels')
 
     def maybe_download_and_extract(self):
         """Download and extract the tarball from Alex's website."""
@@ -200,7 +200,7 @@ class DatasetCifar(object):
             # we choose to shuffle the full epoch.
             dataset = dataset.shuffle(
                 buffer_size=self.num_examples_per_epoch_for_train,
-                seed=self.config.seed, reshuffle_each_iteration=True)
+                seed=self.seed, reshuffle_each_iteration=True)
 
         dataset = dataset.map(self.parse_record, num_parallel_calls=8)
         # TODO: change num_parallel_calls?
