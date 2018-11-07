@@ -325,7 +325,8 @@ class TrainValidation(object):
 
         if self.checkpoint:
             self.checkpoint.save(self.tracker, self.model,
-                                 self.optimizer, self.scheduler, is_best)
+                                 self.optimizer, self.scheduler,
+                                 self.tracker.current_epoch, is_best)
 
     def validate(self, dataloader):
         r"""Validate the quality of the model in terms of loss and metrics.
