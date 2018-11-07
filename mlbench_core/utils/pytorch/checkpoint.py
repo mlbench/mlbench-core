@@ -5,102 +5,128 @@ import torch
 from mlbench_core.utils.pytorch.distributed import elementwise_min
 
 
-def get_ckpt_run_dir(checkpoint_root, run_id, dataset_name, model_name, optimizer_name):
-    if isinstance(run_id, str):
-        assert '_' not in run_id
-    run_dir = "{run_id}_{dataset}_{model}_{optimizer}".format(
-        run_id=run_id, dataset=dataset_name, model=model_name, optimizer=optimizer_name)
-    return os.path.join(checkpoint_root, run_dir)
+class Checkpointer(object):
+    """ A class for handling checkpoint saving and loading
 
+    Args:
+        ckpt_run_dir (str): The path of the checkpoint directory.
+        rank (int): The rank of the current worker.
+        checkpoint_all (bool): Whether to checkpoint on all epochs
+            or just when a new best score was achieved. Default: `False`
+    """
+    def __init__(self, ckpt_run_dir, rank, checkpoint_all=False):
+        self.dirname = ckpt_run_dir
+        self.rank = rank
+        self.checkpoint_all = checkpoint_all
+        self.runtime = {'cumu_time_val': []}
 
-def get_ckpt_id(epoch, rank):
-    # {epoch}_{batch} can be sorted
-    return "{epoch}_{rank}.pth.tar".format(epoch=epoch, rank=rank)
+    def get_ckpt_id(self, epoch):
+        """ Get the name of a checkpoint
 
+        Args:
+            epoch (int): The current epoch.
 
-def determine_restore_ckpt_path(rank, checkpoint_root, run_id):
-    """Determine the checkpoint path to restore."""
-    ckpt_run_dirs = os.listdir(checkpoint_root)
+        Returns:
+            The name for the current checkpoint
+        """
+        # {epoch}_{batch} can be sorted
+        return "{epoch}_{rank}.pth.tar".format(epoch=epoch, rank=self.rank)
 
-    # parse run_ids
-    found_ckpts = list(filter(lambda x: x.split("_", 1)[
-                       0] == str(run_id), ckpt_run_dirs))
+    def save(self, tracker, model, optimizer, scheduler, epoch, is_best):
+        """ Saves a checkpoint
 
-    if len(found_ckpts) == 1:
-        found_ckpts = found_ckpts[0]
+        Args:
+            tracker (:obj:`mlbench_core.utils.pytorch.helpers.Tracker`): The
+                metrics tracker object
+            model (:obj:`torch.nn.Module`): a pytorch model to be trained and validated.
+            optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
+            scheduler (:obj:`mlbench_core.lr_scheduler.pytorch.lr.*`): a scheduler for
+                hyperparameters.
+            epoch (int): The current epoch
+            is_best (bool): Whether the current model is a new best scoring one
+        """
+        state = {
+            'tracker': tracker,
+            'model': model.state_dict(),
+            'optimizer': optimizer.state_dict(),
+            'scheduler': scheduler.state_dict(),
+            'checkpoint_all': self.checkpoint_all
+        }
 
-        ckpt_ids = os.listdir(os.path.join(checkpoint_root, found_ckpts))
-        ckpt_ids = list(set(ckpt_ids) - set(['model_best.pth.tar']))
+        filename = self.get_ckpt_id(tracker.current_epoch)
+        checkpoint_path = os.path.join(self.dirname, filename)
+        best_model_path = os.path.join(self.dirname, 'model_best.pth.tar')
 
-        latest = sorted(map(lambda x: x.split("_")[:2], ckpt_ids))[-1]
-        latest = elementwise_min(torch.Tensor([int(latest[0])]))
-        epoch = latest[0]
-
-        path = os.path.join(checkpoint_root, found_ckpts,
-                            get_ckpt_id(epoch, rank))
-        return path
-    else:
-        raise FileNotFoundError("Found {}".format(found_ckpts))
-
-
-def save(config, tracker, model, optimizer, scheduler, is_best):
-    if config.checkpoint == 'never':
-        return
-
-    state = {
-        'tracker': tracker,
-        'model': model.state_dict(),
-        'optimizer': optimizer.state_dict(),
-        'scheduler': scheduler.state_dict(),
-    }
-
-    dirname = config.ckpt_run_dir
-    filename = get_ckpt_id(tracker.current_epoch, config.rank)
-    checkpoint_path = os.path.join(dirname, filename)
-    best_model_path = os.path.join(dirname, 'model_best.pth.tar')
-
-    if config.checkpoint == 'all':
-        torch.save(state, checkpoint_path)
-        if is_best:
-            shutil.copyfile(checkpoint_path, best_model_path)
-    elif config.checkpoint == 'best':
-        torch.save(state, best_model_path)
-    else:
-        raise NotImplementedError
-
-
-def resume(config, model, optimizer, scheduler):
-    # FIXME: using tracker
-    checkpoint_path = determine_restore_ckpt_path(
-        config.rank, config.checkpoint_root, config.run_id)
-
-    print('Try to load previous model from the path:{}'.format(checkpoint_path))
-    if os.path.isfile(checkpoint_path):
-        # get checkpoint.
-        checkpoint = torch.load(checkpoint_path)
-        if isinstance(checkpoint, dict):
-            # restore models
-            model.load_state_dict(checkpoint['model'])
-            optimizer.load_state_dict(checkpoint['optimizer'])
-            scheduler.load_state_dict(checkpoint['scheduler'])
+        if self.checkpoint_all:
+            torch.save(state, checkpoint_path)
+            if is_best:
+                shutil.copyfile(checkpoint_path, best_model_path)
         else:
-            raise NotImplementedError(type(checkpoint))
+            torch.save(state, best_model_path)
 
-            # logging.
-        print("Loaded checkpoint '{}' (epoch {})".format(
-            checkpoint_path, checkpoint['config_runtime']['current_epoch']))
-        checkpoint['config_runtime']['current_epoch'] = checkpoint['config_runtime']['current_epoch']
-    else:
-        raise FileNotFoundError(
-            "No checkpoint found at '{}'".format(config.resume))
-    return checkpoint['config_runtime']
+    @staticmethod
+    def load(ckpt_run_dir, rank, model, optimizer, scheduler):
+        """ Loads a checkpoint
+
+        Args:
+            ckpt_run_dir (str): Folder path of checkpoint directory
+            rank (int): The rank of the current worker
+            model (:obj:`torch.nn.Module`): a pytorch model to be trained and validated.
+            optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
+            scheduler (:obj:`mlbench_core.lr_scheduler.pytorch.lr.*`): a scheduler for
+                hyperparameters.
+
+        Returns:
+            A tuple of `(Checkpointer, model, optimizer, scheduler)`
+        """
+
+        checkpoint_path = determine_restore_ckpt_path(rank, ckpt_run_dir)
+
+        if not os.path.isfile(checkpoint_path):
+            raise FileNotFoundError(
+                "No checkpoint found at '{}' for rank '{}'".format(ckpt_run_dir, rank))
+
+        checkpoint = torch.load(checkpoint_path)
+
+        model.load_state_dict(checkpoint['model'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        scheduler.load_state_dict(checkpoint['scheduler'])
+
+        checkpoint_all = checkpoint['checkpoint_all']
+
+        checkpointer = Checkpointer(ckpt_run_dir, rank, checkpoint_all)
+        checkpointer.runtime['cumu_time_val'] = checkpoint['tracker']['cumu_time_val']
+
+        return checkpointer, model, optimizer, scheduler
+
+
+def determine_restore_ckpt_path(rank, checkpoint_root):
+    """Determine the checkpoint path to restore.
+
+    Args:
+        rank (int): The rank of the current worker
+        checkpoint_root (str): Folder path of checkpoint directory
+
+    Returns:
+        The path of the newest checkpoint for this worker
+    """
+
+    ckpt_ids = os.listdir(checkpoint_root)
+    ckpt_ids = list(set(ckpt_ids) - set(['model_best.pth.tar']))
+
+    ckpt_ids = filter(lambda x: x.split("_")[1] == rank, ckpt_ids)
+
+    latest = sorted(ckpt_ids, reverse=True)
+
+    path = os.path.join(checkpoint_root, latest[0])
+    return path
 
 
 def maybe_resume(config, model, optimizer, scheduler):
     """Recover the state of config, model, optimizer and scheduler."""
-    if config.resume:
+    if 'resume' in config and config['resume']:
         # reload model from the latest checkpoint.
-        config.runtime = resume(config, model, optimizer, scheduler)
+        config['runtime'] = resume(config, model, optimizer, scheduler)
     else:
-        config.runtime = {}
+        config['runtime'] = {}
     return config
