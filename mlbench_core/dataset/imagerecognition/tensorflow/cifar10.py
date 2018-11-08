@@ -18,7 +18,17 @@ class DatasetCifar(object):
     """
 
     def __init__(self, dataset, dataset_root, batch_size, world_size, seed, tf_dtype=tf.float32):
-        """init parameters."""
+        """
+        Args:
+            dataset (str): Name of the dataset e.g. `cifar-10`, `cifar-100`.
+            dataset_root (str): Root directory to the dataset.
+            batch_size (int): Size of batch.
+            world_size (int): Size of the world size.
+            seed (int): Seed of random number.
+            tf_dtype (tensorflow.python.framework.dtypes.DType, optional): Defaults to tf.float32.
+                Datatypes of the tensor.
+        """
+
         # define image size and some commonly used parameters.
         self.data_url = 'http://www.cs.toronto.edu/~kriz/{}-binary.tar.gz'.format(
             dataset)
@@ -191,14 +201,13 @@ class DatasetCifar(object):
         """Input_fn using the tf.data input pipeline for CIFAR-10 dataset.
 
         Args:
-          is_train: A boolean denoting whether the input is for training.
-          data_dir: The directory containing the input data.
-          batch_size: The number of samples per batch.
-          num_epochs: The number of epochs to repeat the dataset.
+            is_train (bool): A boolean denoting whether the input is for training.
+            num_epochs (int, optional): Defaults to 1. The number of epochs to repeat the dataset.
 
         Returns:
-          A tuple of images and labels.
+            tuple: A tuple of images and labels.
         """
+
         dataset = self.record_dataset(self.get_filenames(is_train))
 
         if is_train:

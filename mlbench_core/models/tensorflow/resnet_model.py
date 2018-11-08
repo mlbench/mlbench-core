@@ -52,11 +52,11 @@ def fixed_padding(inputs, kernel_size, data_format):
     """Pads the input along the spatial dimensions independently of input size.
 
     Args:
-      inputs: A tensor of size [batch, channels, height_in, width_in] or
+      inputs (:obj:`tf.Tensor`): A tensor of size [batch, channels, height_in, width_in] or
         [batch, height_in, width_in, channels] depending on data_format.
-      kernel_size: The kernel to be used in the conv2d or max_pool2d operation.
+      kernel_size (int): The kernel to be used in the conv2d or max_pool2d operation.
                    Should be a positive integer.
-      data_format: The input format ('channels_last' or 'channels_first').
+      data_format (str): The input format ('channels_last' or 'channels_first').
 
     Returns:
       A tensor with the same format as the input with the data either intact
@@ -102,16 +102,16 @@ def _building_block_v1(inputs, filters, training, projection_shortcut, strides,
       by Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun, Dec 2015.
 
     Args:
-      inputs: A tensor of size [batch, channels, height_in, width_in] or
+      inputs (:obj:`tf.Tensor`): A tensor of size [batch, channels, height_in, width_in] or
         [batch, height_in, width_in, channels] depending on data_format.
-      filters: The number of filters for the convolutions.
-      training: A Boolean for whether the model is in training or inference
+      filters (int): The number of filters for the convolutions.
+      training (bool): A Boolean for whether the model is in training or inference
         mode. Needed for batch normalization.
-      projection_shortcut: The function to use for projection shortcuts
+      projection_shortcut (callable): The function to use for projection shortcuts
         (typically a 1x1 convolution when downsampling the input).
-      strides: The block's stride. If greater than 1, this block will ultimately
+      strides (int): The block's stride. If greater than 1, this block will ultimately
         downsample the input.
-      data_format: The input format ('channels_last' or 'channels_first').
+      data_format (str): The input format ('channels_last' or 'channels_first').
 
     Returns:
       The output tensor of the block; shape should match inputs.
@@ -149,16 +149,16 @@ def _building_block_v2(inputs, filters, training, projection_shortcut, strides,
       by Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun, Jul 2016.
 
     Args:
-      inputs: A tensor of size [batch, channels, height_in, width_in] or
+      inputs (:obj:`tf.Tensor`): A tensor of size [batch, channels, height_in, width_in] or
         [batch, height_in, width_in, channels] depending on data_format.
-      filters: The number of filters for the convolutions.
-      training: A Boolean for whether the model is in training or inference
+      filters (int): The number of filters for the convolutions.
+      training (bool): A Boolean for whether the model is in training or inference
         mode. Needed for batch normalization.
-      projection_shortcut: The function to use for projection shortcuts
+      projection_shortcut (callable): The function to use for projection shortcuts
         (typically a 1x1 convolution when downsampling the input).
-      strides: The block's stride. If greater than 1, this block will ultimately
+      strides (int): The block's stride. If greater than 1, this block will ultimately
         downsample the input.
-      data_format: The input format ('channels_last' or 'channels_first').
+      data_format (str): The input format ('channels_last' or 'channels_first').
 
     Returns:
       The output tensor of the block; shape should match inputs.
@@ -197,16 +197,16 @@ def _bottleneck_block_v1(inputs, filters, training, projection_shortcut,
         by Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun, Dec 2015.
 
     Args:
-      inputs: A tensor of size [batch, channels, height_in, width_in] or
+      inputs (:obj:`tf.Tensor`): A tensor of size [batch, channels, height_in, width_in] or
         [batch, height_in, width_in, channels] depending on data_format.
-      filters: The number of filters for the convolutions.
-      training: A Boolean for whether the model is in training or inference
+      filters (int): The number of filters for the convolutions.
+      training (bool): A Boolean for whether the model is in training or inference
         mode. Needed for batch normalization.
-      projection_shortcut: The function to use for projection shortcuts
+      projection_shortcut (callable): The function to use for projection shortcuts
         (typically a 1x1 convolution when downsampling the input).
-      strides: The block's stride. If greater than 1, this block will ultimately
+      strides (int): The block's stride. If greater than 1, this block will ultimately
         downsample the input.
-      data_format: The input format ('channels_last' or 'channels_first').
+      data_format (str): The input format ('channels_last' or 'channels_first').
 
     Returns:
       The output tensor of the block; shape should match inputs.
@@ -257,16 +257,16 @@ def _bottleneck_block_v2(inputs, filters, training, projection_shortcut,
         by Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun, Jul 2016.
 
     Args:
-      inputs: A tensor of size [batch, channels, height_in, width_in] or
+      inputs (:obj:`tf.Tensor`): A tensor of size [batch, channels, height_in, width_in] or
         [batch, height_in, width_in, channels] depending on data_format.
-      filters: The number of filters for the convolutions.
-      training: A Boolean for whether the model is in training or inference
+      filters (int): The number of filters for the convolutions.
+      training (bool): A Boolean for whether the model is in training or inference
         mode. Needed for batch normalization.
-      projection_shortcut: The function to use for projection shortcuts
+      projection_shortcut (callable): The function to use for projection shortcuts
         (typically a 1x1 convolution when downsampling the input).
-      strides: The block's stride. If greater than 1, this block will ultimately
+      strides (int): The block's stride. If greater than 1, this block will ultimately
         downsample the input.
-      data_format: The input format ('channels_last' or 'channels_first').
+      data_format (str): The input format ('channels_last' or 'channels_first').
 
     Returns:
       The output tensor of the block; shape should match inputs.
@@ -304,19 +304,19 @@ def block_layer(inputs, filters, bottleneck, block_fn, blocks, strides,
     """Creates one layer of blocks for the ResNet model.
 
     Args:
-      inputs: A tensor of size [batch, channels, height_in, width_in] or
+      inputs (:obj:`tf.Tensor`): A tensor of size [batch, channels, height_in, width_in] or
         [batch, height_in, width_in, channels] depending on data_format.
-      filters: The number of filters for the first convolution of the layer.
-      bottleneck: Is the block created a bottleneck block.
-      block_fn: The block to use within the model, either `building_block` or
+      filters (int): The number of filters for the first convolution of the layer.
+      bottleneck (bool): Is the block created a bottleneck block.
+      block_fn (callable): The block to use within the model, either `building_block` or
         `bottleneck_block`.
-      blocks: The number of blocks contained in the layer.
-      strides: The stride to use for the first convolution of the layer. If
+      blocks (int): The number of blocks contained in the layer.
+      strides (int): The stride to use for the first convolution of the layer. If
         greater than 1, this layer will ultimately downsample the input.
-      training: Either True or False, whether we are currently training the
+      training (bool): Either True or False, whether we are currently training the
         model. Needed for batch norm.
-      name: A string name for the tensor output of the block layer.
-      data_format: The input format ('channels_last' or 'channels_first').
+      name (str): A string name for the tensor output of the block layer.
+      data_format (str): The input format ('channels_last' or 'channels_first').
 
     Returns:
       The output tensor of the block layer.
@@ -352,28 +352,28 @@ class Model(object):
         """Creates a model for classifying an image.
 
         Args:
-          resnet_size: A single integer for the size of the ResNet model.
-          bottleneck: Use regular blocks or bottleneck blocks.
-          num_classes: The number of classes used as labels.
-          num_filters: The number of filters to use for the first block layer
+          resnet_size (int): A single integer for the size of the ResNet model.
+          bottleneck (bool): Use regular blocks or bottleneck blocks.
+          num_classes (int): The number of classes used as labels.
+          num_filters (int): The number of filters to use for the first block layer
             of the model. This number is then doubled for each subsequent block
             layer.
-          kernel_size: The kernel size to use for convolution.
-          conv_stride: stride size for the initial convolutional layer
-          first_pool_size: Pool size to be used for the first pooling layer.
+          kernel_size (int): The kernel size to use for convolution.
+          conv_stride (int): stride size for the initial convolutional layer
+          first_pool_size (int or None): Pool size to be used for the first pooling layer.
             If none, the first pooling layer is skipped.
-          first_pool_stride: stride size for the first pooling layer. Not used
+          first_pool_stride (int or None): stride size for the first pooling layer. Not used
             if first_pool_size is None.
-          block_sizes: A list containing n values, where n is the number of sets of
+          block_sizes (list): A list containing n values, where n is the number of sets of
             block layers desired. Each value should be the number of blocks in the
             i-th set.
-          block_strides: List of integers representing the desired stride size for
+          block_strides (list): List of integers representing the desired stride size for
             each of the sets of block layers. Should be same length as block_sizes.
-          resnet_version: Integer representing which version of the ResNet network
+          resnet_version (int): Integer representing which version of the ResNet network
             to use. See README for details. Valid values: [1, 2]
-          data_format: Input format ('channels_last', 'channels_first', or None).
+          data_format (str): Input format ('channels_last', 'channels_first', or None).
             If set to None, the format is dependent on whether a GPU is available.
-          dtype: The TensorFlow dtype to use for calculations. If not specified
+          dtype (type): The TensorFlow dtype to use for calculations. If not specified
             tf.float32 is used.
 
         Raises:
@@ -441,7 +441,7 @@ class Model(object):
             tf.get_variable and returns a variable.
           name: The name of the variable to get.
           shape: The shape of the variable to get.
-          dtype: The dtype of the variable to get. Note that if this is a low
+          dtype (type): The dtype of the variable to get. Note that if this is a low
             precision dtype, the variable will be created as a tf.float32 variable,
             then cast to the appropriate dtype
           *args: Additional arguments to pass unmodified to getter.
@@ -473,8 +473,8 @@ class Model(object):
         """Add operations to classify a batch of input images.
 
         Args:
-          inputs: A Tensor representing a batch of input images.
-          training: A boolean. Set to True to add operations required only when
+          inputs (:obj:`tf.Tensor`): A Tensor representing a batch of input images.
+          training (:obj:`tf.Tensor`): A boolean. Set to True to add operations required only when
             training the classifier.
 
         Returns:
@@ -547,14 +547,14 @@ class Cifar10Model(Model):
         """These are the parameters that work for CIFAR-10 data.
 
         Args:
-          resnet_size: The number of convolutional layers needed in the model.
-          data_format: Either 'channels_first' or 'channels_last', specifying which
+          resnet_size (int): The number of convolutional layers needed in the model.
+          data_format (str): Either 'channels_first' or 'channels_last', specifying which
             data format to use when setting up the model.
-          num_classes: The number of output classes needed from the model. This
+          num_classes (int): The number of output classes needed from the model. This
             enables users to extend the same model to their own datasets.
-          resnet_version: Integer representing which version of the ResNet network
-          to use. See README for details. Valid values: [1, 2]
-          dtype: The TensorFlow dtype to use for calculations.
+          resnet_version (int): Integer representing which version of the ResNet network
+          to use. Valid values: [1, 2]
+          dtype (tensorflow.python.framework.dtypes.DType): The TensorFlow dtype to use for calculations.
 
         Raises:
           ValueError: if invalid resnet_size is chosen

@@ -46,9 +46,23 @@ resnet
 .. automodule:: mlbench_core.models.tensorflow.resnet_model
 .. currentmodule:: mlbench_core.models.tensorflow.resnet_model
 
+
+.. autofunction:: fixed_padding
+.. autofunction:: conv2d_fixed_padding 
+.. autofunction:: block_layer
+.. autofunction:: batch_norm
+
+Model
+'''''
+
+.. autoclass:: Model
+    :members:
+
+
 Cifar10Model
 ''''''''''''
 
 .. autoclass:: Cifar10Model
     :members:
+
 

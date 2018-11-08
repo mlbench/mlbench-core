@@ -19,24 +19,22 @@ def manual_stepping(global_step, boundaries, rates, warmup=False):
     global_step=5...9, and .001 for global_step=10 and onward.
 
     Args:
-        global_step: int64 (scalar) tensor representing global step.
-        boundaries: a list of global steps at which to switch learning
-        rates.  This list is assumed to consist of increasing positive integers.
-        rates: a list of (float) learning rates corresponding to intervals between
-        the boundaries.  The length of this list must be exactly
-        len(boundaries) + 1.
-        warmup: Whether to linearly interpolate learning rate for steps in
-        [0, boundaries[0]].
-
-    Returns:
-        a (scalar) float tensor representing learning rate
+        global_step (:obj:`tf.Tensor`): int64 (scalar) tensor representing global step.
+        boundaries (list): a list of global steps at which to switch learning
+        rates (list): a list of (float) learning rates corresponding to intervals between
+            the boundaries.  The length of this list must be exactly len(boundaries) + 1.
+        warmup (bool, optional): Defaults to False. Whether to linearly interpolate learning
+            rate for steps in [0, boundaries[0]].
 
     Raises:
-        ValueError: if one of the following checks fails:
-        1. boundaries is a strictly increasing list of positive integers
-        2. len(rates) == len(boundaries) + 1
-        3. boundaries[0] != 0
+        ValueError: boundaries is a strictly increasing list of positive integers
+        ValueError: len(rates) == len(boundaries) + 1
+        ValueError: boundaries[0] != 0
+
+    Returns:
+        :obj:`tf.Tensor`: a (scalar) float tensor representing learning rate
     """
+
     if any([b < 0 for b in boundaries]) or any(
             [not isinstance(b, int) for b in boundaries]):
         raise ValueError('boundaries must be a list of positive integers')

@@ -132,10 +132,8 @@ class TrainValidation(object):
 
         Args:
             initial_epoch (int, optional): Defaults to 0. Initial epoch of training.
-            lr_scheduler ([type], optional): Defaults to None. [description]
-
-        Returns:
-            {Namespace}:
+            lr_scheduler (:obj:`tf.Tensor`, optional): Defaults to None.
+                A (scalar) float tensor representing learning rate
         """
 
         # Initialize Variables
