@@ -6,10 +6,10 @@ import torch.distributed as dist
 from collections import defaultdict
 
 from mlbench_core.utils.pytorch import checkpoint
-from mlbench_core.evaluation.pytorch.metrics import AverageMeter
+from mlbench_core.utils import AverageMeter, Tracker
 from mlbench_core.utils.pytorch.distributed import aggregate_gradients, global_average
 from mlbench_core.utils.pytorch.helpers import Timeit, update_best_runtime_metric, \
-    iterate_dataloader, log_metrics, Tracker
+    iterate_dataloader, log_metrics
 
 logger = logging.getLogger('mlbench')
 
@@ -188,8 +188,7 @@ class TrainValidation(object):
             config (:obj:`types.SimpleNamespace`): a global object containing all of the config.
             dataloader_fn (:func:`Function`): A function returning a :obj:`torch.utils.data.DataLoader`.
         """
-        # TODO: resume a tracker
-        tracker = Tracker(config)
+        tracker = Tracker()
 
         dataloader_train = dataloader_fn(train=True, config=config)
         dataloader_val = dataloader_fn(train=False, config=config)

@@ -1,13 +1,15 @@
-import argparse
 
-
-class Tracker(argparse.Namespace):
-    """A class to track running stats."""
-    pass
-
+from .tracker import AverageMeter, Tracker
 
 try:
     import torch
     from . import pytorch
+except ImportError:
+    pass
+
+
+try:
+    import tensorflow
+    from . import tensorflow
 except ImportError:
     pass

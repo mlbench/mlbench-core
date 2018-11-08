@@ -57,11 +57,6 @@ class Timeit(object):
         return self._cumu
 
 
-class Tracker(argparse.Namespace):
-    def __init__(self, config):
-        pass
-
-
 def maybe_range(maximum):
     """Map an integer or None to an integer iterator starting from 0 with strid 1.
 

@@ -1,6 +1,6 @@
 r"""Test the tensorflow load and preprocess cifar-10 correctly.
 
-Credit https://github.com/tensorflow/models/blob/master/tutorials/image/cifar-10/cifar-10_input.py
+Credit https://github.com/tensorflow/models/blob/master/tutorials/image/cifar10/cifar10_input.py
 """
 import types
 import os
@@ -11,6 +11,10 @@ import tensorflow as tf
 
 
 class DatasetCifar(object):
+    """
+    This clas is adapted from the following script
+    https://github.com/tensorflow/models/blob/master/tutorials/image/cifar10/cifar10_input.py
+    """
 
     def __init__(self, dataset, dataset_root, batch_size, world_size, seed, tf_dtype=tf.float32):
         """init parameters."""

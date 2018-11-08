@@ -13,19 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 """Contains definitions for Residual Networks.
-Residual networks ('v1' ResNets) were originally proposed in:
-[1] Kaiming He, Xiangyu Zhang, Shaoqing Ren, Jian Sun
-    Deep Residual Learning for Image Recognition. arXiv:1512.03385
-
-The full preactivation 'v2' ResNet variant was introduced by:
-[2] Kaiming He, Xiangyu Zhang, Shaoqing Ren, Jian Sun
-    Identity Mappings in Deep Residual Networks. arXiv: 1603.05027
-
+Residual networks ('v1' ResNets) were originally proposed in :cite:`he2016deep`.
+The full preactivation 'v2' ResNet variant was introduced by :cite:`he2016identity`.
 The key difference of the full preactivation 'v2' variant compared to the
 'v1' variant in [1] is the use of batch normalization before every weight layer
 rather than after.
-
-Change the initializers.
 """
 
 from __future__ import absolute_import
@@ -58,12 +50,14 @@ def batch_norm(inputs, training, data_format):
 
 def fixed_padding(inputs, kernel_size, data_format):
     """Pads the input along the spatial dimensions independently of input size.
+
     Args:
       inputs: A tensor of size [batch, channels, height_in, width_in] or
         [batch, height_in, width_in, channels] depending on data_format.
       kernel_size: The kernel to be used in the conv2d or max_pool2d operation.
                    Should be a positive integer.
       data_format: The input format ('channels_last' or 'channels_first').
+
     Returns:
       A tensor with the same format as the input with the data either intact
       (if kernel_size == 1) or padded (if kernel_size > 1).
@@ -101,10 +95,12 @@ def conv2d_fixed_padding(inputs, filters, kernel_size, strides, data_format):
 def _building_block_v1(inputs, filters, training, projection_shortcut, strides,
                        data_format):
     """A single block for ResNet v1, without a bottleneck.
+
     Convolution then batch normalization then ReLU as described by:
       Deep Residual Learning for Image Recognition
       https://arxiv.org/pdf/1512.03385.pdf
       by Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun, Dec 2015.
+
     Args:
       inputs: A tensor of size [batch, channels, height_in, width_in] or
         [batch, height_in, width_in, channels] depending on data_format.
@@ -116,6 +112,7 @@ def _building_block_v1(inputs, filters, training, projection_shortcut, strides,
       strides: The block's stride. If greater than 1, this block will ultimately
         downsample the input.
       data_format: The input format ('channels_last' or 'channels_first').
+
     Returns:
       The output tensor of the block; shape should match inputs.
     """
@@ -145,10 +142,12 @@ def _building_block_v1(inputs, filters, training, projection_shortcut, strides,
 def _building_block_v2(inputs, filters, training, projection_shortcut, strides,
                        data_format):
     """A single block for ResNet v2, without a bottleneck.
+
     Batch normalization then ReLu then convolution as described by:
       Identity Mappings in Deep Residual Networks
       https://arxiv.org/pdf/1603.05027.pdf
       by Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun, Jul 2016.
+
     Args:
       inputs: A tensor of size [batch, channels, height_in, width_in] or
         [batch, height_in, width_in, channels] depending on data_format.
@@ -160,6 +159,7 @@ def _building_block_v2(inputs, filters, training, projection_shortcut, strides,
       strides: The block's stride. If greater than 1, this block will ultimately
         downsample the input.
       data_format: The input format ('channels_last' or 'channels_first').
+
     Returns:
       The output tensor of the block; shape should match inputs.
     """
@@ -188,12 +188,14 @@ def _building_block_v2(inputs, filters, training, projection_shortcut, strides,
 def _bottleneck_block_v1(inputs, filters, training, projection_shortcut,
                          strides, data_format):
     """A single block for ResNet v1, with a bottleneck.
+
     Similar to _building_block_v1(), except using the "bottleneck" blocks
     described in:
       Convolution then batch normalization then ReLU as described by:
         Deep Residual Learning for Image Recognition
         https://arxiv.org/pdf/1512.03385.pdf
         by Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun, Dec 2015.
+
     Args:
       inputs: A tensor of size [batch, channels, height_in, width_in] or
         [batch, height_in, width_in, channels] depending on data_format.
@@ -205,6 +207,7 @@ def _bottleneck_block_v1(inputs, filters, training, projection_shortcut,
       strides: The block's stride. If greater than 1, this block will ultimately
         downsample the input.
       data_format: The input format ('channels_last' or 'channels_first').
+
     Returns:
       The output tensor of the block; shape should match inputs.
     """
@@ -240,6 +243,7 @@ def _bottleneck_block_v1(inputs, filters, training, projection_shortcut,
 def _bottleneck_block_v2(inputs, filters, training, projection_shortcut,
                          strides, data_format):
     """A single block for ResNet v2, with a bottleneck.
+
     Similar to _building_block_v2(), except using the "bottleneck" blocks
     described in:
       Convolution then batch normalization then ReLU as described by:
@@ -251,6 +255,7 @@ def _bottleneck_block_v2(inputs, filters, training, projection_shortcut,
         Identity Mappings in Deep Residual Networks
         https://arxiv.org/pdf/1603.05027.pdf
         by Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun, Jul 2016.
+
     Args:
       inputs: A tensor of size [batch, channels, height_in, width_in] or
         [batch, height_in, width_in, channels] depending on data_format.
@@ -262,6 +267,7 @@ def _bottleneck_block_v2(inputs, filters, training, projection_shortcut,
       strides: The block's stride. If greater than 1, this block will ultimately
         downsample the input.
       data_format: The input format ('channels_last' or 'channels_first').
+
     Returns:
       The output tensor of the block; shape should match inputs.
     """
@@ -296,6 +302,7 @@ def _bottleneck_block_v2(inputs, filters, training, projection_shortcut,
 def block_layer(inputs, filters, bottleneck, block_fn, blocks, strides,
                 training, name, data_format):
     """Creates one layer of blocks for the ResNet model.
+
     Args:
       inputs: A tensor of size [batch, channels, height_in, width_in] or
         [batch, height_in, width_in, channels] depending on data_format.
@@ -310,6 +317,7 @@ def block_layer(inputs, filters, bottleneck, block_fn, blocks, strides,
         model. Needed for batch norm.
       name: A string name for the tensor output of the block layer.
       data_format: The input format ('channels_last' or 'channels_first').
+
     Returns:
       The output tensor of the block layer.
     """
@@ -342,6 +350,7 @@ class Model(object):
                  resnet_version=DEFAULT_VERSION, data_format=None,
                  dtype=DEFAULT_DTYPE):
         """Creates a model for classifying an image.
+
         Args:
           resnet_size: A single integer for the size of the ResNet model.
           bottleneck: Use regular blocks or bottleneck blocks.
@@ -366,6 +375,7 @@ class Model(object):
             If set to None, the format is dependent on whether a GPU is available.
           dtype: The TensorFlow dtype to use for calculations. If not specified
             tf.float32 is used.
+
         Raises:
           ValueError: if invalid version is selected.
         """
@@ -410,6 +420,7 @@ class Model(object):
     def _custom_dtype_getter(self, getter, name, shape=None, dtype=DEFAULT_DTYPE,
                              *args, **kwargs):
         """Creates variables in fp32, then casts to fp16 if necessary.
+
         This function is a custom getter. A custom getter is a function with the
         same signature as tf.get_variable, except it has an additional getter
         parameter. Custom getters can be passed as the `custom_getter` parameter of
@@ -424,6 +435,7 @@ class Model(object):
         requested dtype. The reason we do not directly create variables in low
         precision dtypes is that applying small gradients to such variables may
         cause the variable not to change.
+
         Args:
           getter: The underlying variable getter, that has the same signature as
             tf.get_variable and returns a variable.
@@ -434,6 +446,7 @@ class Model(object):
             then cast to the appropriate dtype
           *args: Additional arguments to pass unmodified to getter.
           **kwargs: Additional keyword arguments to pass unmodified to getter.
+
         Returns:
           A variable which is cast to fp16 if necessary.
         """
@@ -532,6 +545,7 @@ class Cifar10Model(Model):
                  resnet_version=2,
                  dtype=tf.float32):
         """These are the parameters that work for CIFAR-10 data.
+
         Args:
           resnet_size: The number of convolutional layers needed in the model.
           data_format: Either 'channels_first' or 'channels_last', specifying which
@@ -541,6 +555,7 @@ class Cifar10Model(Model):
           resnet_version: Integer representing which version of the ResNet network
           to use. See README for details. Valid values: [1, 2]
           dtype: The TensorFlow dtype to use for calculations.
+
         Raises:
           ValueError: if invalid resnet_size is chosen
         """

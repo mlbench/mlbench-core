@@ -3,11 +3,10 @@ r"""A controlflow which train and evaluate a model."""
 import tensorflow as tf
 from collections import defaultdict
 
-from mlbench_core.evaluation import AverageMeter
-from mlbench_core.utils import Tracker
+from mlbench_core.utils import Tracker, AverageMeter
 
 
-class ControlFlow(object):
+class TrainValidation(object):
     """A control flow to train and evaluate a model."""
 
     def __init__(self, train_op, data_loader, sess, is_training, loss, metrics,
@@ -67,7 +66,7 @@ class ControlFlow(object):
 
             # Print logging information.
             print(("{}/{} loss={:10.3e} | metrics: [" + " ".join
-                   (["{: 10.2e}" for _ in metrics_meter]) + "] | best epoch {} ({:10.2e})")
+                   (["{: 10.3e}" for _ in metrics_meter]) + "] | best epoch {} ({:10.3e})")
                   .format(tracker.current_epoch, i_batch, loss_meter.avg,
                           *[m.avg for m in metrics_meter], tracker.best_epoch,
                           tracker.best_epoch_value))
@@ -106,7 +105,7 @@ class ControlFlow(object):
                 meter.update(o, n=target.shape[0])
 
             print(("{}/{} Validation loss={:10.3e} | metrics: [" + " ".join
-                   (["{: 10.2f}" for _ in metrics_meter]) + "]")
+                   (["{: 10.3e}" for _ in metrics_meter]) + "]")
                   .format(tracker.current_epoch, i_batch, loss_meter.avg,
                           *[m.avg for m in metrics_meter]))
 
@@ -133,7 +132,7 @@ class ControlFlow(object):
             lr_scheduler ([type], optional): Defaults to None. [description]
 
         Returns:
-            {Namespace}: 
+            {Namespace}:
         """
 
         # Initialize Variables

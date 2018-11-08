@@ -31,16 +31,18 @@ def triangular_learning_rates(optimizer, base_lr, max_lr, cycle_length, scale_fn
         def f(iterations):
             if iterations <= cycle_length:
                 cycle = np.floor(1 + iterations / (2 * step_size))
-                x = np.abs(iterations/step_size - 2 * cycle + 1)
-                lr = base_lr + (max_lr-base_lr) * np.maximum(0, (1-x)) * scale_fn(cycle, iterations)
+                x = np.abs(iterations / step_size - 2 * cycle + 1)
+                lr = base_lr + (max_lr - base_lr) * np.maximum(0,
+                                                               (1 - x)) * scale_fn(cycle, iterations)
             else:
                 lr = base_lr * extra
             return lr / base_lr
     else:
         def f(iterations):
             cycle = np.floor(1 + iterations / (2 * step_size))
-            x = np.abs(iterations/step_size - 2 * cycle + 1)
-            lr = base_lr + (max_lr-base_lr) * np.maximum(0, (1-x)) * scale_fn(cycle, iterations)
+            x = np.abs(iterations / step_size - 2 * cycle + 1)
+            lr = base_lr + (max_lr - base_lr) * np.maximum(0,
+                                                           (1 - x)) * scale_fn(cycle, iterations)
             return lr / base_lr
 
     # Use base_lr to overwrite the --lr
@@ -84,7 +86,8 @@ def cyclical_learning_rates(config, optimizer):
     else:
         raise ValueError("Cycle mode {} not support.".format(mode))
 
-    _cycle_unit, _cycle_length = config.lr_scheduler_level, config.clr_cycle_length[config.lr_scheduler_level]
+    _cycle_unit, _cycle_length = config.lr_scheduler_level, config.clr_cycle_length[
+        config.lr_scheduler_level]
     cycle_length = int(_cycle_length) if _cycle_unit == 'batch' \
         else float(_cycle_length) * config.train_num_batches
 
@@ -116,7 +119,8 @@ def multistep_learning_rates_with_warmup(config, optimizer):
 
     base_lr = lr * scaling_factor
 
-    warmup_durations = config.warmup_durations.get(config.lr_scheduler_level, 0)
+    warmup_durations = config.warmup_durations.get(
+        config.lr_scheduler_level, 0)
     milestones = config.multisteplr_milestones[config.lr_scheduler_level]
 
     gamma = config.multisteplr_gamma
@@ -138,7 +142,8 @@ def multistep_learning_rates_with_warmup(config, optimizer):
     def f(durations):
         if warmup and durations <= warmup_durations:
             warmup_progress = durations / warmup_durations
-            lr = warmup_progress * base_lr + (1 - warmup_progress) * warmup_init_lr
+            lr = warmup_progress * base_lr + \
+                (1 - warmup_progress) * warmup_init_lr
         else:
             lr = base_lr * gamma ** bisect_right(milestones, durations)
         return lr / base_lr
