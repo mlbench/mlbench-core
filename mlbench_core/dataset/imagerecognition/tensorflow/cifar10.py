@@ -6,8 +6,9 @@ import types
 import os
 import sys
 import tarfile
-from six.moves import xrange, urllib
+import logging
 import tensorflow as tf
+from six.moves import xrange, urllib
 
 
 class DatasetCifar(object):
@@ -88,10 +89,10 @@ class DatasetCifar(object):
                 sys.stdout.flush()
             filepath, _ = urllib.request.urlretrieve(
                 self.data_url, filepath, _progress)
-            print()
-            print('download file to the path:' + filepath)
+            logging.debug()
+            logging.debug('download file to the path:' + filepath)
         else:
-            print('retrieve file to the path:' + filepath)
+            logging.debug('retrieve file to the path:' + filepath)
 
         if self.dataset == 'cifar-10':
             self.data_dir = os.path.join(
@@ -101,7 +102,8 @@ class DatasetCifar(object):
                 dest_directory, self.dataset + '-binary')
 
         if not os.path.exists(self.data_dir):
-            print('does not exist extracted file: {}'.format(self.data_dir))
+            logging.debug(
+                'does not exist extracted file: {}'.format(self.data_dir))
             tarfile.open(filepath, 'r:gz').extractall(dest_directory)
 
     def record_dataset(self, filenames):
@@ -187,11 +189,13 @@ class DatasetCifar(object):
 
     def input_fn(self, is_train, num_epochs=1):
         """Input_fn using the tf.data input pipeline for CIFAR-10 dataset.
+
         Args:
           is_train: A boolean denoting whether the input is for training.
           data_dir: The directory containing the input data.
           batch_size: The number of samples per batch.
           num_epochs: The number of epochs to repeat the dataset.
+
         Returns:
           A tuple of images and labels.
         """

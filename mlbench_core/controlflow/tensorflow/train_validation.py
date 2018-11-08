@@ -1,5 +1,5 @@
 r"""A controlflow which train and evaluate a model."""
-
+import logging
 import tensorflow as tf
 from collections import defaultdict
 
@@ -65,11 +65,13 @@ class TrainValidation(object):
                 meter.update(o, n=target.shape[0])
 
             # Print logging information.
-            print(("{}/{} loss={:10.3e} | metrics: [" + " ".join
-                   (["{: 10.3e}" for _ in metrics_meter]) + "] | best epoch {} ({:10.3e})")
-                  .format(tracker.current_epoch, i_batch, loss_meter.avg,
-                          *[m.avg for m in metrics_meter], tracker.best_epoch,
-                          tracker.best_epoch_value))
+            logging.debug(
+                "{}/{} loss={:10.3e} | metrics: [{}] | best epoch {} ({:10.3e})"
+                .format(tracker.current_epoch, i_batch, loss_meter.avg,
+                        ",".join([format(m.avg, "10.3e")
+                                  for m in metrics_meter]),
+                        tracker.best_epoch,
+                        tracker.best_epoch_value))
 
         # Record training loss and metrics.
         tracker.records['train_loss'].append(loss_meter.avg)
@@ -104,10 +106,11 @@ class TrainValidation(object):
             for meter, o in zip(metrics_meter, out['metrics']):
                 meter.update(o, n=target.shape[0])
 
-            print(("{}/{} Validation loss={:10.3e} | metrics: [" + " ".join
-                   (["{: 10.3e}" for _ in metrics_meter]) + "]")
-                  .format(tracker.current_epoch, i_batch, loss_meter.avg,
-                          *[m.avg for m in metrics_meter]))
+            logging.debug(
+                "{}/{} Validation loss={:10.3e} | metrics: [{}]"
+                .format(tracker.current_epoch, i_batch, loss_meter.avg,
+                        ",".join([format(m.avg, "10.3e")
+                                  for m in metrics_meter])))
 
         # Record
         tracker.records['val_loss'].append(loss_meter.avg)
@@ -148,14 +151,15 @@ class TrainValidation(object):
         final_epoch = min(self.max_train_steps,
                           self.train_epochs)
         for i_epoch in range(initial_epoch, final_epoch):
-            print("=> Epoch {}".format(i_epoch))
+            logging.debug("=> Epoch {}".format(i_epoch))
             tracker.current_epoch = i_epoch
 
             if self.lr_scheduler_level == "epoch" and lr_scheduler is not None:
                 self.sess.run(lr_scheduler.assign(i_epoch))
-                print(i_epoch, self.sess.run(
-                    tf.get_default_graph().get_tensor_by_name("learning_rate:0")
-                ))
+                logging.debug(
+                    "Epoch {} Learning Rate : {:10.3e}".format(
+                        i_epoch, self.sess.run(
+                            tf.get_default_graph().get_tensor_by_name("learning_rate:0"))))
 
             self.train_one_epoch(tracker)
             self.valid_one_epoch(tracker)
