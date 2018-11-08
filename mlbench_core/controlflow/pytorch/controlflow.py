@@ -128,17 +128,17 @@ class TrainValidation(object):
             self.timeit = Timeit(self.checkpoint.runtime['cumu_time_val'][-1])
             raise NotImplementedError
         else:
-            start_epoch = 0
+            start_epoch = 1
             self.timeit = Timeit(0.)
 
             # Initialize Tracker
-            self.tracker.current_epoch = 0
+            self.tracker.current_epoch = 1
             self.tracker.best_epoch = 0
             self.tracker.records = defaultdict(list)
             self.tracker.start_time = time.time()
 
         dist.barrier()
-        for epoch in range(start_epoch, self.train_epochs):
+        for epoch in range(start_epoch, 1 + self.train_epochs):
             self.tracker.current_epoch = epoch
 
             # schedule learning rates
