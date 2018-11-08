@@ -127,7 +127,7 @@ class ApiClient(object):
                             internal_ip = address.address
                     if not ip:
                         # no external IP found, maybe internal works
-                        logging.warn(
+                        logging.warning(
                             "No ExternalIP found for NodePort "
                             "Service. Trying InternalIP. This only works "
                             "if the cluster internal IP's are reachable.")
@@ -380,7 +380,8 @@ class ApiClient(object):
         return future
 
     def __enter__(self):
-        return self.executor.__enter__()
+        self.executor.__enter__()
+        return self
 
     def __exit__(self, *args):
         return self.executor.__exit__(*args)
