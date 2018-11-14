@@ -30,3 +30,15 @@ multistep_learning_rates_with_warmup
 
 .. bibliography:: lr_scheduler.bib
    :cited:
+
+
+tensorflow
+~~~~~~~~~~
+
+.. automodule:: mlbench_core.lr_scheduler.tensorflow
+.. currentmodule:: mlbench_core.lr_scheduler.tensorflow
+
+manual_stepping
++++++++++++++++
+
+.. autofunction:: manual_stepping

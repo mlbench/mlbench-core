@@ -36,16 +36,18 @@ def triangular_learning_rates(optimizer, base_lr, max_lr, cycle_length, scale_fn
         def f(iterations):
             if iterations <= cycle_length:
                 cycle = np.floor(1 + iterations / (2 * step_size))
-                x = np.abs(iterations/step_size - 2 * cycle + 1)
-                lr = base_lr + (max_lr-base_lr) * np.maximum(0, (1-x)) * scale_fn(cycle, iterations)
+                x = np.abs(iterations / step_size - 2 * cycle + 1)
+                lr = base_lr + (max_lr - base_lr) * np.maximum(0,
+                                                               (1 - x)) * scale_fn(cycle, iterations)
             else:
                 lr = base_lr * extra
             return lr / base_lr
     else:
         def f(iterations):
             cycle = np.floor(1 + iterations / (2 * step_size))
-            x = np.abs(iterations/step_size - 2 * cycle + 1)
-            lr = base_lr + (max_lr-base_lr) * np.maximum(0, (1-x)) * scale_fn(cycle, iterations)
+            x = np.abs(iterations / step_size - 2 * cycle + 1)
+            lr = base_lr + (max_lr - base_lr) * np.maximum(0,
+                                                           (1 - x)) * scale_fn(cycle, iterations)
             return lr / base_lr
 
     # Use base_lr to overwrite the --lr

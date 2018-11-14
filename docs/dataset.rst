@@ -39,3 +39,15 @@ DataPartitioner
 
 .. autoclass:: DataPartitioner
     :members:
+
+tensorflow
+++++++++++
+
+.. automodule:: mlbench_core.dataset.imagerecognition.tensorflow
+.. currentmodule:: mlbench_core.dataset.imagerecognition.tensorflow
+
+DatasetCifar
+''''''''''''
+
+.. autoclass:: DatasetCifar
+    :members:

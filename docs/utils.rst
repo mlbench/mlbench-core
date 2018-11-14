@@ -26,3 +26,12 @@ initialize_backends
 '''''''''''''''''''
 
 .. autofunction:: initialize_backends
+
+
+tensorflow
+~~~~~~~~~~
+
+.. automodule:: mlbench_core.utils.tensorflow
+.. currentmodule:: mlbench_core.utils.tensorflow
+
+

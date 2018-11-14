@@ -6,10 +6,10 @@ import math
 import torch.distributed as dist
 from collections import defaultdict
 
-from mlbench_core.evaluation.pytorch.metrics import AverageMeter
+from mlbench_core.utils import AverageMeter, Tracker
 from mlbench_core.utils.pytorch.distributed import aggregate_gradients, global_average
 from mlbench_core.utils.pytorch.helpers import Timeit, update_best_runtime_metric, \
-    iterate_dataloader, log_metrics, Tracker
+    iterate_dataloader, log_metrics
 
 logger = logging.getLogger('mlbench')
 

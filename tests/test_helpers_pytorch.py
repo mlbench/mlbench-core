@@ -10,6 +10,7 @@ import torch
 import torch.distributed as dist
 
 from mlbench_core.utils.pytorch.helpers import *
+from mlbench_core.utils import Tracker
 
 
 def test_timeit():
@@ -36,12 +37,6 @@ def test_timeit():
 
     assert last_cumu - newer_cumu - 0.1 < 0.01
     assert last_cumu - cumu - 0.3 < 0.01
-
-
-def test_tracker():
-    tracker = Tracker()
-
-    assert tracker is not None
 
 
 def test_maybe_range():
