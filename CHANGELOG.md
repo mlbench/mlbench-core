@@ -1,5 +1,16 @@
 # Change Log
 
+## [1.0.0](https://github.com/mlbench/mlbench-core/tree/1.0.0) (2018-11-15)
+
+**Implemented enhancements:**
+
+- Add API Client to mlbench-core [\#6](https://github.com/mlbench/mlbench-core/issues/6)
+- Move to google-style docs [\#4](https://github.com/mlbench/mlbench-core/issues/4)
+- Add Imagenet Dataset for pytorch [\#3](https://github.com/mlbench/mlbench-core/issues/3)
+- Move worker code to mlbench-core repo [\#1](https://github.com/mlbench/mlbench-core/issues/1)
+
+# Change Log
+
 ## [0.1.0](https://github.com/mlbench/mlbench/tree/0.1.0) (2018-09-14)
 **Implemented enhancements:**
 
