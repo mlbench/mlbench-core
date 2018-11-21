@@ -1,3 +1,1 @@
-torch
-torchvision
 pytest-mock==1.10.0
