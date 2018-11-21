@@ -65,21 +65,20 @@ class DatasetCifar(object):
         # download the dataset.
         self.maybe_download_and_extract()
 
-        # next batch op.
-        with tf.device('/cpu:0'):
-            self.tr_data_init_op, self.tr_next_batch = self.input_fn(
-                is_train=True)
-            self.val_data_init_op, self.val_next_batch = self.input_fn(
-                is_train=False)
+        # Define dataset for both training and validation
+        self.train_dataset = self.input_fn(is_train=True)
+        self.validation_dataset = self.input_fn(is_train=False)
 
-        # Placeholders
-        self.inputs = tf.placeholder(
-            tf_dtype,
-            (None, self.image_size, self.image_size, self.image_channel),
-            name='inputs')
+        # Define reinitializable iterators for dataset.
+        # Initialize operations like train_init_op and validation_init_op when switch mode.
+        iterator = tf.data.Iterator.from_structure(self.train_dataset.output_types,
+                                                   self.train_dataset.output_shapes)
+        self.train_init_op = iterator.make_initializer(self.train_dataset)
+        self.validation_init_op = iterator.make_initializer(
+            self.validation_dataset)
 
-        self.labels = tf.placeholder(
-            tf_dtype, (None, self.num_classes), name='labels')
+        # do not need to feed_dict for `inputs`, `labels`, `training`
+        (self.inputs, self.labels), self.training = iterator.get_next()
 
     def maybe_download_and_extract(self):
         """Download and extract the tarball from Alex's website."""
@@ -197,18 +196,19 @@ class DatasetCifar(object):
             raise NotImplementedError
         return image
 
-    def input_fn(self, is_train, num_epochs=1):
+    def input_fn(self, is_train):
         """Input_fn using the tf.data input pipeline for CIFAR-10 dataset.
 
         Args:
             is_train (bool): A boolean denoting whether the input is for training.
-            num_epochs (int, optional): Defaults to 1. The number of epochs to repeat the dataset.
 
         Returns:
-            tuple: A tuple of images and labels.
+            tf.data.Dataset object of `((inputs, labels), is_train)`.
         """
 
         dataset = self.record_dataset(self.get_filenames(is_train))
+
+        # TODO: Sampling
 
         if is_train:
             # When choosing shuffle buffer sizes, larger sizes result in better
@@ -220,7 +220,6 @@ class DatasetCifar(object):
                 seed=self.seed, reshuffle_each_iteration=True)
 
         dataset = dataset.map(self.parse_record, num_parallel_calls=8)
-        # TODO: change num_parallel_calls?
         dataset = dataset.map(
             lambda image, label: (
                 self.preprocess_image(image, is_train), label),
@@ -232,14 +231,12 @@ class DatasetCifar(object):
 
         # We call repeat after shuffling, rather than before,
         # to prevent separate epochs from blending together.
-        dataset = dataset.repeat(num_epochs)
+        dataset = dataset.repeat()
+
         # Batch results by up to batch_size,
         # and then fetch the tuple from the iterator.
         dataset = dataset.batch(self.batch_size)
-        iterator = dataset.make_one_shot_iterator()
 
-        # TODO: add a private threadpool?
-        next_batch = iterator.get_next()
-        # TODO: make it clear what kind of initializer to use.
-        data_init_op = iterator.make_initializer(dataset)
-        return data_init_op, next_batch
+        # A boolean indicating the mode / dataset type : True for training and False for validation.
+        mode = tf.data.Dataset.from_tensor_slices([is_train]).repeat()
+        return tf.data.Dataset.zip((dataset, mode))

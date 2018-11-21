@@ -26,18 +26,19 @@ from __future__ import print_function
 
 import tensorflow as tf
 
-# _BATCH_NORM_DECAY = 0.997
-_BATCH_NORM_DECAY = 0.1
+# _BATCH_NORM_DECAY = 1.0
+_BATCH_NORM_DECAY = 0.9
 _BATCH_NORM_EPSILON = 1e-5
 DEFAULT_VERSION = 2
 DEFAULT_DTYPE = tf.float32
 CASTABLE_TYPES = (tf.float16,)
 ALLOWED_TYPES = (DEFAULT_DTYPE,) + CASTABLE_TYPES
 
-
 ################################################################################
 # Convenience functions for building the ResNet model.
 ################################################################################
+
+
 def batch_norm(inputs, training, data_format):
     """Performs a batch normalization using a standard set of parameters."""
     # We set fused=True for a significant performance boost. See
@@ -45,7 +46,10 @@ def batch_norm(inputs, training, data_format):
     return tf.layers.batch_normalization(
         inputs=inputs, axis=1 if data_format == 'channels_first' else 3,
         momentum=_BATCH_NORM_DECAY, epsilon=_BATCH_NORM_EPSILON, center=True,
-        scale=True, training=training, fused=True)
+        scale=True,
+        trainable=True,
+        training=training,
+        fused=True)
 
 
 def fixed_padding(inputs, kernel_size, data_format):
@@ -79,14 +83,20 @@ def conv2d_fixed_padding(inputs, filters, kernel_size, strides, data_format):
     """Strided 2-D convolution with explicit padding."""
     # The padding is consistent and is based only on `kernel_size`, not on the
     # dimensions of `inputs` (as opposed to using `tf.layers.conv2d` alone).
-    if strides > 1:
-        inputs = fixed_padding(inputs, kernel_size, data_format)
+    with tf.name_scope("conv2d_fixed_padding"):
+        tf.identity(inputs, name="inputs_pre")
+        if strides > 1:
+            inputs = fixed_padding(inputs, kernel_size, data_format)
+        tf.identity(inputs, name="inputs")
 
-    return tf.layers.conv2d(
-        inputs=inputs, filters=filters, kernel_size=kernel_size, strides=strides,
-        padding=('SAME' if strides == 1 else 'VALID'), use_bias=False,
-        kernel_initializer=tf.variance_scaling_initializer(),
-        data_format=data_format)
+        layer = tf.layers.conv2d(
+            inputs=inputs, filters=filters, kernel_size=kernel_size, strides=strides,
+            padding=('SAME' if strides == 1 else 'VALID'), use_bias=False,
+            kernel_initializer=tf.variance_scaling_initializer(),
+            data_format=data_format,  # name="conv2d"
+        )
+
+        return layer
 
 
 ################################################################################
@@ -164,13 +174,20 @@ def _building_block_v2(inputs, filters, training, projection_shortcut, strides,
       The output tensor of the block; shape should match inputs.
     """
     shortcut = inputs
-    inputs = batch_norm(inputs, training, data_format)
+    tf.identity(shortcut, name="inputs")
+
+    with tf.name_scope("test_batch_norm"):
+        inputs = batch_norm(inputs, training, data_format)
+    tf.identity(inputs, name="inputs_batch_normed")
+
     inputs = tf.nn.relu(inputs)
+    tf.identity(inputs, name="inputs_batch_normed_relu")
 
     # The projection shortcut should come after the first batch norm and ReLU
     # since it performs a 1x1 convolution.
     if projection_shortcut is not None:
         shortcut = projection_shortcut(inputs)
+        tf.identity(shortcut, name="projected_shortcut")
 
     inputs = conv2d_fixed_padding(
         inputs=inputs, filters=filters, kernel_size=3, strides=strides,
@@ -326,16 +343,20 @@ def block_layer(inputs, filters, bottleneck, block_fn, blocks, strides,
     filters_out = filters * 4 if bottleneck else filters
 
     def projection_shortcut(inputs):
-        return conv2d_fixed_padding(
-            inputs=inputs, filters=filters_out, kernel_size=1, strides=strides,
-            data_format=data_format)
+        with tf.name_scope("projection_shortcut"):
+            layer = conv2d_fixed_padding(
+                inputs=inputs, filters=filters_out, kernel_size=1, strides=strides,
+                data_format=data_format)
+        return layer
 
     # Only the first block per block_layer uses projection_shortcut and strides
-    inputs = block_fn(inputs, filters, training, projection_shortcut, strides,
-                      data_format)
+    with tf.name_scope('block0'):
+        inputs = block_fn(inputs, filters, training, projection_shortcut, strides,
+                          data_format)
 
-    for _ in range(1, blocks):
-        inputs = block_fn(inputs, filters, training, None, 1, data_format)
+    for i in range(1, blocks):
+        with tf.name_scope('block{}'.format(i)):
+            inputs = block_fn(inputs, filters, training, None, 1, data_format)
 
     return tf.identity(inputs, name)
 
@@ -510,11 +531,12 @@ class Model(object):
 
             for i, num_blocks in enumerate(self.block_sizes):
                 num_filters = self.num_filters * (2**i)
-                inputs = block_layer(
-                    inputs=inputs, filters=num_filters, bottleneck=self.bottleneck,
-                    block_fn=self.block_fn, blocks=num_blocks,
-                    strides=self.block_strides[i], training=training,
-                    name='block_layer{}'.format(i + 1), data_format=self.data_format)
+                with tf.name_scope("block_layer_{}".format(i + 1)):
+                    inputs = block_layer(
+                        inputs=inputs, filters=num_filters, bottleneck=self.bottleneck,
+                        block_fn=self.block_fn, blocks=num_blocks,
+                        strides=self.block_strides[i], training=training,
+                        name='block_layer{}'.format(i + 1), data_format=self.data_format)
 
             # Only apply the BN and ReLU for model that does pre_activation in each
             # building/bottleneck block, eg resnet V2.
