@@ -114,7 +114,7 @@ class TrainValidation(object):
         Args:
             initial_epoch (int, optional): Defaults to 0. Initial epoch of training.
             lr_tensor_name (:obj:`tf.Tensor`, optional): Defaults to None.
-                A (scalar) float tensor representing learning rate
+                A (scalar) float tensor representing name of learning rate
         """
         # Tracker for stats
         tracker = Tracker()

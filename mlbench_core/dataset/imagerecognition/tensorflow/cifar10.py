@@ -17,13 +17,14 @@ class DatasetCifar(object):
     https://github.com/tensorflow/models/blob/master/tutorials/image/cifar10/cifar10_input.py
     """
 
-    def __init__(self, dataset, dataset_root, batch_size, world_size, seed, tf_dtype=tf.float32):
+    def __init__(self, dataset, dataset_root, batch_size, world_size, rank, seed, tf_dtype=tf.float32):
         """
         Args:
             dataset (str): Name of the dataset e.g. `cifar-10`, `cifar-100`.
             dataset_root (str): Root directory to the dataset.
             batch_size (int): Size of batch.
             world_size (int): Size of the world size.
+            rank (int): Rank of the process.
             seed (int): Seed of random number.
             tf_dtype (tensorflow.python.framework.dtypes.DType, optional): Defaults to tf.float32.
                 Datatypes of the tensor.
@@ -66,8 +67,10 @@ class DatasetCifar(object):
         self.maybe_download_and_extract()
 
         # Define dataset for both training and validation
-        self.train_dataset = self.input_fn(is_train=True)
-        self.validation_dataset = self.input_fn(is_train=False)
+        self.train_dataset = self.input_fn(
+            is_train=True, repeat_count=-1, num_shards=world_size, shard_index=rank)
+        self.validation_dataset = self.input_fn(
+            is_train=False, repeat_count=-1, num_shards=world_size, shard_index=rank)
 
         # Define reinitializable iterators for dataset.
         # Initialize operations like train_init_op and validation_init_op when switch mode.
@@ -196,19 +199,30 @@ class DatasetCifar(object):
             raise NotImplementedError
         return image
 
-    def input_fn(self, is_train):
+    def input_fn(self, is_train, repeat_count=-1, num_shards=1, shard_index=0):
         """Input_fn using the tf.data input pipeline for CIFAR-10 dataset.
+
+        In synchronized training, faster nodes may use more batches than the number
+        of batches availble. Thus repeat dataset for engouh times to avoid throwing
+        error.
+
+        In the distributed settings, datasets are split into `num_shards`
+        non-overlapping parts and each process takes one shard by its index.
 
         Args:
             is_train (bool): A boolean denoting whether the input is for training.
+            repeat_count (int): Defaults to -1. Count of dataset repeated times
+                with -1 for infinite.
+            num_shards (int): Defaults to 1. Number of Shards the dataset is splitted.
+            shard_index (int): Defaults to 0. Index of shard to use.
 
-        Returns:
+        Returns
             tf.data.Dataset object of `((inputs, labels), is_train)`.
         """
 
         dataset = self.record_dataset(self.get_filenames(is_train))
 
-        # TODO: Sampling
+        dataset = dataset.shard(num_shards, shard_index)
 
         if is_train:
             # When choosing shuffle buffer sizes, larger sizes result in better
@@ -231,7 +245,7 @@ class DatasetCifar(object):
 
         # We call repeat after shuffling, rather than before,
         # to prevent separate epochs from blending together.
-        dataset = dataset.repeat()
+        dataset = dataset.repeat(repeat_count)
 
         # Batch results by up to batch_size,
         # and then fetch the tuple from the iterator.
