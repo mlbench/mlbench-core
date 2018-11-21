@@ -10,8 +10,6 @@ jobs:
       # Command to install dependencies, e.g. pip install -r requirements.txt --use-mirrors
       install:
         - pip install --progress-bar off -U tox-travis
-        - pip install --progress-bar off -r requirements.txt
-        - pip install --progress-bar off -r travis-requirements.txt
 
       # Command to run tests, e.g. python setup.py test
       script:
