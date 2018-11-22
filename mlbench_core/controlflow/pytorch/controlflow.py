@@ -7,7 +7,7 @@ import torch.distributed as dist
 from collections import defaultdict
 
 from mlbench_core.utils import AverageMeter, Tracker
-from mlbench_core.utils.pytorch.distributed import aggregate_gradients, global_average
+from mlbench_core.utils.pytorch.distributed import global_average
 from mlbench_core.utils.pytorch.helpers import Timeit, update_best_runtime_metric, \
     iterate_dataloader, log_metrics
 
@@ -38,13 +38,14 @@ class TrainValidation(object):
         use_cuda (bool): Whether to train on GPU or not. Default: `False`
         max_batch_per_epoch (int): Maximum number of batches per epoch. Whole dataset
             is used if not specified. Default: `None`
+        agg_fn (callable): A callable of signature `(model, op)`. Default: `None`.
     """
 
     def __init__(self, model, optimizer, loss_function, metrics, scheduler,
                  batch_size, train_epochs, rank, world_size, run_id, dtype,
                  validate=True, schedule_per='epoch', checkpoint=None,
                  transform_target_type=None, average_models=False,
-                 use_cuda=False, max_batch_per_epoch=None):
+                 use_cuda=False, max_batch_per_epoch=None, agg_fn=None):
         self.tracker = Tracker()
         self.batch_size = batch_size
         self.train_epochs = train_epochs
@@ -64,6 +65,7 @@ class TrainValidation(object):
         self.use_cuda = use_cuda
         self.max_batch_per_epoch = max_batch_per_epoch
         self.dtype = dtype
+        self.agg_fn = agg_fn
 
     def _get_dataloader_stats(self, dataloader_train, dataloader_val):
         """ Sets the stats for the supplied dataloaders
@@ -208,8 +210,7 @@ class TrainValidation(object):
             self.tracker.batch_stats.append(('backprop', time.time()))
 
             # Aggregate gradients from all workers
-            aggregate_gradients(self.model, self.world_size,
-                                self.average_models)
+            self.agg_fn(self.model, op='avg')
             self.tracker.batch_stats.append(('aggr_grad', time.time()))
 
             # Apply updates to model

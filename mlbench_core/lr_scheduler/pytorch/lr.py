@@ -121,7 +121,8 @@ def multistep_learning_rates_with_warmup(optimizer, world_size, lr, gamma, miles
         A learning rate scheduler (:obj:`torch.optim.lr_scheduler.LambdaLR`)
     """
     if bool(warmup_duration) != bool(warmup_lr):
-        raise ValueError("Either both or none of warmup_duration and warmup_lr have to be set")
+        raise ValueError(
+            "Either both or none of warmup_duration and warmup_lr have to be set")
 
     scaling_factor = 1
 
@@ -145,7 +146,8 @@ def multistep_learning_rates_with_warmup(optimizer, world_size, lr, gamma, miles
     def f(duration):
         if warmup_lr and duration <= warmup_duration:
             warmup_progress = duration / warmup_duration
-            lr = warmup_progress * base_lr + (1 - warmup_progress) * warmup_init_lr
+            lr = warmup_progress * base_lr + \
+                (1 - warmup_progress) * warmup_init_lr
         else:
             lr = base_lr * gamma ** bisect_right(milestones, duration)
         return lr / base_lr
