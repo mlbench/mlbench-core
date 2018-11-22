@@ -14,6 +14,7 @@ import random
 from mlbench_core.controlflow.pytorch import TrainValidation
 from mlbench_core.evaluation.pytorch.metrics import TopKAccuracy
 from mlbench_core.lr_scheduler.pytorch import multistep_learning_rates_with_warmup
+from mlbench_core.utils.pytorch.distributed import AllReduceAggregation
 
 
 @pytest.fixture
@@ -54,7 +55,8 @@ def test_instantiation(mocker, model, optimizer, loss_function, metrics, schedul
 
     batch_size = 2
 
-    tv = TrainValidation(model, optimizer, loss_function, metrics, scheduler, batch_size, 10, 0, 1, 1, 'fp32')
+    tv = TrainValidation(model, optimizer, loss_function,
+                         metrics, scheduler, batch_size, 10, 0, 1, 1, 'fp32')
 
     assert tv is not None
 
@@ -65,19 +67,22 @@ def test_training(mocker, model, optimizer, loss_function, metrics, scheduler):
     mocker.patch('mlbench_core.controlflow.pytorch.controlflow.log_metrics')
 
     batch_size = 2
+    agg_fn = AllReduceAggregation(world_size=1).agg_model
 
-    tv = TrainValidation(model, optimizer, loss_function, metrics, scheduler, batch_size, 10, 0, 1, 1, 'fp32')
+    tv = TrainValidation(model, optimizer, loss_function,
+                         metrics, scheduler, batch_size, 10, 0, 1, 1, 'fp32',
+                         agg_fn=agg_fn)
 
     train_set = [random.random() for _ in range(100)]
     train_set = [
         (torch.FloatTensor([n * 50 - 25]),
-        1 if (n > 0.5) != (random.random() < 0.1) else 0)
+         1 if (n > 0.5) != (random.random() < 0.1) else 0)
         for n in train_set]
 
     test_set = [random.random() for _ in range(10)]
     test_set = [
         (torch.FloatTensor([n * 50 - 25]),
-        1 if (n > 0.5) != (random.random() < 0.1) else 0)
+         1 if (n > 0.5) != (random.random() < 0.1) else 0)
         for n in test_set]
 
     train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True)
