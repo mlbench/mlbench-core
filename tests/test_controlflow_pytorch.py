@@ -93,6 +93,6 @@ def test_training(mocker, model, optimizer, loss_function, metrics, scheduler):
         dataloader_val_fn=lambda: test_loader,
         repartition_per_epoch=True)
 
-    assert tv.tracker.current_epoch == 10
-    assert tv.tracker.records['best_epoch'] > 0
+    assert tv.tracker.current_epoch == 9
+    assert tv.tracker.records['best_epoch'] > -1
     assert tv.tracker.records['best_Prec@1'] > 50.0

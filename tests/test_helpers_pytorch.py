@@ -58,17 +58,20 @@ def test_update_best_runtime_metric(mocker):
     tracker.current_epoch = 1
     #tracker = mocker.patch('mlbench_core.utils.pytorch.helpers.Tracker')
 
-    is_best, best_metric_name = update_best_runtime_metric(tracker, 10.0, 'prec')
+    is_best, best_metric_name = update_best_runtime_metric(
+        tracker, 10.0, 'prec')
 
     assert is_best == True
     assert best_metric_name == "best_prec"
 
-    is_best, best_metric_name = update_best_runtime_metric(tracker, 11.0, 'prec')
+    is_best, best_metric_name = update_best_runtime_metric(
+        tracker, 11.0, 'prec')
 
     assert is_best == True
     assert best_metric_name == "best_prec"
 
-    is_best, best_metric_name = update_best_runtime_metric(tracker, 9.0, 'prec')
+    is_best, best_metric_name = update_best_runtime_metric(
+        tracker, 9.0, 'prec')
 
     assert is_best == False
     assert best_metric_name == "best_prec"
@@ -94,7 +97,8 @@ def test_config_pytorch(mocker):
     mocker.patch('torch.distributed.get_world_size', return_value=1)
     mocker.patch('mlbench_core.utils.pytorch.helpers.FCGraph')
 
-    rank, world_size, graph = config_pytorch(use_cuda=False, seed=42, cudnn_deterministic=True)
+    rank, world_size, graph = config_pytorch(
+        use_cuda=False, seed=42, cudnn_deterministic=True)
 
     assert rank == 1
     assert world_size == 1
@@ -115,12 +119,12 @@ def test_config_path(mocker):
     sh = mocker.patch('shutil.rmtree')
     osmk = mocker.patch('os.makedirs')
 
-    config_path('/tmp/checkpoints', resume=False)
+    config_path('/tmp/checkpoints', delete_existing_ckpts=False)
 
     osmk.assert_called_once_with('/tmp/checkpoints', exist_ok=True)
     assert sh.call_count == 0
 
-    config_path('/tmp/checkpoints', resume=True)
+    config_path('/tmp/checkpoints', delete_existing_ckpts=True)
 
     assert sh.call_count == 1
     assert osmk.call_count == 2
@@ -131,7 +135,8 @@ def test_iterate_dataloader(mocker):
         (torch.IntTensor([0]), torch.IntTensor([1])),
         (torch.IntTensor([2]), torch.IntTensor([3]))]
 
-    it = iterate_dataloader(dataloader, 'fp32', max_batch_per_epoch=2, transform_target_type=True)
+    it = iterate_dataloader(
+        dataloader, 'fp32', max_batch_per_epoch=2, transform_target_type=True)
 
     first = next(it)
 
