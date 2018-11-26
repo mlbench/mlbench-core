@@ -195,14 +195,11 @@ def log_metrics(run_id, rank, epoch, metric_name, value):
             metric_name,
             value,
             metadata="{{rank: {}, epoch:{}}}".format(rank, epoch))
-    else:
-        pass
 
 
-def config_path(ckpt_run_dir, resume=False):
+def config_path(ckpt_run_dir, delete_existing_ckpts=False):
     """Config the path used during the experiments."""
-
-    if resume:
+    if delete_existing_ckpts:
         print("Remove previous checkpoint directory : {}".format(
             ckpt_run_dir))
         shutil.rmtree(ckpt_run_dir, ignore_errors=True)

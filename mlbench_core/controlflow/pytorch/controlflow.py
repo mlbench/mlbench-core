@@ -39,13 +39,14 @@ class TrainValidation(object):
         max_batch_per_epoch (int): Maximum number of batches per epoch. Whole dataset
             is used if not specified. Default: `None`
         agg_fn (callable): A callable of signature `(model, op)`. Default: `None`.
+        agg_model (bool): Aggregate weight of model. If false, aggregate gradient. Default: `False`
     """
 
     def __init__(self, model, optimizer, loss_function, metrics, scheduler,
                  batch_size, train_epochs, rank, world_size, run_id, dtype,
                  validate=True, schedule_per='epoch', checkpoint=None,
                  transform_target_type=None, average_models=False,
-                 use_cuda=False, max_batch_per_epoch=None, agg_fn=None):
+                 use_cuda=False, max_batch_per_epoch=None, agg_fn=None, agg_grad=True):
         self.tracker = Tracker()
         self.batch_size = batch_size
         self.train_epochs = train_epochs
@@ -66,6 +67,7 @@ class TrainValidation(object):
         self.max_batch_per_epoch = max_batch_per_epoch
         self.dtype = dtype
         self.agg_fn = agg_fn
+        self.agg_grad = agg_grad
 
     def _get_dataloader_stats(self, dataloader_train, dataloader_val):
         """ Sets the stats for the supplied dataloaders
@@ -130,17 +132,17 @@ class TrainValidation(object):
             self.timeit = Timeit(self.checkpoint.runtime['cumu_time_val'][-1])
             raise NotImplementedError
         else:
-            start_epoch = 1
+            start_epoch = 0
             self.timeit = Timeit(0.)
 
             # Initialize Tracker
-            self.tracker.current_epoch = 1
+            self.tracker.current_epoch = 0
             self.tracker.best_epoch = 0
             self.tracker.records = defaultdict(list)
             self.tracker.start_time = time.time()
 
         dist.barrier()
-        for epoch in range(start_epoch, 1 + self.train_epochs):
+        for epoch in range(start_epoch, self.train_epochs):
             self.tracker.current_epoch = epoch
 
             # schedule learning rates
@@ -157,8 +159,12 @@ class TrainValidation(object):
             # FIXME: The Timeit object can be a problem.
             self.train_epoch(dataloader_train)
 
-            if self.perform_validation:
-                self.do_validate(dataloader_val)
+            is_best = self.do_validate(dataloader_val) if self.perform_validation else False
+
+            if self.checkpoint:
+                self.checkpoint.save(self.tracker, self.model,
+                                     self.optimizer, self.scheduler,
+                                     self.tracker.current_epoch, is_best)
 
             # Shuffle the dataset across nodes
             if repartition_per_epoch:
@@ -210,12 +216,18 @@ class TrainValidation(object):
             self.tracker.batch_stats.append(('backprop', time.time()))
 
             # Aggregate gradients from all workers
-            self.agg_fn(self.model, op='avg')
-            self.tracker.batch_stats.append(('aggr_grad', time.time()))
+            if self.agg_grad:
+                self.agg_fn(self.model, op='avg')
+                self.tracker.batch_stats.append(('aggr_grad', time.time()))
 
             # Apply updates to model
             self.optimizer.step()
             self.tracker.batch_stats.append(('opt_step', time.time()))
+
+            # Aggregate weights from all workers
+            if not self.agg_grad:
+                self.agg_fn(self.model, op='avg')
+                self.tracker.batch_stats.append(('aggr_data', time.time()))
 
             self.record_train_batch_stats(
                 batch_idx,
@@ -323,10 +335,7 @@ class TrainValidation(object):
             'val_loss',
             loss)
 
-        if self.checkpoint:
-            self.checkpoint.save(self.tracker, self.model,
-                                 self.optimizer, self.scheduler,
-                                 self.tracker.current_epoch, is_best)
+        return is_best
 
     def validate(self, dataloader):
         r"""Validate the quality of the model in terms of loss and metrics.

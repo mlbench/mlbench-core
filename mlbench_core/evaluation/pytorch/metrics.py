@@ -62,5 +62,4 @@ class TopKAccuracy(object):
     @property
     def name(self):
         """str: Name of this metric."""
-        r"""Name of the metric."""
         return "Prec@{}".format(self.topk)

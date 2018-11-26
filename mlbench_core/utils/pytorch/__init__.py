@@ -11,7 +11,7 @@ __all__ = ['initialize_backends', 'Timeit', 'FCGraph']
 def initialize_backends(comm_backend='mpi', logging_level='INFO',
                         logging_file='/mlbench.log', use_cuda=False,
                         seed=None, cudnn_deterministic=False,
-                        ckpt_run_dir='/checkpoints', resume=False):
+                        ckpt_run_dir='/checkpoints', delete_existing_ckpts=False):
     """Initializes the backends.
 
     Sets up logging, sets up pytorch and configures paths
@@ -32,6 +32,6 @@ def initialize_backends(comm_backend='mpi', logging_level='INFO',
     rank, world_size, graph = config_pytorch(use_cuda, seed,
                                              cudnn_deterministic)
 
-    config_path(ckpt_run_dir, resume)
+    config_path(ckpt_run_dir, delete_existing_ckpts)
 
     return rank, world_size, graph

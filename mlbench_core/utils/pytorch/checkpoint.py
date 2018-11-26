@@ -14,6 +14,7 @@ class Checkpointer(object):
         checkpoint_all (bool): Whether to checkpoint on all epochs
             or just when a new best score was achieved. Default: `False`
     """
+
     def __init__(self, ckpt_run_dir, rank, checkpoint_all=False):
         self.dirname = ckpt_run_dir
         self.rank = rank
@@ -98,6 +99,49 @@ class Checkpointer(object):
         checkpointer.runtime['cumu_time_val'] = checkpoint['tracker']['cumu_time_val']
 
         return checkpointer, model, optimizer, scheduler
+
+    @staticmethod
+    def load_model_by_epoch(ckpt_run_dir, rank, epoch, model):
+        """ Loads a checkpoint
+
+        Args:
+            ckpt_run_dir (str): Folder path of checkpoint directory
+            rank (int): The rank of the current worker
+            epoch (int): Epoch of the model to be loaded.
+            model (:obj:`torch.nn.Module`): a pytorch model to be trained and validated.
+
+        Returns:
+            `model`
+        """
+        checkpoint_path = os.path.join(
+            ckpt_run_dir, '{}_{}.pth.tar'.format(epoch, rank))
+
+        if not os.path.isfile(checkpoint_path):
+            raise FileNotFoundError(
+                "No checkpoint found at '{}' for rank '{}'".format(ckpt_run_dir, rank))
+
+        checkpoint = torch.load(checkpoint_path)
+
+        model.load_state_dict(checkpoint['model'])
+        return model
+
+    @staticmethod
+    def checkpoint_exists(ckpt_run_dir, rank, epoch):
+        """ Check if a checkpoint exists.
+
+        Args:
+            ckpt_run_dir (str): Folder path of checkpoint directory
+            rank (int): The rank of the current worker
+            epoch (int): Epoch of the model to be loaded.
+
+        Returns:
+            `model`
+        """
+        checkpoint_path = os.path.join(
+            ckpt_run_dir, '{}_{}.pth.tar'.format(epoch, rank))
+        if not os.path.isfile(checkpoint_path):
+            raise FileNotFoundError(
+                "No checkpoint found at '{}' for rank '{}'".format(ckpt_run_dir, rank))
 
 
 def determine_restore_ckpt_path(rank, checkpoint_root):

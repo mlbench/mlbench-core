@@ -34,17 +34,20 @@ def global_average(sum, count):
 class Aggregation(object):
     """Aggregate udpates / models from different processes."""
 
-    def agg_grad(self, data, op):
+    def _agg(self, data, op):
         """Aggregate data using `op` operation.
 
         Args:
             data (:obj:`torch.Tensor`): A Tensor to be aggragated.
             op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
+
+        Returns:
+            :obj:`torch.Tensor`: An aggregated tensor.
         """
         raise NotImplementedError
 
     def agg_model(self, model, op):
-        """Aggregate models layer by layer.
+        """Aggregate models by model weight.
 
         Args:
             model (:obj:`torch.Module`): Models to be averaged.
@@ -52,7 +55,19 @@ class Aggregation(object):
         """
         # Aggregate layer by layer
         for _, param in enumerate(model.parameters()):
-            grad = self.agg_grad(param.grad.data, op=op)
+            grad = self._agg(param.data, op=op)
+            param.data = grad
+
+    def agg_grad(self, model, op):
+        """Aggregate models gradients.
+
+        Args:
+            model (:obj:`torch.Module`): Models to be averaged.
+            op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
+        """
+        # Aggregate layer by layer
+        for _, param in enumerate(model.parameters()):
+            grad = self._agg(param.grad.data, op=op)
             param.grad.data = grad
 
 
@@ -62,7 +77,7 @@ class AllReduceAggregation(Aggregation):
     def __init__(self, world_size):
         self.world_size = world_size
 
-    def agg_grad(self, data, op):
+    def _agg(self, data, op):
         """Aggregate data using `op` operation.
 
         Args:
@@ -93,7 +108,7 @@ class DecentralizedAggregation(Aggregation):
         self.rank = rank
         self.neighbors = neighbors
 
-    def agg_grad(self, data, op):
+    def _agg(self, data, op):
         """Aggregate data using `op` operation.
 
         Args:
@@ -122,3 +137,23 @@ class DecentralizedAggregation(Aggregation):
             raise NotImplementedError("op {} is not supported yet.".format(op))
 
         return output
+
+
+class SparsifiedAggregation(Aggregation):
+    """Aggregate sparsified updates."""
+
+    def __init__(self, model,):
+        pass
+
+    def _agg(self, data, op):
+        pass
+
+
+class QuantizedAggregation(Aggregation):
+    """Aggregated quantized updates."""
+
+    def __init__(self):
+        pass
+
+    def _agg(self, data, op):
+        pass
