@@ -1,5 +1,5 @@
 mlbench_core.api
-------------------------
+----------------
 
 .. automodule:: mlbench_core.api
 .. currentmodule:: mlbench_core.api

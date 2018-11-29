@@ -94,7 +94,7 @@ def test_config_pytorch(mocker):
     mocker.patch('torch.distributed.get_world_size', return_value=1)
     mocker.patch('mlbench_core.utils.pytorch.helpers.FCGraph')
 
-    rank, world_size, graph = config_pytorch(use_cuda=True, seed=42, cudnn_deterministic=True)
+    rank, world_size, graph = config_pytorch(use_cuda=False, seed=42, cudnn_deterministic=True)
 
     assert rank == 1
     assert world_size == 1

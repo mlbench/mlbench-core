@@ -42,6 +42,6 @@ def default_session_config(tf_allow_soft_placement, tf_log_device_placement, tf_
         allow_soft_placement=tf_allow_soft_placement,
         log_device_placement=tf_log_device_placement)
 
-    session_conf.gpu_options.allow_growth = True
+    session_conf.gpu_options.allow_growth = False  # True
     session_conf.gpu_options.per_process_gpu_memory_fraction = tf_gpu_mem
     return session_conf
