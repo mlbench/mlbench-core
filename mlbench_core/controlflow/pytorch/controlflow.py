@@ -153,7 +153,7 @@ class TrainValidation(object):
                             self.timeit.cumu))
 
             # FIXME: The Timeit object can be a problem.
-            self.train_epoch(dataloader_train)
+            self.train_epoch(dataloader_train, dataloader_val)
 
             if self.perform_validation:
                 self.do_validate(dataloader_val)
@@ -168,7 +168,7 @@ class TrainValidation(object):
 
                 self._get_dataloader_stats(dataloader_train, dataloader_val)
 
-    def train_epoch(self, dataloader):
+    def train_epoch(self, dataloader, dataloader_val):
         """Train model for one epoch of data.
 
         Args:
@@ -183,7 +183,8 @@ class TrainValidation(object):
             dataloader,
             self.dtype,
             self.max_batch_per_epoch,
-            self.use_cuda)
+            self.use_cuda,
+            self.transform_target_type)
 
         for batch_idx, (data, target) in enumerate(data_iter):
             self.tracker.batch_stats = [("start", time.time())]
@@ -206,13 +207,8 @@ class TrainValidation(object):
             # Backprop
             loss.backward()
             self.tracker.batch_stats.append(('backprop', time.time()))
-
-            # Aggregate gradients from all workers
-            aggregate_gradients(self.model, self.world_size,
-                                self.average_models)
-            self.tracker.batch_stats.append(('aggr_grad', time.time()))
-
-            # Apply updates to model
+            
+            # Aggregate gradients/parameters from all workers and apply updates to model
             self.optimizer.step()
             self.tracker.batch_stats.append(('opt_step', time.time()))
 
@@ -347,7 +343,8 @@ class TrainValidation(object):
                 dataloader,
                 self.dtype,
                 self.max_batch_per_epoch,
-                self.use_cuda)
+                self.use_cuda,
+                self.transform_target_type)
 
             for data, target in data_iter:
                 # Inference
