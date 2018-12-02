@@ -156,29 +156,49 @@ def multistep_learning_rates_with_warmup(optimizer, world_size, lr, gamma, miles
     return LambdaLR(optimizer, lr_lambda=f)
 
 
-def sgd_optimal_learning_rates(optimizer, alpha, beta):
-    """
-    Learning rate schedule for SGD (alpha / (t + beta))
+# def sgd_optimal_learning_rates(optimizer, alpha, beta):
+#     """
+#     Learning rate schedule for SGD (alpha / (t + beta))
 
-    Args:
-        optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
-        alpha (float): The constant value in the numerator of the learning rate schedule formula
-        beta (float): The constant value in the denominator of the learning rate schedule formula
-    Returns:
-        A learning rate scheduler (:obj:`torch.optim.lr_scheduler.LambdaLR`)
-    """
+#     Args:
+#         optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
+#         alpha (float): The constant value in the numerator of the learning rate schedule formula
+#         beta (float): The constant value in the denominator of the learning rate schedule formula
+#     Returns:
+#         A learning rate scheduler (:obj:`torch.optim.lr_scheduler.LambdaLR`)
+#     """
 
-    def f(iterations):
-        return beta / (beta + iterations)
+#     def f(iteration):
+#         return beta / (beta + iteration)
 
-    for group in optimizer.param_groups:
-        group['initial_lr'] = alpha / beta
+#     for group in optimizer.param_groups:
+#         group['initial_lr'] = alpha / beta
 
-    # Use base_lr to overwrite the --lr
-    optimizer.base_lrs = [alpha / beta for _ in optimizer.param_groups]
-    return LambdaLR(optimizer, lr_lambda=f)
+#     # Use base_lr to overwrite the --lr
+#     optimizer.base_lrs = [alpha / beta for _ in optimizer.param_groups]
+#     return LambdaLR(optimizer, lr_lambda=f)
 
-def sparsified_sgd_optimal_learning_rate(optimizer, gamma, l2_coef, shifting_param):
+# def sparsified_sgd_optimal_learning_rates(optimizer, gamma, l2_coef, shifting_param):
+#     """ 
+#     Learning rate schedule for sparsifiedSGD (gamma / l2_coef * (t + shifting_param))
+
+#     Args:
+#         optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
+#         gamma (float): The constant value in the numerator of the learning rate schedule formula
+#         l2_coef (float): The regularization rate which is used in the denominator of the learning rate schedule formula
+#         shifting_param (float): The constant value in the denominator of the learning rate schedule formula
+#     """
+
+#     def f(iteration):
+#         return 1 / max(1, (shifting_param + iteration))
+
+#     optimizer.base_lrs = [gamma / l2_coef for _ in optimizer.param_groups]
+#     for group in optimizer.param_groups:
+#         group['initial_lr'] = gamma / l2_coef
+
+#     return LambdaLR(optimizer, lr_lambda=f)
+
+class SparsifiedSGDLR(LambdaLR):
     """ 
     Learning rate schedule for sparsifiedSGD (gamma / l2_coef * (t + shifting_param))
 
@@ -188,12 +208,47 @@ def sparsified_sgd_optimal_learning_rate(optimizer, gamma, l2_coef, shifting_par
         l2_coef (float): The regularization rate which is used in the denominator of the learning rate schedule formula
         shifting_param (float): The constant value in the denominator of the learning rate schedule formula
     """
+    def __init__(self, optimizer, gamma, l2_coef, shifting_param):
+        self.shifting_param = shifting_param
+        self.optimizer = optimizer
 
-    def f(iterations):
-        return 1 / max(1, (shifting_param + iterations))
+        for group in self.optimizer.param_groups:
+            group['initial_lr'] = gamma / l2_coef
 
-    optimizer.base_lrs = [gamma / l2_coef for _ in optimizer.param_groups]
-    for group in optimizer.param_groups:
-        group['initial_lr'] = gamma / l2_coef
+        self.optimizer.base_lrs = [gamma / l2_coef for _ in self.optimizer.param_groups]
 
-    return LambdaLR(optimizer, lr_lambda=f)
+        super(SparsifiedSGDLR, self).__init__(self.optimizer, self.f)
+
+    def f(self, iteration):
+        return 1 / max(1, (self.shifting_param + iteration))
+
+
+class SGDLR(LambdaLR):
+
+    """
+    Time based decay learning rate schedule for SGD (alpha / (t + beta))
+
+    Args:
+        optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
+        alpha (float): The constant value in the numerator of the learning rate schedule formula
+        beta (float): The constant value in the denominator of the learning rate schedule formula
+    Returns:
+        A learning rate scheduler (:obj:`torch.optim.lr_scheduler.LambdaLR`)
+    """
+
+    def __init__(self, optimizer, alpha, beta):
+        self.alpha = alpha
+        self.beta = beta
+        self.optimizer = optimizer
+
+        for group in self.optimizer.param_groups:
+            group['initial_lr'] = alpha / beta
+
+        self.optimizer.base_lrs = [alpha / beta for _ in self.optimizer.param_groups]
+
+        super(SGDLR, self).__init__(self.optimizer, self.f)
+
+    def f(self, iteration):
+        return self.beta / (self.beta + iteration)
+
+
