@@ -155,49 +155,6 @@ def multistep_learning_rates_with_warmup(optimizer, world_size, lr, gamma, miles
     optimizer.base_lrs = [base_lr for _ in optimizer.param_groups]
     return LambdaLR(optimizer, lr_lambda=f)
 
-
-# def sgd_optimal_learning_rates(optimizer, alpha, beta):
-#     """
-#     Learning rate schedule for SGD (alpha / (t + beta))
-
-#     Args:
-#         optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
-#         alpha (float): The constant value in the numerator of the learning rate schedule formula
-#         beta (float): The constant value in the denominator of the learning rate schedule formula
-#     Returns:
-#         A learning rate scheduler (:obj:`torch.optim.lr_scheduler.LambdaLR`)
-#     """
-
-#     def f(iteration):
-#         return beta / (beta + iteration)
-
-#     for group in optimizer.param_groups:
-#         group['initial_lr'] = alpha / beta
-
-#     # Use base_lr to overwrite the --lr
-#     optimizer.base_lrs = [alpha / beta for _ in optimizer.param_groups]
-#     return LambdaLR(optimizer, lr_lambda=f)
-
-# def sparsified_sgd_optimal_learning_rates(optimizer, gamma, l2_coef, shifting_param):
-#     """ 
-#     Learning rate schedule for sparsifiedSGD (gamma / l2_coef * (t + shifting_param))
-
-#     Args:
-#         optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
-#         gamma (float): The constant value in the numerator of the learning rate schedule formula
-#         l2_coef (float): The regularization rate which is used in the denominator of the learning rate schedule formula
-#         shifting_param (float): The constant value in the denominator of the learning rate schedule formula
-#     """
-
-#     def f(iteration):
-#         return 1 / max(1, (shifting_param + iteration))
-
-#     optimizer.base_lrs = [gamma / l2_coef for _ in optimizer.param_groups]
-#     for group in optimizer.param_groups:
-#         group['initial_lr'] = gamma / l2_coef
-
-#     return LambdaLR(optimizer, lr_lambda=f)
-
 class SparsifiedSGDLR(LambdaLR):
     """ 
     Learning rate schedule for sparsifiedSGD (gamma / l2_coef * (t + shifting_param))
