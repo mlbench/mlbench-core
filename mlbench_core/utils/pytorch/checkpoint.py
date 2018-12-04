@@ -1,6 +1,7 @@
 import os
 import shutil
 import torch
+import dill
 
 from mlbench_core.utils.pytorch.distributed import elementwise_min
 
@@ -62,7 +63,7 @@ class Checkpointer(object):
             if is_best:
                 shutil.copyfile(checkpoint_path, best_model_path)
         else:
-            torch.save(state, best_model_path)
+            torch.save(state, best_model_path, pickle_module=dill)
 
     @staticmethod
     def load(ckpt_run_dir, rank, model, optimizer, scheduler):
@@ -86,7 +87,7 @@ class Checkpointer(object):
             raise FileNotFoundError(
                 "No checkpoint found at '{}' for rank '{}'".format(ckpt_run_dir, rank))
 
-        checkpoint = torch.load(checkpoint_path)
+        checkpoint = torch.load(checkpoint_path, pickle_module=dill)
 
         model.load_state_dict(checkpoint['model'])
         optimizer.load_state_dict(checkpoint['optimizer'])
