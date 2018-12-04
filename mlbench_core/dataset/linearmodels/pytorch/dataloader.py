@@ -13,9 +13,6 @@ from .partition import DataPartitioner
 
 _logger = logging.getLogger('mlbench')
 
-
-__all__ = ['load_libsvm_lmdb', 'IMDBPT']
-
 _LIBSVM_DATASETS = [
     {'name': 'webspam', 'n_samples': 350000, 'n_features': 16609143, 'sparse': True},
     {'name': 'epsilon-train', 'n_samples': 400000, 'n_features': 2000, 'sparse': False},
@@ -82,9 +79,6 @@ class IMDBPT(torch.utils.data.Dataset):
 
         return f
 
-    def _get_matched_index(self, index):
-        return self._get_index_zones(index)
-
     def __getitem__(self, index):
         """
         Args:
@@ -92,7 +86,7 @@ class IMDBPT(torch.utils.data.Dataset):
         Returns:
             tuple: Tuple (image, target)
         """
-        block_index, item_index = self._get_matched_index(index)
+        block_index, item_index = self._get_index_zones(index)
         image, target = self.dbs[block_index][item_index]
         return image, target
 
@@ -100,7 +94,7 @@ class IMDBPT(torch.utils.data.Dataset):
         return self.length
 
     def __repr__(self):
-        fmt_str = 'Dataset ' + self.__class__.__name__ + '\n'
+        fmt_str = 'Dataset {}\n'.format(self.__class__.__name__)
         fmt_str += '    Number of datapoints: {}\n'.format(self.__len__())
         fmt_str += '    Root Location: {}\n'.format(self.root)
         tmp = '    Transforms (if any): '

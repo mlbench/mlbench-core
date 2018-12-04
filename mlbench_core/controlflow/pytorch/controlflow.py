@@ -153,7 +153,7 @@ class TrainValidation(object):
                             self.timeit.cumu))
 
             # FIXME: The Timeit object can be a problem.
-            self.train_epoch(dataloader_train, dataloader_val)
+            self.train_epoch(dataloader_train)
 
             if self.perform_validation:
                 self.do_validate(dataloader_val)
@@ -168,7 +168,7 @@ class TrainValidation(object):
 
                 self._get_dataloader_stats(dataloader_train, dataloader_val)
 
-    def train_epoch(self, dataloader, dataloader_val):
+    def train_epoch(self, dataloader):
         """Train model for one epoch of data.
 
         Args:
