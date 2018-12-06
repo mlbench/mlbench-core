@@ -9,6 +9,27 @@ pytorch
 .. automodule:: mlbench_core.models.pytorch
 .. currentmodule:: mlbench_core.models.pytorch
 
+
+linear_models
++++++++++++++
+
+.. automodule:: mlbench_core.models.pytorch.linear_models
+.. currentmodule:: mlbench_core.models.pytorch.linear_models
+
+
+LogisticRegression
+''''''''''''''''''
+
+.. autoclass:: LogisticRegression
+    :members:
+
+LinearRegression
+''''''''''''''''''
+
+.. autoclass:: LinearRegression
+    :members:
+
+
 resnet
 ++++++
 .. automodule:: mlbench_core.models.pytorch.resnet

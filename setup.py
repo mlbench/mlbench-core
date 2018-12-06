@@ -5,13 +5,13 @@
 
 from setuptools import setup, find_packages
 
-with open('README.rst') as readme_file:
+with open('README.md') as readme_file:
     readme = readme_file.read()
 
 with open('CHANGELOG.md') as history_file:
     history = history_file.read()
 
-requirements = ['kubernetes==7.0.0', ]
+requirements = ['kubernetes==7.0.0', 'dill==0.2.8.2']
 
 setup_requirements = ['pytest-runner',]
 
@@ -44,6 +44,6 @@ setup(
     test_suite='tests',
     tests_require=test_requirements,
     url='https://github.com/mlbench/mlbench_core',
-    version='1.0.0',
+    version='1.1.0',
     zip_safe=False,
 )
