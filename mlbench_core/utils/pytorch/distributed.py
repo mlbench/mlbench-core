@@ -142,7 +142,7 @@ class DecentralizedAggregation(Aggregation):
 class SparsifiedAggregation(Aggregation):
     """Aggregate sparsified updates."""
 
-    def __init__(self, model,):
+    def __init__(self, model):
         pass
 
     def _agg(self, data, op):

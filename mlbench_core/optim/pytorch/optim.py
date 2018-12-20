@@ -4,7 +4,7 @@ import torch.optim as optim
 from torch.optim.optimizer import Optimizer, required
 
 
-class sparsified_SGD(Optimizer):
+class SparsifiedSGD(Optimizer):
     r"""Implements sparsified version of stochastic gradient descent.
 
     Args:
@@ -27,7 +27,7 @@ class sparsified_SGD(Optimizer):
 
         defaults = dict(lr=lr, weight_decay=weight_decay)
 
-        super(sparsified_SGD, self).__init__(params, defaults)
+        super(SparsifiedSGD, self).__init__(params, defaults)
 
         self.__create_gradients_memory()
         self.__create_weighted_average_params()
@@ -35,7 +35,7 @@ class sparsified_SGD(Optimizer):
         self.num_coordinates = sparse_grad_size
 
     def __setstate__(self, state):
-        super(sparsified_SGD, self).__setstate__(state)
+        super(SparsifiedSGD, self).__setstate__(state)
 
     def __create_weighted_average_params(self):
         """ Create a memory to keep the weighted average of parameters in each iteration """
