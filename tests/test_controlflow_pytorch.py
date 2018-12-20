@@ -67,11 +67,9 @@ def test_training(mocker, model, optimizer, loss_function, metrics, scheduler):
     mocker.patch('mlbench_core.controlflow.pytorch.controlflow.log_metrics')
 
     batch_size = 2
-    agg_fn = AllReduceAggregation(world_size=1).agg_model
 
     tv = TrainValidation(model, optimizer, loss_function,
-                         metrics, scheduler, batch_size, 10, 0, 1, 1, 'fp32',
-                         agg_fn=agg_fn)
+                         metrics, scheduler, batch_size, 10, 0, 1, 1, 'fp32')
 
     train_set = [random.random() for _ in range(100)]
     train_set = [
@@ -94,5 +92,5 @@ def test_training(mocker, model, optimizer, loss_function, metrics, scheduler):
         repartition_per_epoch=True)
 
     assert tv.tracker.current_epoch == 9
-    assert tv.tracker.records['best_epoch'] > -1
-    assert tv.tracker.records['best_Prec@1'] > 50.0
+    assert tv.tracker.best_epoch > -1
+    assert tv.tracker.best_metric_value > 50.0

@@ -7,7 +7,6 @@ import pytest
 import time
 import itertools
 import torch
-import torch.distributed as dist
 
 from mlbench_core.utils.pytorch.helpers import *
 from mlbench_core.utils import Tracker
@@ -56,24 +55,25 @@ def test_update_best_runtime_metric(mocker):
     tracker = Tracker()
     tracker.records = {}
     tracker.current_epoch = 1
-    #tracker = mocker.patch('mlbench_core.utils.pytorch.helpers.Tracker')
+    tracker.best_metric_value = 0
+    # tracker = mocker.patch('mlbench_core.utils.pytorch.helpers.Tracker')
 
     is_best, best_metric_name = update_best_runtime_metric(
         tracker, 10.0, 'prec')
 
-    assert is_best == True
+    assert is_best
     assert best_metric_name == "best_prec"
 
     is_best, best_metric_name = update_best_runtime_metric(
         tracker, 11.0, 'prec')
 
-    assert is_best == True
+    assert is_best
     assert best_metric_name == "best_prec"
 
     is_best, best_metric_name = update_best_runtime_metric(
         tracker, 9.0, 'prec')
 
-    assert is_best == False
+    assert not is_best
     assert best_metric_name == "best_prec"
 
 

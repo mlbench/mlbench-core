@@ -71,10 +71,7 @@ def maybe_range(maximum):
 def update_best_runtime_metric(tracker, metric_value, metric_name):
     """Update the runtime information to config if the metric value is the best."""
     best_metric_name = "best_{}".format(metric_name)
-    if best_metric_name in tracker.records:
-        is_best = metric_value > tracker.best_metric_value
-    else:
-        is_best = True
+    is_best = metric_value > tracker.best_metric_value
 
     if is_best:
         tracker.best_metric_name = best_metric_name
