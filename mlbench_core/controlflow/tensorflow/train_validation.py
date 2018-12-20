@@ -1,9 +1,7 @@
 r"""A controlflow which train and evaluate a model."""
 import logging
-import tensorflow as tf
 from collections import defaultdict
-
-from mlbench_core.utils import Tracker, AverageMeter
+from mlbench_core.utils import AverageMeter, Tracker
 
 
 class TrainValidation(object):

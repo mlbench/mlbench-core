@@ -2,13 +2,12 @@ r"""Test the tensorflow load and preprocess cifar-10 correctly.
 
 Credit https://github.com/tensorflow/models/blob/master/tutorials/image/cifar10/cifar10_input.py
 """
-import types
+import logging
 import os
 import sys
 import tarfile
-import logging
+from six.moves import urllib, xrange
 import tensorflow as tf
-from six.moves import xrange, urllib
 
 
 class DatasetCifar(object):

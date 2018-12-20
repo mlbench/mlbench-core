@@ -1,19 +1,17 @@
 r"""Helper functions."""
 
-import time
 import datetime
 import itertools
-import shutil
-import os
 import logging
-import socket
+import os
 import random
+import shutil
+import socket
+import time
+from mlbench_core.api import ApiClient
+from mlbench_core.utils.pytorch.topology import FCGraph
 import torch
 import torch.distributed as dist
-
-from mlbench_core.utils.pytorch import checkpoint
-from mlbench_core.utils.pytorch.topology import FCGraph
-from mlbench_core.api import ApiClient
 
 
 class Timeit(object):

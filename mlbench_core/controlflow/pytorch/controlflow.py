@@ -37,15 +37,14 @@ class TrainValidation(object):
         use_cuda (bool): Whether to train on GPU or not. Default: `False`
         max_batch_per_epoch (int): Maximum number of batches per epoch. Whole dataset
             is used if not specified. Default: `None`
-        agg_fn (callable): A callable of signature `(model, op)`. Default: `None`.
-        agg_model (bool): Aggregate weight of model. If false, aggregate gradient. Default: `False`
+        tracker (:obj:`mlbench_core.utils.Tracker`): Tracker for the controlflow. Default: `None`
     """
 
     def __init__(self, model, optimizer, loss_function, metrics, scheduler,
                  batch_size, train_epochs, rank, world_size, run_id, dtype,
                  validate=True, schedule_per='epoch', checkpoint=None,
                  transform_target_type=None, average_models=False,
-                 use_cuda=False, max_batch_per_epoch=None, agg_fn=None, agg_grad=True, tracker=None):
+                 use_cuda=False, max_batch_per_epoch=None, tracker=None):
         self.tracker = tracker or Tracker()
         self.batch_size = batch_size
         self.train_epochs = train_epochs
@@ -65,8 +64,6 @@ class TrainValidation(object):
         self.use_cuda = use_cuda
         self.max_batch_per_epoch = max_batch_per_epoch
         self.dtype = dtype
-        self.agg_fn = agg_fn
-        self.agg_grad = agg_grad
 
     def _get_dataloader_stats(self, dataloader_train, dataloader_val):
         """ Sets the stats for the supplied dataloaders
@@ -126,11 +123,7 @@ class TrainValidation(object):
 
         # Initialize Tracker or resume from checkpoint
         if resume:
-            # TODO: Update the resume part in checkpoint.py
             start_epoch = self.tracker.current_epoch + 1 if resume else 0
-            # self.timeit = Timeit(self.checkpoint.runtime['cumu_time_val'][-1])
-            # raise NotImplementedError(start_epoch)
-            # self.timeit = self.tracker.timeit
         else:
             start_epoch = 0
 
@@ -141,9 +134,6 @@ class TrainValidation(object):
             self.tracker.records = []
             self.tracker.start_time = time.time()
 
-            # self.tracker.timeit = Timeit(0.)
-            # self.timeit = self.tracker.timeit
-
         dist.barrier()
         for epoch in range(start_epoch, self.train_epochs):
             self.tracker.current_epoch = epoch
@@ -153,11 +143,6 @@ class TrainValidation(object):
                 self.scheduler.step()
 
             # Per epoch information.
-            # logger.info("Current epoch : {} : lr={} : time={:10.3e}"
-            #             .format(
-            #                 epoch,
-            #                 self.scheduler.get_lr(),
-            #                 self.timeit.cumu))
             logger.info("Current epoch : {} : lr={}"
                         .format(epoch, self.scheduler.get_lr()))
 
@@ -221,19 +206,9 @@ class TrainValidation(object):
             loss.backward()
             self.tracker.batch_stats.append(('backprop', time.time()))
 
-            # Aggregate gradients from all workers
-            if self.agg_grad:
-                self.agg_fn(self.model, op='avg')
-                self.tracker.batch_stats.append(('aggr_grad', time.time()))
-
             # Apply updates to model
             self.optimizer.step()
             self.tracker.batch_stats.append(('opt_step', time.time()))
-
-            # Aggregate weights from all workers
-            if not self.agg_grad:
-                self.agg_fn(self.model, op='avg')
-                self.tracker.batch_stats.append(('aggr_data', time.time()))
 
             self.record_train_batch_stats(
                 batch_idx,

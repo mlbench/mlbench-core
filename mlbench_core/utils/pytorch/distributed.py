@@ -31,6 +31,8 @@ def global_average(sum, count):
     return avg
 
 
+##########################################################################################
+
 class Aggregation(object):
     """Aggregate udpates / models from different processes."""
 
@@ -143,16 +145,6 @@ class SparsifiedAggregation(Aggregation):
     """Aggregate sparsified updates."""
 
     def __init__(self, model):
-        pass
-
-    def _agg(self, data, op):
-        pass
-
-
-class QuantizedAggregation(Aggregation):
-    """Aggregated quantized updates."""
-
-    def __init__(self):
         pass
 
     def _agg(self, data, op):

@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 
-import argparse
+from bisect import bisect_right
 import numpy as np
-import re
-from torch.optim.lr_scheduler import LambdaLR, MultiStepLR
-from bisect import bisect_left, bisect_right
+from torch.optim.lr_scheduler import LambdaLR
 
 
 def const(optimizer):
@@ -66,7 +64,8 @@ def cyclical_learning_rates(optimizer, mode, gamma, cycle_length, base_lr, max_l
     Since :cite:`smith2017cyclical` mentioned that triangular, Welch, Hann windows produce equivalent results,
     we only implement triangular learning rate policy, also known as **linear cycle**.
 
-    The original implementation of :cite:`smith2017cyclical` can be found from `here <https://github.com/bckenstler/CLR>`_.
+    The original implementation of :cite:`smith2017cyclical` can be found from
+    `here <https://github.com/bckenstler/CLR>`_.
 
     :cite:`smith2017super` uses one cycle with extra epochs.
 
@@ -97,7 +96,14 @@ def cyclical_learning_rates(optimizer, mode, gamma, cycle_length, base_lr, max_l
                                      mode=mode)
 
 
-def multistep_learning_rates_with_warmup(optimizer, world_size, lr, gamma, milestones, warmup_duration=None, warmup_lr=None, warmup_linear_scaling=False):
+def multistep_learning_rates_with_warmup(optimizer,
+                                         world_size,
+                                         lr,
+                                         gamma,
+                                         milestones,
+                                         warmup_duration=None,
+                                         warmup_lr=None,
+                                         warmup_linear_scaling=False):
     """ Multistep Learning Rate Schedule with warmup
 
     In :cite:`goyal2017accurate`, warmup is used in order to apply the ``Linear Scaling Rule``.

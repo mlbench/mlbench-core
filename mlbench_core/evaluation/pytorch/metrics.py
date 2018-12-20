@@ -1,7 +1,7 @@
 """Utilities for measuring the performance of a model."""
 
-from mlbench_core.utils.pytorch.distributed import global_average
 from mlbench_core.utils import AverageMeter
+from mlbench_core.utils.pytorch.distributed import global_average
 
 
 class TopKAccuracy(object):
