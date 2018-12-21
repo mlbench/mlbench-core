@@ -2,6 +2,7 @@ import enum
 import json
 import os
 import shutil
+import dill
 import torch
 
 
@@ -68,11 +69,11 @@ class Checkpointer(object):
         best_model_path = os.path.join(self.dirname, 'model_best.pth.tar')
 
         if self.freq == CheckpointFreq.ALL:
-            torch.save(state, checkpoint_path)
+            torch.save(state, checkpoint_path, pickle_module=dill)
             if is_best:
                 shutil.copyfile(checkpoint_path, best_model_path)
         elif self.freq == CheckpointFreq.BEST:
-            torch.save(state, best_model_path)
+            torch.save(state, best_model_path, pickle_module=dill)
         elif self.freq == CheckpointFreq.NONE:
             pass
         else:
@@ -111,7 +112,7 @@ class Checkpointer(object):
             raise FileNotFoundError(
                 "No checkpoint found at '{}' for rank '{}'".format(ckpt_run_dir, rank))
 
-        checkpoint = torch.load(checkpoint_path)
+        checkpoint = torch.load(checkpoint_path, pickle_module=dill)
 
         model.load_state_dict(checkpoint['model'])
         optimizer.load_state_dict(checkpoint['optimizer'])

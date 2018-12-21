@@ -162,3 +162,60 @@ def multistep_learning_rates_with_warmup(optimizer,
         group['initial_lr'] = base_lr
     optimizer.base_lrs = [base_lr for _ in optimizer.param_groups]
     return LambdaLR(optimizer, lr_lambda=f)
+
+
+class SparsifiedSGDLR(LambdaLR):
+    """ 
+    Learning rate schedule for sparsifiedSGD (gamma / l2_coef * (t + shifting_param))
+
+    Args:
+        optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
+        gamma (float): The constant value in the numerator of the learning rate schedule formula
+        l2_coef (float): The regularization rate which is used in the denominator of the learning rate schedule formula
+        shifting_param (float): The constant value in the denominator of the learning rate schedule formula
+    """
+
+    def __init__(self, optimizer, gamma, l2_coef, shifting_param):
+        self.shifting_param = shifting_param
+        self.optimizer = optimizer
+
+        for group in self.optimizer.param_groups:
+            group['initial_lr'] = gamma / l2_coef
+
+        self.optimizer.base_lrs = [
+            gamma / l2_coef for _ in self.optimizer.param_groups]
+
+        super(SparsifiedSGDLR, self).__init__(self.optimizer, self.f)
+
+    def f(self, iteration):
+        return 1 / max(1, (self.shifting_param + iteration))
+
+
+class SGDLR(LambdaLR):
+
+    """
+    Time based decay learning rate schedule for SGD (alpha / (t + beta))
+
+    Args:
+        optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
+        alpha (float): The constant value in the numerator of the learning rate schedule formula
+        beta (float): The constant value in the denominator of the learning rate schedule formula
+    Returns:
+        A learning rate scheduler (:obj:`torch.optim.lr_scheduler.LambdaLR`)
+    """
+
+    def __init__(self, optimizer, alpha, beta):
+        self.alpha = alpha
+        self.beta = beta
+        self.optimizer = optimizer
+
+        for group in self.optimizer.param_groups:
+            group['initial_lr'] = alpha / beta
+
+        self.optimizer.base_lrs = [
+            alpha / beta for _ in self.optimizer.param_groups]
+
+        super(SGDLR, self).__init__(self.optimizer, self.f)
+
+    def f(self, iteration):
+        return self.beta / (self.beta + iteration)

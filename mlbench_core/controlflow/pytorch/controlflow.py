@@ -182,7 +182,8 @@ class TrainValidation(object):
             dataloader,
             self.dtype,
             self.max_batch_per_epoch,
-            self.use_cuda)
+            self.use_cuda,
+            self.transform_target_type)
 
         for batch_idx, (data, target) in enumerate(data_iter):
             self.tracker.batch_stats = [("start", time.time())]
@@ -206,7 +207,7 @@ class TrainValidation(object):
             loss.backward()
             self.tracker.batch_stats.append(('backprop', time.time()))
 
-            # Apply updates to model
+            # Aggregate gradients/parameters from all workers and apply updates to model
             self.optimizer.step()
             self.tracker.batch_stats.append(('opt_step', time.time()))
 
@@ -354,7 +355,8 @@ class TrainValidation(object):
                 dataloader,
                 self.dtype,
                 self.max_batch_per_epoch,
-                self.use_cuda)
+                self.use_cuda,
+                self.transform_target_type)
 
             for data, target in data_iter:
                 # Inference

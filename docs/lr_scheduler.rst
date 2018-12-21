@@ -9,6 +9,19 @@ pytorch
 .. automodule:: mlbench_core.lr_scheduler.pytorch
 .. currentmodule:: mlbench_core.lr_scheduler.pytorch
 
+SparsifiedSGDLR
++++++++++++++++
+
+.. autoclass:: SparsifiedSGDLR
+    :members:
+
+SGDLR
++++++
+
+.. autoclass:: SGDLR
+    :members:
+
+
 triangular_learning_rates
 +++++++++++++++++++++++++
 

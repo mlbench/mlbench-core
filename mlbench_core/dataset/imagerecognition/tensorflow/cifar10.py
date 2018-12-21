@@ -100,7 +100,6 @@ class DatasetCifar(object):
                 sys.stdout.flush()
             filepath, _ = urllib.request.urlretrieve(
                 self.data_url, filepath, _progress)
-            logging.debug()
             logging.debug('download file to the path:' + filepath)
         else:
             logging.debug('retrieve file to the path:' + filepath)

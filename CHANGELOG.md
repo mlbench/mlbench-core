@@ -1,6 +1,16 @@
 # Change Log
 
-## [1.0.0](https://github.com/mlbench/mlbench-core/tree/1.0.0) (2018-11-15)
+## [v1.1.0](https://github.com/mlbench/mlbench-core/tree/v1.1.0) (2018-12-06)
+[Full Changelog](https://github.com/mlbench/mlbench-core/compare/v1.0.0...v1.1.0)
+
+**Fixed bugs:**
+
+- Bug when saving checkpoints [\#13](https://github.com/mlbench/mlbench-core/issues/13)
+- Adds Tensorflow Controlflow, Dataset and Model code
+- Adds Pytorch linear models
+- Adds sparsified and decentralized optimizers
+
+## [v1.0.0](https://github.com/mlbench/mlbench-core/tree/v1.0.0) (2018-11-15)
 
 **Implemented enhancements:**
 
@@ -8,8 +18,6 @@
 - Move to google-style docs [\#4](https://github.com/mlbench/mlbench-core/issues/4)
 - Add Imagenet Dataset for pytorch [\#3](https://github.com/mlbench/mlbench-core/issues/3)
 - Move worker code to mlbench-core repo [\#1](https://github.com/mlbench/mlbench-core/issues/1)
-
-# Change Log
 
 ## [0.1.0](https://github.com/mlbench/mlbench/tree/0.1.0) (2018-09-14)
 **Implemented enhancements:**
