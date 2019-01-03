@@ -188,6 +188,9 @@ def log_metrics(run_id, rank, epoch, metric_name, value):
         value (Any): The metric value
     """
     in_cluster = os.getenv('MLBENCH_IN_DOCKER') is None
+
+    metric_name = "{} @ {}".format(metric_name, rank)
+
     if in_cluster:
         api = ApiClient()
         api.post_metric(
