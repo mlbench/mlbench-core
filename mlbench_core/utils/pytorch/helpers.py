@@ -9,8 +9,10 @@ import logging
 import socket
 import random
 import argparse
+
 import torch
 import torch.distributed as dist
+import deprecation
 
 from mlbench_core.utils.pytorch import checkpoint
 from mlbench_core.utils.pytorch.topology import FCGraph
@@ -177,6 +179,30 @@ def config_pytorch(use_cuda=False, seed=None, cudnn_deterministic=False):
     return rank, world_size, graph
 
 
+class LogMetrics(object):
+    in_cluster = os.getenv('MLBENCH_IN_DOCKER') is None
+
+    if in_cluster:
+        api = ApiClient()
+
+    @staticmethod
+    def log(run_id, rank, epoch, metric_name, value):
+        if not LogMetrics.in_cluster:
+            return
+
+        metric_name = "{} @ {}".format(metric_name, rank)
+
+        LogMetrics.api.post_metric(
+            run_id,
+            metric_name,
+            value,
+            metadata="{{rank: {}, epoch:{}}}".format(rank, epoch))
+
+
+@deprecation.deprecated(
+    deprecated_in="1.1.1",
+    details="This method has performance implications, use"
+    " mlbench_core.utils.pytorch.helpers.LogMetrics instead")
 def log_metrics(run_id, rank, epoch, metric_name, value):
     """ Log metrics to mlbench master/dashboard
 

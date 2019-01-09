@@ -9,7 +9,7 @@ from collections import defaultdict
 from mlbench_core.utils import AverageMeter, Tracker
 from mlbench_core.utils.pytorch.distributed import aggregate_gradients, global_average
 from mlbench_core.utils.pytorch.helpers import Timeit, update_best_runtime_metric, \
-    iterate_dataloader, log_metrics
+    iterate_dataloader, LogMetrics
 
 logger = logging.getLogger('mlbench')
 
@@ -207,7 +207,7 @@ class TrainValidation(object):
             # Backprop
             loss.backward()
             self.tracker.batch_stats.append(('backprop', time.time()))
-            
+
             # Aggregate gradients/parameters from all workers and apply updates to model
             self.optimizer.step()
             self.tracker.batch_stats.append(('opt_step', time.time()))
@@ -261,7 +261,7 @@ class TrainValidation(object):
         self.tracker.cumu_time_train.append(
             self.tracker.batch_stats[-1][1] - self.tracker.batch_stats[0][1])
 
-        log_metrics(
+        LogMetrics.log(
             self.run_id,
             self.rank,
             self.tracker.current_epoch,
@@ -292,7 +292,7 @@ class TrainValidation(object):
 
             # Save
             for name, value in metrics_values.items():
-                log_metrics(
+                LogMetrics.log(
                     self.run_id,
                     self.rank,
                     self.tracker.current_epoch,
@@ -311,7 +311,7 @@ class TrainValidation(object):
             if self.rank == 0:
                 logger.info("Validation loss={:.3f}".format(loss))
 
-        log_metrics(
+        LogMetrics.log(
             self.run_id,
             self.rank,
             self.tracker.current_epoch,
