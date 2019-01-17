@@ -256,7 +256,7 @@ class ApiClient(object):
             ``return_value.result().json()``
         """
         if date is None:
-            date = datetime.datetime.now()
+            date = datetime.datetime.utcnow()
 
         request_url = "{endpoint}metrics/".format(endpoint=self.endpoint)
         future = self.executor.submit(
