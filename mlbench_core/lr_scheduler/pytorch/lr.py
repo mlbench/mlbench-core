@@ -164,6 +164,53 @@ def multistep_learning_rates_with_warmup(optimizer,
     return LambdaLR(optimizer, lr_lambda=f)
 
 
+class MultistepLearningRatesWithWarmup(LambdaLR):
+    def __init__(self,
+                 optimizer,
+                 world_size,
+                 gamma,
+                 milestones,
+                 lr,
+                 warmup_duration,
+                 warmup_linear_scaling=True,
+                 warmup_init_lr=None):
+        if not list(milestones) == sorted(milestones):
+            raise ValueError('Milestones should be a list of increasing integers.'
+                             'Got {}'.format(milestones))
+
+        if warmup_duration >= milestones[0]:
+            raise ValueError("The scaling phase should be earlier than the first milestone."
+                             "Got {} and {}".format(warmup_duration, milestones[0]))
+
+        self.optimizer = optimizer
+        self.gamma = gamma
+        self.milestones = milestones
+        self.warmup_duration = warmup_duration
+        self.warmup_init_lr = warmup_init_lr or lr
+
+        scaling_factor = world_size if warmup_linear_scaling else 1
+        self.warmup_scaled_lr = scaling_factor * lr
+
+        # overwrite initial lr
+        self.base_lr = lr
+        for group in self.optimizer.param_groups:
+            group['initial_lr'] = self.base_lr
+
+        super(MultistepLearningRatesWithWarmup, self).__init__(
+            self.optimizer, self.f)
+
+    def f(self, duration):
+        # warmup_lr => lr or lr * world_size => ....
+        if duration <= self.warmup_duration:
+            progress = duration / self.warmup_duration
+            lr = progress * self.warmup_scaled_lr + \
+                (1 - progress) * self.warmup_init_lr
+        else:
+            lr = self.warmup_scaled_lr * self.gamma ** \
+                bisect_right(self.milestones, duration)
+        return lr / self.base_lr
+
+
 class SparsifiedSGDLR(LambdaLR):
     """ 
     Learning rate schedule for sparsifiedSGD (gamma / l2_coef * (t + shifting_param))
