@@ -15,7 +15,7 @@ requirements = ['kubernetes==7.0.0', 'dill==0.2.8.2', 'deprecation==2.0.6']
 
 setup_requirements = ['pytest-runner',]
 
-test_requirements = ['pytest', 'pytest-mock']
+test_requirements = ['pytest', 'pytest-mock', 'deprecation==2.0.6']
 
 setup(
     author="Ralf Grubenmann",

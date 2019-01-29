@@ -180,7 +180,7 @@ def config_pytorch(use_cuda=False, seed=None, cudnn_deterministic=False):
 
 
 class LogMetrics(object):
-    in_cluster = os.getenv('MLBENCH_IN_DOCKER') is None
+    in_cluster = os.getenv('KUBERNETES_SERVICE_HOST') is not None
 
     if in_cluster:
         api = ApiClient()
