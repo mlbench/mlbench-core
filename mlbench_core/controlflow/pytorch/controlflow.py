@@ -1,15 +1,14 @@
 r"""Control flow for pytorch applications."""
-import torch
 import logging
 import time
-import math
-import torch.distributed as dist
-from collections import defaultdict
 
 from mlbench_core.utils import AverageMeter, Tracker
 from mlbench_core.utils.pytorch.distributed import aggregate_gradients, global_average
 from mlbench_core.utils.pytorch.helpers import Timeit, update_best_runtime_metric, \
     iterate_dataloader, LogMetrics
+
+import torch
+import torch.distributed as dist
 
 logger = logging.getLogger('mlbench')
 
@@ -38,14 +37,15 @@ class TrainValidation(object):
         use_cuda (bool): Whether to train on GPU or not. Default: `False`
         max_batch_per_epoch (int): Maximum number of batches per epoch. Whole dataset
             is used if not specified. Default: `None`
+        tracker (:obj:`mlbench_core.utils.Tracker`): Tracker for the controlflow. Default: `None`
     """
 
     def __init__(self, model, optimizer, loss_function, metrics, scheduler,
                  batch_size, train_epochs, rank, world_size, run_id, dtype,
                  validate=True, schedule_per='epoch', checkpoint=None,
                  transform_target_type=None, average_models=False,
-                 use_cuda=False, max_batch_per_epoch=None):
-        self.tracker = Tracker()
+                 use_cuda=False, max_batch_per_epoch=None, tracker=None):
+        self.tracker = tracker or Tracker()
         self.batch_size = batch_size
         self.train_epochs = train_epochs
         self.model = model
@@ -123,22 +123,19 @@ class TrainValidation(object):
 
         # Initialize Tracker or resume from checkpoint
         if resume:
-            # TODO: Update the resume part in checkpoint.py
             start_epoch = self.tracker.current_epoch + 1 if resume else 0
-            self.timeit = Timeit(self.checkpoint.runtime['cumu_time_val'][-1])
-            raise NotImplementedError
         else:
-            start_epoch = 1
-            self.timeit = Timeit(0.)
+            start_epoch = 0
 
             # Initialize Tracker
-            self.tracker.current_epoch = 1
+            self.tracker.current_epoch = 0
             self.tracker.best_epoch = 0
-            self.tracker.records = defaultdict(list)
+            self.tracker.best_metric_value = 0
+            self.tracker.records = []
             self.tracker.start_time = time.time()
 
         dist.barrier()
-        for epoch in range(start_epoch, 1 + self.train_epochs):
+        for epoch in range(start_epoch, self.train_epochs):
             self.tracker.current_epoch = epoch
 
             # schedule learning rates
@@ -146,17 +143,20 @@ class TrainValidation(object):
                 self.scheduler.step()
 
             # Per epoch information.
-            logger.info("Current epoch : {} : lr={} : time={:10.3e}"
-                        .format(
-                            epoch,
-                            self.scheduler.get_lr(),
-                            self.timeit.cumu))
+            logger.info("Current epoch : {} : lr={}"
+                        .format(epoch, self.scheduler.get_lr()))
 
             # FIXME: The Timeit object can be a problem.
             self.train_epoch(dataloader_train)
 
+            is_best = False
             if self.perform_validation:
-                self.do_validate(dataloader_val)
+                is_best = self.do_validate(dataloader_val)
+
+            if self.checkpoint:
+                self.checkpoint.save(self.tracker, self.model,
+                                     self.optimizer, self.scheduler,
+                                     self.tracker.current_epoch, is_best)
 
             # Shuffle the dataset across nodes
             if repartition_per_epoch:
@@ -232,6 +232,12 @@ class TrainValidation(object):
 
         self.tracker.epoch_stats["loss"].update(loss, output.size()[0])
 
+        if not hasattr(self.tracker, 'cumu_time_train'):
+            self.tracker.cumu_time_train = []
+
+        self.tracker.cumu_time_train.append(
+            self.tracker.batch_stats[-1][1] - self.tracker.batch_stats[0][1])
+
         str_builder = ["Epoch {:5.2f} Batch {:4}: loss={:6.2e}".format(
             progress, batch_idx, self.tracker.epoch_stats["loss"].avg)]
 
@@ -245,6 +251,15 @@ class TrainValidation(object):
 
             str_builder.append("{} {:.2e}".format(
                 metric.name, self.tracker.epoch_stats[metric.name].avg))
+
+            LogMetrics.log(
+                self.run_id,
+                self.rank,
+                self.tracker.current_epoch,
+                'train_' + metric.name,
+                metric_value,
+                tracker=self.tracker,
+                time=sum(self.tracker.cumu_time_train))
 
         # Compute time spent on each step
         tracker_stats = zip(
@@ -266,7 +281,9 @@ class TrainValidation(object):
             self.rank,
             self.tracker.current_epoch,
             'train_loss',
-            loss)
+            loss,
+            tracker=self.tracker,
+            time=sum(self.tracker.cumu_time_train))
 
     def do_validate(self, dataloader):
         """Evaluate the model on the test dataset and save to the checkpoint.
@@ -275,12 +292,13 @@ class TrainValidation(object):
             dataloader (:obj:`torch.utils.data.DataLoader`): The validation set
         """
         # evaluate the model.
+        start_time = time.time()
         metrics_values, loss = self.validate(dataloader)
 
         if not hasattr(self.tracker, 'cumu_time_val'):
             self.tracker.cumu_time_val = []
-        self.tracker.cumu_time_val.append(
-            time.time() - self.tracker.start_time)
+
+        self.tracker.cumu_time_val.append(time.time() - start_time)
 
         if len(metrics_values) > 0:
             # Assume the first metric is used to determine the best model to checkpoint.
@@ -296,16 +314,18 @@ class TrainValidation(object):
                     self.run_id,
                     self.rank,
                     self.tracker.current_epoch,
-                    name,
-                    value)
+                    'val_' + name,
+                    value,
+                    tracker=self.tracker,
+                    time=sum(self.tracker.cumu_time_val))
 
             if self.rank == 0:
                 logger.info('{} for rank {}:(best epoch {}, current epoch {}): {:.3f}'.format(
                     best_metric_name,
                     self.rank,
-                    self.tracker.records['best_epoch'],
+                    self.tracker.best_epoch,
                     self.tracker.current_epoch,
-                    self.tracker.records[best_metric_name]))
+                    self.tracker.best_metric_value))
         else:
             is_best = False
             if self.rank == 0:
@@ -316,12 +336,11 @@ class TrainValidation(object):
             self.rank,
             self.tracker.current_epoch,
             'val_loss',
-            loss)
+            loss,
+            tracker=self.tracker,
+            time=sum(self.tracker.cumu_time_val))
 
-        if self.checkpoint:
-            self.checkpoint.save(self.tracker, self.model,
-                                 self.optimizer, self.scheduler,
-                                 self.tracker.current_epoch, is_best)
+        return is_best
 
     def validate(self, dataloader):
         r"""Validate the quality of the model in terms of loss and metrics.

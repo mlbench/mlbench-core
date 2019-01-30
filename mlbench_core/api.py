@@ -1,11 +1,11 @@
 """ MLBench Master/Dashboard API Client Functionality """
 
-import requests
 import concurrent.futures
 import datetime
 import logging
+from kubernetes import client, config
+import requests
 
-from kubernetes import config, client
 
 OFFICIAL_IMAGES = {
     'Test Image': 'mlbench/mlbench_worker'
@@ -103,8 +103,8 @@ class ApiClient(object):
                 port = service.spec.ports[0].port
             elif service_type == "NodePort":
                 port = service.spec.ports[0].node_port
-                if (service.spec.external_i_ps
-                        and len(service.spec.external_i_ps) > 0):
+                if (service.spec.external_i_ps and
+                        len(service.spec.external_i_ps) > 0):
 
                     ip = service.spec.external_i_ps[0]
                 else:
@@ -256,7 +256,7 @@ class ApiClient(object):
             ``return_value.result().json()``
         """
         if date is None:
-            date = datetime.datetime.now()
+            date = datetime.datetime.utcnow()
 
         request_url = "{endpoint}metrics/".format(endpoint=self.endpoint)
         future = self.executor.submit(
@@ -269,7 +269,7 @@ class ApiClient(object):
                 "date": str(date),
                 "value": str(value),
                 "metadata": metadata
-             })
+            })
         return future
 
     def get_runs(self):
@@ -341,11 +341,11 @@ class ApiClient(object):
         """
         request_url = "{endpoint}runs/".format(endpoint=self.endpoint)
         data = {
-                "name": name,
-                "num_workers": num_workers,
-                "num_cpus": num_cpus,
-                "max_bandwidth": max_bandwidth
-             }
+            "name": name,
+            "num_workers": num_workers,
+            "num_cpus": num_cpus,
+            "max_bandwidth": max_bandwidth
+        }
 
         if custom_image_name is not None:
             data['image_name'] = 'custom_image'
@@ -361,7 +361,7 @@ class ApiClient(object):
             requests.post,
             request_url,
             data=data
-            )
+        )
         return future
 
     def get_worker_pods(self):

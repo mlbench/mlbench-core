@@ -6,6 +6,11 @@ mlbench_core.models
 pytorch
 ~~~~~~~
 
+Since `Kuang Liu<https://github.com/kuangliu/pytorch-cifar>` has already included many classical
+neural network models. We use their implementation direclty for 
+
+- VGG
+
 .. automodule:: mlbench_core.models.pytorch
 .. currentmodule:: mlbench_core.models.pytorch
 
