@@ -10,8 +10,10 @@ import socket
 import time
 from mlbench_core.api import ApiClient
 from mlbench_core.utils.pytorch.topology import FCGraph
+
 import torch
 import torch.distributed as dist
+import deprecation
 
 
 class Timeit(object):
@@ -172,7 +174,31 @@ def config_pytorch(use_cuda=False, seed=None, cudnn_deterministic=False):
     return rank, world_size, graph
 
 
-def log_metrics(run_id, rank, epoch, metric_name, value, tracker=None, time=None):
+class LogMetrics(object):
+    in_cluster = os.getenv('KUBERNETES_SERVICE_HOST') is not None
+
+    if in_cluster:
+        api = ApiClient()
+
+    @staticmethod
+    def log(run_id, rank, epoch, metric_name, value):
+        if not LogMetrics.in_cluster:
+            return
+
+        metric_name = "{} @ {}".format(metric_name, rank)
+
+        LogMetrics.api.post_metric(
+            run_id,
+            metric_name,
+            value,
+            metadata="{{rank: {}, epoch:{}}}".format(rank, epoch))
+
+
+@deprecation.deprecated(
+    deprecated_in="1.1.1",
+    details="This method has performance implications, use"
+    " mlbench_core.utils.pytorch.helpers.LogMetrics instead")
+def log_metrics(run_id, rank, epoch, metric_name, value):
     """ Log metrics to mlbench master/dashboard
 
     Args:
@@ -183,6 +209,9 @@ def log_metrics(run_id, rank, epoch, metric_name, value, tracker=None, time=None
         value (Any): The metric value
     """
     in_cluster = os.getenv('MLBENCH_IN_DOCKER') is None
+
+    metric_name = "{} @ {}".format(metric_name, rank)
+
     if in_cluster:
         api = ApiClient()
         api.post_metric(

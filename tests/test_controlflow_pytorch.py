@@ -64,7 +64,7 @@ def test_instantiation(mocker, model, optimizer, loss_function, metrics, schedul
 def test_training(mocker, model, optimizer, loss_function, metrics, scheduler):
     mocker.patch('mlbench_core.controlflow.pytorch.controlflow.dist')
     mocker.patch('mlbench_core.utils.pytorch.distributed.dist')
-    mocker.patch('mlbench_core.controlflow.pytorch.controlflow.log_metrics')
+    mocker.patch('mlbench_core.controlflow.pytorch.controlflow.LogMetrics')
 
     batch_size = 2
 

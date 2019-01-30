@@ -105,6 +105,16 @@ def test_config_pytorch(mocker):
     assert graph is not None
 
 
+def test_LogMetrics(mocker):
+    mocker.patch('mlbench_core.utils.pytorch.helpers.ApiClient')
+
+    LogMetrics.log("1", 1, 1, "loss", 123)
+
+    mocker.patch.dict('os.environ', {'MLBENCH_IN_DOCKER': 'True'})
+
+    LogMetrics.log("1", 1, 1, "loss", 123)
+
+
 def test_log_metrics(mocker):
     mocker.patch('mlbench_core.utils.pytorch.helpers.ApiClient')
 

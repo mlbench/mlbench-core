@@ -11,11 +11,11 @@ with open('README.md') as readme_file:
 with open('CHANGELOG.md') as history_file:
     history = history_file.read()
 
-requirements = ['kubernetes==7.0.0', 'dill==0.2.8.2']
+requirements = ['kubernetes==7.0.0', 'dill==0.2.8.2', 'deprecation==2.0.6']
 
 setup_requirements = ['pytest-runner',]
 
-test_requirements = ['pytest', 'pytest-mock']
+test_requirements = ['pytest', 'pytest-mock', 'deprecation==2.0.6']
 
 setup(
     author="Ralf Grubenmann",
@@ -44,6 +44,6 @@ setup(
     test_suite='tests',
     tests_require=test_requirements,
     url='https://github.com/mlbench/mlbench_core',
-    version='1.1.0',
+    version='1.1.1',
     zip_safe=False,
 )

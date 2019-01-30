@@ -3,9 +3,9 @@ import logging
 import time
 
 from mlbench_core.utils import AverageMeter, Tracker
-from mlbench_core.utils.pytorch.distributed import global_average
-from mlbench_core.utils.pytorch.helpers import iterate_dataloader, \
-    log_metrics, update_best_runtime_metric
+from mlbench_core.utils.pytorch.distributed import aggregate_gradients, global_average
+from mlbench_core.utils.pytorch.helpers import Timeit, update_best_runtime_metric, \
+    iterate_dataloader, LogMetrics
 
 import torch
 import torch.distributed as dist
@@ -270,7 +270,13 @@ class TrainValidation(object):
 
         logger.info(" | ".join(str_builder))
 
-        log_metrics(
+        if not hasattr(self.tracker, 'cumu_time_train'):
+            self.tracker.cumu_time_train = []
+
+        self.tracker.cumu_time_train.append(
+            self.tracker.batch_stats[-1][1] - self.tracker.batch_stats[0][1])
+
+        LogMetrics.log(
             self.run_id,
             self.rank,
             self.tracker.current_epoch,
@@ -304,7 +310,7 @@ class TrainValidation(object):
 
             # Save
             for name, value in metrics_values.items():
-                log_metrics(
+                LogMetrics.log(
                     self.run_id,
                     self.rank,
                     self.tracker.current_epoch,
@@ -325,7 +331,7 @@ class TrainValidation(object):
             if self.rank == 0:
                 logger.info("Validation loss={:.3f}".format(loss))
 
-        log_metrics(
+        LogMetrics.log(
             self.run_id,
             self.rank,
             self.tracker.current_epoch,

@@ -53,7 +53,7 @@ class ApiClient(object):
                  label_selector='component=master,app=mlbench',
                  k8s_namespace='default', service_name=None,
                  url=None):
-        self.executor = concurrent.futures.ProcessPoolExecutor(
+        self.executor = concurrent.futures.ThreadPoolExecutor(
             max_workers=max_workers)
         self.in_cluster = in_cluster
 
@@ -256,7 +256,7 @@ class ApiClient(object):
             ``return_value.result().json()``
         """
         if date is None:
-            date = datetime.datetime.now()
+            date = datetime.datetime.utcnow()
 
         request_url = "{endpoint}metrics/".format(endpoint=self.endpoint)
         future = self.executor.submit(

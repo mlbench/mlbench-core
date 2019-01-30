@@ -110,7 +110,7 @@ def test_instantiation_loadbalancer(mocker, kubernetes_api_client_loadbalancer):
 
 def test_get_all_metrics(mocker, kubernetes_api_client_node_port):
     mocker.patch('kubernetes.config.load_kube_config')
-    rg = mocker.patch('concurrent.futures.ProcessPoolExecutor')
+    rg = mocker.patch('concurrent.futures.ThreadPoolExecutor')
     rg.return_value.submit.return_value.result.return_value.json.return_value = "a"
 
     client = ApiClient(in_cluster=False, service_name="rel-mlbench-master")
@@ -123,7 +123,7 @@ def test_get_all_metrics(mocker, kubernetes_api_client_node_port):
 
 def test_get_run_metrics(mocker, kubernetes_api_client_node_port):
     mocker.patch('kubernetes.config.load_kube_config')
-    rg = mocker.patch('concurrent.futures.ProcessPoolExecutor')
+    rg = mocker.patch('concurrent.futures.ThreadPoolExecutor')
     rg.return_value.submit.return_value.result.return_value.json.return_value = "a"
 
     client = ApiClient(in_cluster=False, service_name="rel-mlbench-master")
@@ -136,7 +136,7 @@ def test_get_run_metrics(mocker, kubernetes_api_client_node_port):
 
 def test_get_pod_metrics(mocker, kubernetes_api_client_node_port):
     mocker.patch('kubernetes.config.load_kube_config')
-    rg = mocker.patch('concurrent.futures.ProcessPoolExecutor')
+    rg = mocker.patch('concurrent.futures.ThreadPoolExecutor')
     rg.return_value.submit.return_value.result.return_value.json.return_value = "a"
 
     client = ApiClient(in_cluster=False, service_name="rel-mlbench-master")
@@ -149,7 +149,7 @@ def test_get_pod_metrics(mocker, kubernetes_api_client_node_port):
 
 def test_post_metrics(mocker, kubernetes_api_client_node_port):
     mocker.patch('kubernetes.config.load_kube_config')
-    rg = mocker.patch('concurrent.futures.ProcessPoolExecutor')
+    rg = mocker.patch('concurrent.futures.ThreadPoolExecutor')
     rg.return_value.submit.return_value.result.return_value.json.return_value = "a"
 
     client = ApiClient(in_cluster=False, service_name="rel-mlbench-master")
@@ -162,7 +162,7 @@ def test_post_metrics(mocker, kubernetes_api_client_node_port):
 
 def test_get_runs(mocker, kubernetes_api_client_node_port):
     mocker.patch('kubernetes.config.load_kube_config')
-    rg = mocker.patch('concurrent.futures.ProcessPoolExecutor')
+    rg = mocker.patch('concurrent.futures.ThreadPoolExecutor')
     rg.return_value.submit.return_value.result.return_value.json.return_value = "a"
 
     client = ApiClient(in_cluster=False, service_name="rel-mlbench-master")
@@ -175,7 +175,7 @@ def test_get_runs(mocker, kubernetes_api_client_node_port):
 
 def test_get_run(mocker, kubernetes_api_client_node_port):
     mocker.patch('kubernetes.config.load_kube_config')
-    rg = mocker.patch('concurrent.futures.ProcessPoolExecutor')
+    rg = mocker.patch('concurrent.futures.ThreadPoolExecutor')
     rg.return_value.submit.return_value.result.return_value.json.return_value = "a"
 
     client = ApiClient(in_cluster=False, service_name="rel-mlbench-master")
@@ -188,7 +188,7 @@ def test_get_run(mocker, kubernetes_api_client_node_port):
 
 def test_create_run_official(mocker, kubernetes_api_client_node_port):
     mocker.patch('kubernetes.config.load_kube_config')
-    rg = mocker.patch('concurrent.futures.ProcessPoolExecutor')
+    rg = mocker.patch('concurrent.futures.ThreadPoolExecutor')
     rg.return_value.submit.return_value.result.return_value.json.return_value = "a"
 
     client = ApiClient(in_cluster=False, service_name="rel-mlbench-master")
@@ -206,7 +206,7 @@ def test_create_run_official(mocker, kubernetes_api_client_node_port):
 
 def test_create_run_custom(mocker, kubernetes_api_client_node_port):
     mocker.patch('kubernetes.config.load_kube_config')
-    rg = mocker.patch('concurrent.futures.ProcessPoolExecutor')
+    rg = mocker.patch('concurrent.futures.ThreadPoolExecutor')
     rg.return_value.submit.return_value.result.return_value.json.return_value = "a"
 
     client = ApiClient(in_cluster=False, service_name="rel-mlbench-master")
@@ -226,7 +226,7 @@ def test_create_run_custom(mocker, kubernetes_api_client_node_port):
 
 def test_get_worker_pods(mocker, kubernetes_api_client_node_port):
     mocker.patch('kubernetes.config.load_kube_config')
-    rg = mocker.patch('concurrent.futures.ProcessPoolExecutor')
+    rg = mocker.patch('concurrent.futures.ThreadPoolExecutor')
     rg.return_value.submit.return_value.result.return_value.json.return_value = "a"
 
     client = ApiClient(in_cluster=False, service_name="rel-mlbench-master")
