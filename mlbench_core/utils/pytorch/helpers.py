@@ -198,7 +198,7 @@ class LogMetrics(object):
     deprecated_in="1.1.1",
     details="This method has performance implications, use"
     " mlbench_core.utils.pytorch.helpers.LogMetrics instead")
-def log_metrics(run_id, rank, epoch, metric_name, value):
+def log_metrics(run_id, rank, epoch, metric_name, value, tracker=None, time=None):
     """ Log metrics to mlbench master/dashboard
 
     Args:

@@ -252,7 +252,7 @@ class TrainValidation(object):
             str_builder.append("{} {:.2e}".format(
                 metric.name, self.tracker.epoch_stats[metric.name].avg))
 
-            log_metrics(
+            LogMetrics.log(
                 self.run_id,
                 self.rank,
                 self.tracker.current_epoch,
