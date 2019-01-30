@@ -1,25 +1,39 @@
 r"""A controlflow which train and evaluate a model."""
 import logging
-import tensorflow as tf
 from collections import defaultdict
-
-from mlbench_core.utils import Tracker, AverageMeter
+from mlbench_core.utils import AverageMeter, Tracker
 
 
 class TrainValidation(object):
     """A control flow to train and evaluate a model."""
 
-    def __init__(self, train_op, sess, loss, metrics,
-                 lr_scheduler_level, max_train_steps, train_epochs,
-                 batch_size, num_batches_per_epoch_for_train, num_batches_per_epoch_for_validation,
-                 train_set_init_op, validation_set_init_op):
+    def __init__(self,
+                 train_op,
+                 sess,
+                 loss,
+                 metrics,
+                 max_train_steps,
+                 train_epochs,
+                 batch_size,
+                 num_batches_per_epoch_for_train,
+                 num_batches_per_epoch_for_validation,
+                 train_set_init_op,
+                 validation_set_init_op,
+                 lr_scheduler_level='epoch'):
         """
         Args:
             train_op (:obj:`tf.Operation`): An operation for training models.
             sess (:obj:`tf.Session`): A session which the control flow will communicate.
-            is_training (bool or :obj:`tf.Tensor`): training the model with the number of atrs
             loss (:obj:`tf.Tensor`): The loss tensor.
             metrics (list of :obj:`tf.Tensor`): A list of metrics tensors.
+            max_train_steps (int): Number of steps for training (independent of lr)
+            train_epochs (int): Number of steps for training (may related to lr).
+            batch_size (int): Size of a batch.
+            num_batches_per_epoch_for_train (int): Number of batches in one training epoch
+            num_batches_per_epoch_for_validation (int): Number of batches in one validation epoch
+            train_set_init_op (:obj:`tf.Operation`): Op for initializing training dataset.
+            validation_set_init_op (:obj:`tf.Operation`): Op for initializing validation dataset.
+            lr_scheduler_level (str): Learning rate is updated based on `epoch` or `batch`.
         """
         self.batch_size = batch_size
         self.num_batches_per_epoch_for_train = num_batches_per_epoch_for_train

@@ -1,8 +1,12 @@
+
+from mlbench_core.utils.pytorch.distributed import AllReduceAggregation
+from mlbench_core.utils.pytorch.distributed import DecentralizedAggregation
+
 import numpy as np
 import torch
-from torch.optim.optimizer import Optimizer, required
-from torch.optim import SGD
 import torch.distributed as dist
+from torch.optim import SGD
+from torch.optim.optimizer import Optimizer, required
 
 
 class SparsifiedSGD(Optimizer):
@@ -22,7 +26,8 @@ class SparsifiedSGD(Optimizer):
         if lr is not required and lr < 0.0:
             raise ValueError("Invalid learning rate: {}".format(lr))
         if weight_decay < 0.0:
-            raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
+            raise ValueError(
+                "Invalid weight_decay value: {}".format(weight_decay))
 
         defaults = dict(lr=lr, weight_decay=weight_decay)
 
@@ -80,7 +85,8 @@ class SparsifiedSGD(Optimizer):
         """ Calls one of the sparsification functions (random or blockwise)
 
         Args:
-            random_sparse (bool): Indicates the way we want to make the gradients sparse (random or blockwise) (default: False)
+            random_sparse (bool): Indicates the way we want to make the gradients sparse
+                (random or blockwise) (default: False)
             param (:obj: `torch.nn.Parameter`): Model parameter
         """
         if self.random_sparse:
@@ -90,16 +96,17 @@ class SparsifiedSGD(Optimizer):
 
     def _random_sparsify(self, param, lr):
         """ Sparsify the gradients vector by selecting 'k' of them randomly.
-        
+
         Args:
             param (:obj: `torch.nn.Parameter`): Model parameter
-            lr (float): Learning rate 
+            lr (float): Learning rate
 
         """
-        
+
         self.state[param]['memory'] += param.grad.data * lr
 
-        indices = np.random.choice(param.data.size()[1], self.num_coordinates, replace=False)
+        indices = np.random.choice(
+            param.data.size()[1], self.num_coordinates, replace=False)
         sparse_tensor = torch.zeros(2, self.num_coordinates)
 
         for i, random_index in enumerate(indices):
@@ -114,9 +121,9 @@ class SparsifiedSGD(Optimizer):
 
         Args:
             param (:obj: `torch.nn.Parameter`): Model parameter
-            lr (float): Learning rate 
+            lr (float): Learning rate
         """
-    
+
         self.state[param]['memory'] += param.grad.data * lr
 
         num_block = int(param.data.size()[1] / self.num_coordinates)
@@ -129,24 +136,27 @@ class SparsifiedSGD(Optimizer):
 
         sparse_tensor = torch.zeros(1, output_size)
         sparse_tensor[0, 0] = begin_index
-        sparse_tensor[0, 1:] = self.state[param]['memory'][0, begin_index: end_index + 1]
+        sparse_tensor[0, 1:] = self.state[param]['memory'][0,
+                                                           begin_index: end_index + 1]
         self.state[param]['memory'][0, begin_index: end_index + 1] = 0
 
         return sparse_tensor
 
     def update_estimated_weights(self, iteration, sparse_vector_size):
-        """ Updates the estimated parameters 
-        
+        """ Updates the estimated parameters
+
         Args:
             iteration (int): Current global iteration
-            sparse_vector_size (int): Size of the sparse gradients vector 
+            sparse_vector_size (int): Size of the sparse gradients vector
         """
         t = iteration
         for group in self.param_groups:
             for param in group['params']:
                 tau = param.data.size()[1] / sparse_vector_size
-                rho = 6 * ((t + tau) ** 2) / ((1 + t) * (6 * (tau ** 2) + t + 6 * tau * t + 2 * (t ** 2)))
-                self.state[param]['estimated_w'] = self.state[param]['estimated_w'] * (1 - rho) + param.data * rho
+                rho = 6 * ((t + tau) ** 2) / ((1 + t) *
+                                              (6 * (tau ** 2) + t + 6 * tau * t + 2 * (t ** 2)))
+                self.state[param]['estimated_w'] = self.state[param]['estimated_w'] * \
+                    (1 - rho) + param.data * rho
 
     def get_estimated_weights(self):
         """ Returns the weighted average parameter tensor """
@@ -166,71 +176,83 @@ class CentralizedSparsifiedSGD(SparsifiedSGD):
         lr (float): Learning rate
         weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
         sparse_grad_size (int): Size of the sparsified gradients vector (default: 10)
-        random_sparse (bool): Whether select random sparsification (default: `False`) 
+        random_sparse (bool): Whether select random sparsification (default: `False`)
         average_models (bool): Whether to average models together (default: `True`)
 
     """
-    def __init__(self, params, lr=required, weight_decay=0, sparse_grad_size=10, random_sparse=False, average_models=True):
+
+    def __init__(self,
+                 params,
+                 lr=required,
+                 weight_decay=0,
+                 sparse_grad_size=10,
+                 random_sparse=False,
+                 average_models=True):
         self.average_models = average_models
         self.world_size = dist.get_world_size()
         self.random_sparse = random_sparse
-        super(CentralizedSparsifiedSGD, self).__init__(params, lr, weight_decay, sparse_grad_size)
+        super(CentralizedSparsifiedSGD, self).__init__(
+            params, lr, weight_decay, sparse_grad_size)
 
-        def step(self, closure=None):
-            """ Aggregates the gradients and performs a single optimization step.
+    def step(self, closure=None):
+        """ Aggregates the gradients and performs a single optimization step.
 
-                Arguments:
-                    closure (callable, optional): A closure that reevaluates the model and returns the loss. 
-            """
+            Arguments:
+                closure (callable, optional): A closure that reevaluates the model and returns the loss.
+        """
 
-            loss = None
+        loss = None
 
-            if closure is not None:
-                loss = closure()
+        if closure is not None:
+            loss = closure()
 
-            for group in self.param_groups:
+        for group in self.param_groups:
 
-                weight_decay = group['weight_decay']
-                lr = group['lr']
+            weight_decay = group['weight_decay']
+            lr = group['lr']
 
-                for p in group['params']:
-                    # Sparsify the gradients
-                    sparse_tensor = self.sparsify_gradients(p, lr)
-                    # Aggregate the gradients
-                    gathered_list = [torch.zeros_like(sparse_tensor) for _ in range(self.world_size)]
-                    dist.all_gather(gathered_list, sparse_tensor)
-                    p.grad.data = torch.zeros_like(p.grad.data)
+            for p in group['params']:
+                # Sparsify the gradients
+                sparse_tensor = self.sparsify_gradients(p, lr)
+                # Aggregate the gradients
+                gathered_list = [torch.zeros_like(
+                    sparse_tensor) for _ in range(self.world_size)]
+                dist.all_gather(gathered_list, sparse_tensor)
+                p.grad.data = torch.zeros_like(p.grad.data)
 
-                    if self.sparse_tensor:
-                        for grad_tensor in gathered_list:
-                            for index in range(grad_tensor.size()[1]):
-                                p.grad.data[0, int(grad_tensor[0, index])] += grad_tensor[1, index]
-                    else:            
-                        for grad_tensor in gathered_list:
-                            tensor_size = grad_tensor.size()[1]
-                            begin = int(grad_tensor[0, 0])
-                            p.grad.data[0, begin:(begin + tensor_size - 1)] += grad_tensor[0, 1:]
+                if self.sparse_tensor:
+                    for grad_tensor in gathered_list:
+                        for index in range(grad_tensor.size()[1]):
+                            p.grad.data[0, int(
+                                grad_tensor[0, index])] += grad_tensor[1, index]
+                else:
+                    for grad_tensor in gathered_list:
+                        tensor_size = grad_tensor.size()[1]
+                        begin = int(grad_tensor[0, 0])
+                        p.grad.data[0, begin:(
+                            begin + tensor_size - 1)] += grad_tensor[0, 1:]
 
-                    if self.average_models:
-                        p.grad.data /= self.world_size
+                if self.average_models:
+                    p.grad.data /= self.world_size
 
-                    if p.grad is None:
-                        continue
-                    d_p = p.grad.data
+                if p.grad is None:
+                    continue
+                d_p = p.grad.data
 
-                    if weight_decay != 0:
-                        d_p.add_(weight_decay, p.data)
-                    p.data.add_(-d_p)
+                if weight_decay != 0:
+                    d_p.add_(weight_decay, p.data)
+                p.data.add_(-d_p)
 
-            return loss
+        return loss
 
 
 class DecentralizedSGD(SGD):
     r"""Implements decentralized stochastic gradient descent (optionally with momentum).
 
     Args:
-        params (iterable): iterable of parameters to optimize or dicts defining
-            parameter groups
+        rank (int): rank of current process in the network
+        neighbors (list): list of ranks of the neighbors of current process
+        model (:obj:`nn.Module`): model which contains parameters for SGD
         lr (float): learning rate
         momentum (float, optional): momentum factor (default: 0)
         weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
@@ -239,10 +261,32 @@ class DecentralizedSGD(SGD):
         average_models (bool): Whether to average models together. (default: `True`)
 
     """
-    def __init__(self, params, lr=required, momentum=0, dampening=0, weight_decay=0, nesterov=False, average_models=True):
-        self.average_models = average_models
-        self.world_size = dist.get_world_size()
-        super(DecentralizedSGD, self).__init__(params, lr, momentum, dampening, weight_decay, nesterov)
+
+    def __init__(self,
+                 rank,
+                 neighbors,
+                 model,
+                 lr=required,
+                 momentum=0,
+                 dampening=0,
+                 weight_decay=0,
+                 nesterov=False,
+                 average_models=True):
+        super(DecentralizedSGD, self).__init__(model.parameters(),
+                                               lr,
+                                               momentum,
+                                               dampening,
+                                               weight_decay,
+                                               nesterov)
+
+        if average_models:
+            self.agg_mode = 'avg'
+        else:
+            raise NotImplementedError(
+                "Only average model is supported right now.")
+
+        self.model = model
+        self.agg = DecentralizedAggregation(rank, neighbors).agg_model
 
     def step(self, closure=None):
         """ Aggregates the gradients and performs a single optimization step.
@@ -251,46 +295,9 @@ class DecentralizedSGD(SGD):
             closure (callable, optional): A closure that reevaluates the model
                 and returns the loss.
         """
-        loss = None
-        if closure is not None:
-            loss = closure()
-
-        for group in self.param_groups:
-            weight_decay = group['weight_decay']
-            momentum = group['momentum']
-            dampening = group['dampening']
-            nesterov = group['nesterov']
-
-            for p in group['params']:
-                if p.grad is None:
-                    continue
-
-                d_p = p.grad.data
-
-                if weight_decay != 0:
-                    d_p.add_(weight_decay, p.data)
-                if momentum != 0:
-                    param_state = self.state[p]
-                    if 'momentum_buffer' not in param_state:
-                        buf = param_state['momentum_buffer'] = torch.zeros_like(p.data)
-                        buf.mul_(momentum).add_(d_p)
-                    else:
-                        buf = param_state['momentum_buffer']
-                        buf.mul_(momentum).add_(1 - dampening, d_p)
-                    if nesterov:
-                        d_p = d_p.add(momentum, buf)
-                    else:
-                        d_p = buf
-
-                p.data.add_(-group['lr'], d_p)
-
-
-                # all_reduce the parameters.
-                dist.all_reduce(p.data, op=dist.reduce_op.SUM)
-
-                if self.average_models:
-                    p.data /= self.world_size
-
+        loss = super(DecentralizedSGD, self).step(closure=closure)
+        # Averaging the model after updating the gradient separately.
+        self.agg(self.model, self.agg_mode)
         return loss
 
 
@@ -298,6 +305,57 @@ class CentralizedSGD(SGD):
     r"""Implements centralized stochastic gradient descent (optionally with momentum).
 
     Args:
+        world_size (int): Size of the network
+        model (:obj:`nn.Module`): Model which contains parameters for SGD
+        lr (float): learning rate
+        momentum (float, optional): momentum factor (default: 0)
+        weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
+        dampening (float, optional): dampening for momentum (default: 0)
+        nesterov (bool, optional): enables Nesterov momentum (default: False)
+        average_models (bool): Whether to average models together. (default: `True`)
+
+    """
+
+    def __init__(self,
+                 world_size,
+                 model,
+                 lr=required,
+                 momentum=0,
+                 dampening=0,
+                 weight_decay=0,
+                 nesterov=False,
+                 average_models=True):
+        super(CentralizedSGD, self).__init__(model.parameters(),
+                                             lr,
+                                             momentum,
+                                             dampening,
+                                             weight_decay,
+                                             nesterov)
+        if average_models:
+            self.agg_mode = 'avg'
+        else:
+            raise NotImplementedError(
+                "Only average model is supported right now.")
+
+        self.model = model
+        self.agg = AllReduceAggregation(world_size=world_size).agg_grad
+
+    def step(self, closure=None):
+        """ Aggregates the gradients and performs a single optimization step.
+
+        Arguments:
+            closure (callable, optional): A closure that reevaluates the model
+                and returns the loss.
+        """
+        self.agg(self.model, self.agg_mode)
+        loss = super(CentralizedSGD, self).step(closure=closure)
+        return loss
+
+
+class SignSGD(SGD):
+    r"""Implements sign stochastic gradient descent (optionally with momentum).
+
+    Args:
         params (iterable): iterable of parameters to optimize or dicts defining
             parameter groups
         lr (float): learning rate
@@ -308,10 +366,6 @@ class CentralizedSGD(SGD):
         average_models (bool): Whether to average models together. (default: `True`)
 
     """
-    def __init__(self, params, lr=required, momentum=0, dampening=0, weight_decay=0, nesterov=False, average_models= True):
-        self.average_models = average_models
-        self.world_size = dist.get_world_size()
-        super(CentralizedSGD, self).__init__(params, lr, momentum, dampening, weight_decay, nesterov)
 
     def step(self, closure=None):
         """ Aggregates the gradients and performs a single optimization step.
@@ -333,21 +387,14 @@ class CentralizedSGD(SGD):
             for p in group['params']:
                 if p.grad is None:
                     continue
-
-                # all_reduce the gradients.
-                dist.all_reduce(p.grad.data, op=dist.reduce_op.SUM)
-
-                if self.average_models:
-                    p.grad.data /= self.world_size
-
                 d_p = p.grad.data
-
                 if weight_decay != 0:
                     d_p.add_(weight_decay, p.data)
                 if momentum != 0:
                     param_state = self.state[p]
                     if 'momentum_buffer' not in param_state:
-                        buf = param_state['momentum_buffer'] = torch.zeros_like(p.data)
+                        buf = param_state['momentum_buffer'] = torch.zeros_like(
+                            p.data)
                         buf.mul_(momentum).add_(d_p)
                     else:
                         buf = param_state['momentum_buffer']
@@ -357,10 +404,7 @@ class CentralizedSGD(SGD):
                     else:
                         d_p = buf
 
-                p.data.add_(-group['lr'], d_p)
+                # Update with the sign
+                p.data.add_(-group['lr'], torch.sign(d_p))
 
         return loss
-
-
-
-

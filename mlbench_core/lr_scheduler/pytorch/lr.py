@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 
-import argparse
+from bisect import bisect_right
 import numpy as np
-import re
-from torch.optim.lr_scheduler import LambdaLR, MultiStepLR
-from bisect import bisect_left, bisect_right
+from torch.optim.lr_scheduler import LambdaLR
 
 
 def const(optimizer):
@@ -66,7 +64,8 @@ def cyclical_learning_rates(optimizer, mode, gamma, cycle_length, base_lr, max_l
     Since :cite:`smith2017cyclical` mentioned that triangular, Welch, Hann windows produce equivalent results,
     we only implement triangular learning rate policy, also known as **linear cycle**.
 
-    The original implementation of :cite:`smith2017cyclical` can be found from `here <https://github.com/bckenstler/CLR>`_.
+    The original implementation of :cite:`smith2017cyclical` can be found from
+    `here <https://github.com/bckenstler/CLR>`_.
 
     :cite:`smith2017super` uses one cycle with extra epochs.
 
@@ -97,7 +96,14 @@ def cyclical_learning_rates(optimizer, mode, gamma, cycle_length, base_lr, max_l
                                      mode=mode)
 
 
-def multistep_learning_rates_with_warmup(optimizer, world_size, lr, gamma, milestones, warmup_duration=None, warmup_lr=None, warmup_linear_scaling=False):
+def multistep_learning_rates_with_warmup(optimizer,
+                                         world_size,
+                                         lr,
+                                         gamma,
+                                         milestones,
+                                         warmup_duration=None,
+                                         warmup_lr=None,
+                                         warmup_linear_scaling=False):
     """ Multistep Learning Rate Schedule with warmup
 
     In :cite:`goyal2017accurate`, warmup is used in order to apply the ``Linear Scaling Rule``.
@@ -121,7 +127,8 @@ def multistep_learning_rates_with_warmup(optimizer, world_size, lr, gamma, miles
         A learning rate scheduler (:obj:`torch.optim.lr_scheduler.LambdaLR`)
     """
     if bool(warmup_duration) != bool(warmup_lr):
-        raise ValueError("Either both or none of warmup_duration and warmup_lr have to be set")
+        raise ValueError(
+            "Either both or none of warmup_duration and warmup_lr have to be set")
 
     scaling_factor = 1
 
@@ -134,7 +141,7 @@ def multistep_learning_rates_with_warmup(optimizer, world_size, lr, gamma, miles
     if warmup_lr:
         warmup_init_lr = warmup_lr
 
-    if not list(milestones) == sorted(milestones):
+    if list(milestones) != sorted(milestones):
         raise ValueError('Milestones should be a list of increasing integers.'
                          'Got {}'.format(milestones))
 
@@ -145,7 +152,8 @@ def multistep_learning_rates_with_warmup(optimizer, world_size, lr, gamma, miles
     def f(duration):
         if warmup_lr and duration <= warmup_duration:
             warmup_progress = duration / warmup_duration
-            lr = warmup_progress * base_lr + (1 - warmup_progress) * warmup_init_lr
+            lr = warmup_progress * base_lr + \
+                (1 - warmup_progress) * warmup_init_lr
         else:
             lr = base_lr * gamma ** bisect_right(milestones, duration)
         return lr / base_lr
@@ -154,6 +162,54 @@ def multistep_learning_rates_with_warmup(optimizer, world_size, lr, gamma, miles
         group['initial_lr'] = base_lr
     optimizer.base_lrs = [base_lr for _ in optimizer.param_groups]
     return LambdaLR(optimizer, lr_lambda=f)
+
+
+class MultistepLearningRatesWithWarmup(LambdaLR):
+    def __init__(self,
+                 optimizer,
+                 world_size,
+                 gamma,
+                 milestones,
+                 lr,
+                 warmup_duration,
+                 warmup_linear_scaling=True,
+                 warmup_init_lr=None):
+        if list(milestones) != sorted(milestones):
+            raise ValueError('Milestones should be a list of increasing integers.'
+                             'Got {}'.format(milestones))
+
+        if warmup_duration >= milestones[0]:
+            raise ValueError("The scaling phase should be earlier than the first milestone."
+                             "Got {} and {}".format(warmup_duration, milestones[0]))
+
+        self.optimizer = optimizer
+        self.gamma = gamma
+        self.milestones = milestones
+        self.warmup_duration = warmup_duration
+        self.warmup_init_lr = warmup_init_lr or lr
+
+        scaling_factor = world_size if warmup_linear_scaling else 1
+        self.warmup_scaled_lr = scaling_factor * lr
+
+        # overwrite initial lr
+        self.base_lr = lr
+        for group in self.optimizer.param_groups:
+            group['initial_lr'] = self.base_lr
+
+        super(MultistepLearningRatesWithWarmup, self).__init__(
+            self.optimizer, self.f)
+
+    def f(self, duration):
+        # warmup_lr => lr or lr * world_size => ....
+        if duration <= self.warmup_duration:
+            progress = duration / self.warmup_duration
+            lr = progress * self.warmup_scaled_lr + \
+                (1 - progress) * self.warmup_init_lr
+        else:
+            lr = self.warmup_scaled_lr * self.gamma ** \
+                bisect_right(self.milestones, duration)
+        return lr / self.base_lr
+
 
 class SparsifiedSGDLR(LambdaLR):
     """ 
@@ -165,6 +221,7 @@ class SparsifiedSGDLR(LambdaLR):
         l2_coef (float): The regularization rate which is used in the denominator of the learning rate schedule formula
         shifting_param (float): The constant value in the denominator of the learning rate schedule formula
     """
+
     def __init__(self, optimizer, gamma, l2_coef, shifting_param):
         self.shifting_param = shifting_param
         self.optimizer = optimizer
@@ -172,7 +229,8 @@ class SparsifiedSGDLR(LambdaLR):
         for group in self.optimizer.param_groups:
             group['initial_lr'] = gamma / l2_coef
 
-        self.optimizer.base_lrs = [gamma / l2_coef for _ in self.optimizer.param_groups]
+        self.optimizer.base_lrs = [
+            gamma / l2_coef for _ in self.optimizer.param_groups]
 
         super(SparsifiedSGDLR, self).__init__(self.optimizer, self.f)
 
@@ -201,11 +259,10 @@ class SGDLR(LambdaLR):
         for group in self.optimizer.param_groups:
             group['initial_lr'] = alpha / beta
 
-        self.optimizer.base_lrs = [alpha / beta for _ in self.optimizer.param_groups]
+        self.optimizer.base_lrs = [
+            alpha / beta for _ in self.optimizer.param_groups]
 
         super(SGDLR, self).__init__(self.optimizer, self.f)
 
     def f(self, iteration):
         return self.beta / (self.beta + iteration)
-
-

@@ -22,12 +22,12 @@ for image net. Here we only implemented the remaining models
 for CIFAR-10 dataset. Besides, their implementation uses projection shortcut by default.
 
 """
+from mlbench_core.utils.pytorch.helpers import convert_dtype
 
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-from mlbench_core.utils.pytorch.helpers import convert_dtype
 
 _DEFAULT_RESNETCIFAR_VERSION = 1
 
@@ -36,7 +36,7 @@ def batch_norm(num_features):
     """Create a batch normalization layer.
 
     See the Disclaimers in Kaiming's
-    `github repository <https://github.com/KaimingHe/deep-residual-networks/tree/a7026cb6d478e131b765b898c312e25f9f6dc031>`_
+    `repository <https://github.com/KaimingHe/deep-residual-networks/tree/a7026cb6d478e131b765b898c312e25f9f6dc031>`_.
 
     * compute the mean and variance on a sufficiently large traing batch instead of moving average;
     * learn gamma and beta in affine function.
@@ -289,7 +289,7 @@ class PreActBlock(nn.Module):
         return out + shortcut
 
 
-class ResNet18_CIFAR10(nn.Module):
+class ResNet18CIFAR10(nn.Module):
     """ResNet implementation for CIFAR-10
 
     The ResNet structure defined in :cite:`he2016deep` and :cite:`he2016identity`.
@@ -303,7 +303,7 @@ class ResNet18_CIFAR10(nn.Module):
     """
 
     def __init__(self, layers, num_classes=1000):
-        super(ResNet18_CIFAR10, self).__init__()
+        super(ResNet18CIFAR10, self).__init__()
         self.prep = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False),
             nn.BatchNorm2d(64),
@@ -359,7 +359,7 @@ def resnet18_bkj(num_classes):
     Args:
         num_classes (int): The number of output classes.
     """
-    model = ResNet18_CIFAR10([2, 2, 2, 2], num_classes=num_classes)
+    model = ResNet18CIFAR10([2, 2, 2, 2], num_classes=num_classes)
     return model
 
 

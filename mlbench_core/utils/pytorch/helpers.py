@@ -1,22 +1,19 @@
 r"""Helper functions."""
 
-import time
 import datetime
 import itertools
-import shutil
-import os
 import logging
-import socket
+import os
 import random
-import argparse
+import shutil
+import socket
+import time
+from mlbench_core.api import ApiClient
+from mlbench_core.utils.pytorch.topology import FCGraph
 
 import torch
 import torch.distributed as dist
 import deprecation
-
-from mlbench_core.utils.pytorch import checkpoint
-from mlbench_core.utils.pytorch.topology import FCGraph
-from mlbench_core.api import ApiClient
 
 
 class Timeit(object):
@@ -76,14 +73,12 @@ def maybe_range(maximum):
 def update_best_runtime_metric(tracker, metric_value, metric_name):
     """Update the runtime information to config if the metric value is the best."""
     best_metric_name = "best_{}".format(metric_name)
-    if best_metric_name in tracker.records:
-        is_best = metric_value > tracker.records[best_metric_name]
-    else:
-        is_best = True
+    is_best = metric_value > tracker.best_metric_value
 
     if is_best:
-        tracker.records[best_metric_name] = metric_value
-        tracker.records['best_epoch'] = tracker.current_epoch
+        tracker.best_metric_name = best_metric_name
+        tracker.best_metric_value = metric_value
+        tracker.best_epoch = tracker.current_epoch
     return is_best, best_metric_name
 
 
@@ -116,7 +111,7 @@ def config_logging(logging_level='INFO', logging_file='/mlbench.log'):
     logger.addFilter(RankFilter())
 
     formatter = logging.Formatter(
-        '%(asctime)s %(name)s %(rank)s %(levelname)s: %(message)s',
+        '%(asctime)s %(name)s %(rank)2s %(levelname)s: %(message)s',
         "%Y-%m-%d %H:%M:%S")
 
     ch = logging.StreamHandler()
@@ -203,7 +198,7 @@ class LogMetrics(object):
     deprecated_in="1.1.1",
     details="This method has performance implications, use"
     " mlbench_core.utils.pytorch.helpers.LogMetrics instead")
-def log_metrics(run_id, rank, epoch, metric_name, value):
+def log_metrics(run_id, rank, epoch, metric_name, value, tracker=None, time=None):
     """ Log metrics to mlbench master/dashboard
 
     Args:
@@ -224,14 +219,21 @@ def log_metrics(run_id, rank, epoch, metric_name, value):
             metric_name,
             value,
             metadata="{{rank: {}, epoch:{}}}".format(rank, epoch))
-    else:
-        pass
+
+    if tracker and time:
+        tracker.records.append({
+            "run_id": run_id,
+            "name": metric_name,
+            "cumulative": True,
+            "date": str(datetime.datetime.now()),
+            "time": str(time),
+            "value": str(value),
+            "metadata": "{{rank: {}, epoch:{}}}".format(rank, epoch)})
 
 
-def config_path(ckpt_run_dir, resume=False):
+def config_path(ckpt_run_dir, delete_existing_ckpts=False):
     """Config the path used during the experiments."""
-
-    if resume:
+    if delete_existing_ckpts:
         print("Remove previous checkpoint directory : {}".format(
             ckpt_run_dir))
         shutil.rmtree(ckpt_run_dir, ignore_errors=True)
