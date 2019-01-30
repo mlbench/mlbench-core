@@ -36,7 +36,7 @@ def batch_norm(num_features):
     """Create a batch normalization layer.
 
     See the Disclaimers in Kaiming's
-    `here <https://github.com/KaimingHe/deep-residual-networks/tree/a7026cb6d478e131b765b898c312e25f9f6dc031>`_
+    `repository <https://github.com/KaimingHe/deep-residual-networks/tree/a7026cb6d478e131b765b898c312e25f9f6dc031>`_.
 
     * compute the mean and variance on a sufficiently large traing batch instead of moving average;
     * learn gamma and beta in affine function.

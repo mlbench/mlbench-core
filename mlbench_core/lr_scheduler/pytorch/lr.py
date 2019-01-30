@@ -141,7 +141,7 @@ def multistep_learning_rates_with_warmup(optimizer,
     if warmup_lr:
         warmup_init_lr = warmup_lr
 
-    if not list(milestones) == sorted(milestones):
+    if list(milestones) != sorted(milestones):
         raise ValueError('Milestones should be a list of increasing integers.'
                          'Got {}'.format(milestones))
 
@@ -174,7 +174,7 @@ class MultistepLearningRatesWithWarmup(LambdaLR):
                  warmup_duration,
                  warmup_linear_scaling=True,
                  warmup_init_lr=None):
-        if not list(milestones) == sorted(milestones):
+        if list(milestones) != sorted(milestones):
             raise ValueError('Milestones should be a list of increasing integers.'
                              'Got {}'.format(milestones))
 

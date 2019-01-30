@@ -149,8 +149,9 @@ class TrainValidation(object):
             # FIXME: The Timeit object can be a problem.
             self.train_epoch(dataloader_train)
 
-            is_best = self.do_validate(
-                dataloader_val) if self.perform_validation else False
+            is_best = False
+            if self.perform_validation:
+                is_best = self.do_validate(dataloader_val)
 
             if self.checkpoint:
                 self.checkpoint.save(self.tracker, self.model,

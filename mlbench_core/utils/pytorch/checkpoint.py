@@ -30,18 +30,6 @@ class Checkpointer(object):
         self.save_stats = save_stats
         # self.runtime = {'cumu_time_val': []}
 
-    # def get_ckpt_id(self, epoch):
-    #     """ Get the name of a checkpoint
-
-    #     Args:
-    #         epoch (int): The current epoch.
-
-    #     Returns:
-    #         The name for the current checkpoint
-    #     """
-    #     # {epoch}_{batch} can be sorted
-    #     return "{epoch}_{rank}.pth.tar".format(epoch=epoch, rank=self.rank)
-
     def save(self, tracker, model, optimizer, scheduler, epoch, is_best):
         """ Saves a checkpoint
 
@@ -74,9 +62,7 @@ class Checkpointer(object):
                 shutil.copyfile(checkpoint_path, best_model_path)
         elif self.freq == CheckpointFreq.BEST:
             torch.save(state, best_model_path, pickle_module=dill)
-        elif self.freq == CheckpointFreq.NONE:
-            pass
-        else:
+        elif self.freq != CheckpointFreq.NONE:
             raise NotImplementedError
 
         self._maybe_save_stats(
@@ -192,13 +178,3 @@ def determine_restore_ckpt_path(rank, checkpoint_root):
 
     path = os.path.join(checkpoint_root, latest[0])
     return path
-
-
-# def maybe_resume(config, model, optimizer, scheduler):
-#     """Recover the state of config, model, optimizer and scheduler."""
-#     if 'resume' in config and config['resume']:
-#         # reload model from the latest checkpoint.
-#         config['runtime'] = resume(config, model, optimizer, scheduler)
-#     else:
-#         config['runtime'] = {}
-#     return config
