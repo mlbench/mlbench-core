@@ -181,7 +181,7 @@ class LogMetrics(object):
         api = ApiClient()
 
     @staticmethod
-    def log(run_id, rank, epoch, metric_name, value):
+    def log(run_id, rank, epoch, metric_name, value, tracker=None, time=None):
         if not LogMetrics.in_cluster:
             return
 
@@ -192,6 +192,16 @@ class LogMetrics(object):
             metric_name,
             value,
             metadata="{{rank: {}, epoch:{}}}".format(rank, epoch))
+
+        if tracker and time:
+            tracker.records.append({
+                "run_id": run_id,
+                "name": metric_name,
+                "cumulative": True,
+                "date": str(datetime.datetime.now()),
+                "time": str(time),
+                "value": str(value),
+                "metadata": "{{rank: {}, epoch:{}}}".format(rank, epoch)})
 
 
 @deprecation.deprecated(
