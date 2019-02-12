@@ -3,6 +3,7 @@
 from bisect import bisect_right
 import numpy as np
 from torch.optim.lr_scheduler import LambdaLR
+import math
 
 
 def const(optimizer):
@@ -238,7 +239,7 @@ class SparsifiedSGDLR(LambdaLR):
         return 1 / max(1, (self.shifting_param + iteration))
 
 
-class SGDLR(LambdaLR):
+class TimeDecayLR(LambdaLR):
 
     """
     Time based decay learning rate schedule for SGD (alpha / (t + beta))
@@ -262,7 +263,33 @@ class SGDLR(LambdaLR):
         self.optimizer.base_lrs = [
             alpha / beta for _ in self.optimizer.param_groups]
 
-        super(SGDLR, self).__init__(self.optimizer, self.f)
+        super(TimeDecayLR, self).__init__(self.optimizer, self.f)
 
     def f(self, iteration):
         return self.beta / (self.beta + iteration)
+
+
+class SQRTTimeDecayLR(LambdaLR):
+    """
+    Time based decay learning rate schedule for SGD (alpha / sqrt(t))
+
+    Args:
+        optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
+        alpha (float): The constant value in the numerator of the learning rate schedule formula
+    Returns:
+        A learning rate scheduler (:obj:`torch.optim.lr_scheduler.LambdaLR`)
+    """
+    def __init__(self, optimizer, alpha):
+
+        self.alpha = alpha
+        self.optimizer = optimizer
+
+        for group in self.optimizer.param_groups:
+            group['initial_lr'] = alpha
+
+        self.optimizer.base_lrs = [alpha for _ in self.optimizer.param_groups]
+
+        super(SQRTTimeDecayLR, self).__init__(self.optimizer, self.f)
+
+    def f(self, iteration):
+        return 1.0 / math.sqrt(max(1, iteration))
