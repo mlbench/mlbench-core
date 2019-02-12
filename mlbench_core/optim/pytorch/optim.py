@@ -220,7 +220,7 @@ class CentralizedSparsifiedSGD(SparsifiedSGD):
                 dist.all_gather(gathered_list, sparse_tensor)
                 p.grad.data = torch.zeros_like(p.grad.data)
 
-                if self.sparse_tensor:
+                if self.random_sparse:
                     for grad_tensor in gathered_list:
                         for index in range(grad_tensor.size()[1]):
                             p.grad.data[0, int(
