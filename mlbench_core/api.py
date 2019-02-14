@@ -7,9 +7,41 @@ from kubernetes import client, config
 import requests
 
 
-OFFICIAL_IMAGES = {
-    'Test Image': 'mlbench/mlbench_worker'
+MLBENCH_IMAGES = {
+    "PyTorch Cifar-10 ResNet-20 Open-MPI": (
+        'mlbench/pytorch-cifar10-resnet:latest',
+        '/.openmpi/bin/mpirun --mca btl_tcp_if_exclude docker0,lo '
+        '-x KUBERNETES_SERVICE_HOST -x KUBERNETES_SERVICE_PORT '
+        '-x LD_LIBRARY_PATH=/usr/local/nvidia/lib64 --host {hosts}'
+        ' /conda/bin/python /codes/main.py --run_id {run_id}',
+        False,
+        True),
+    "PyTorch Cifar-10 ResNet-20 Open-MPI (Scaling LR)": (
+        'mlbench/pytorch-cifar10-resnet-scaling:latest',
+        '/.openmpi/bin/mpirun --mca btl_tcp_if_exclude docker0,lo '
+        '-x KUBERNETES_SERVICE_HOST -x KUBERNETES_SERVICE_PORT '
+        '-x LD_LIBRARY_PATH=/usr/local/nvidia/lib64 --host {hosts}'
+        ' /conda/bin/python /codes/main.py --run_id {run_id}',
+        False,
+        True),
+    "PyTorch Linear Logistic Regression Open-MPI": (
+        'mlbench/pytorch-openmpi-epsilon-logistic-regression-all-reduce:latest',
+        '/.openmpi/bin/mpirun --mca btl_tcp_if_exclude docker0,lo '
+        '-x KUBERNETES_SERVICE_HOST -x KUBERNETES_SERVICE_PORT '
+        '-x LD_LIBRARY_PATH=/usr/local/nvidia/lib64 --host {hosts}'
+        ' /conda/bin/python /codes/main.py --run_id {run_id}',
+        False,
+        True),
+    "Tensorflow Cifar-10 ResNet-20 Open-MPI": (
+        'mlbench/tensorflow-cifar10-resnet:latest',
+        '/.openmpi/bin/mpirun --mca btl_tcp_if_exclude docker0,lo '
+        '-x KUBERNETES_SERVICE_HOST -x KUBERNETES_SERVICE_PORT '
+        '-x LD_LIBRARY_PATH=/usr/local/nvidia/lib64 --host {hosts} '
+        '/conda/bin/python /codes/main.py --run_id {run_id} --hosts {hosts}',
+        False,
+        False)
 }
+
 r"""
 Dict of official benchmark images
 
@@ -309,11 +341,12 @@ class ApiClient(object):
 
     def create_run(self, name, num_workers, num_cpus=2.0, max_bandwidth=1000,
                    image=None, custom_image_name=None,
-                   custom_image_command=None, custom_image_all_nodes=False):
+                   custom_image_command=None, custom_image_all_nodes=False,
+                   gpu_enabled=False):
         """ Create a new benchmark run.
 
         Available official benchmarks can be found in
-        the ``mlbench_core.api.OFFICIAL_IMAGES`` dict.
+        the ``mlbench_core.api.MLBENCH_IMAGES`` dict.
 
         Args:
             name (str): The name of the run
@@ -323,7 +356,7 @@ class ApiClient(object):
             max_bandwidth (int): Maximum bandwidth available for
                 communication between worker nodes in mbps. Default: ``1000``
             image (str): Name of the official benchmark image to use (
-                see ``mlbench_core.api.OFFICIAL_IMAGES`` keys).
+                see ``mlbench_core.api.MLBENCH_IMAGES`` keys).
                 Default: ``None``
             custom_image_name (str): The name of a custom Docker image
                 to run. Can be a dockerhub or private Docker repository url.
@@ -352,8 +385,12 @@ class ApiClient(object):
             data['custom_image_name'] = custom_image_name
             data['custom_image_command'] = custom_image_command
             data['custom_image_all_nodes'] = custom_image_all_nodes
-        elif image in OFFICIAL_IMAGES:
-            data['image_name'] = OFFICIAL_IMAGES[image]
+        elif image in MLBENCH_IMAGES:
+            data['image_name'] = MLBENCH_IMAGES[image][0]
+            data['gpu_enabled'] = False
+
+            if MLBENCH_IMAGES[image][3]:
+                data['gpu_enabled'] = gpu_enabled
         else:
             raise ValueError("Image {image} not found".format(image=image))
 
