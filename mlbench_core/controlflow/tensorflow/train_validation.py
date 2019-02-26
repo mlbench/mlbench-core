@@ -1,7 +1,9 @@
 r"""A controlflow which train and evaluate a model."""
 import logging
 from collections import defaultdict
-from mlbench_core.utils import AverageMeter, Tracker
+import time
+
+from mlbench_core.utils import AverageMeter, Tracker, LogMetrics
 
 
 class TrainValidation(object):
@@ -19,6 +21,8 @@ class TrainValidation(object):
                  num_batches_per_epoch_for_validation,
                  train_set_init_op,
                  validation_set_init_op,
+                 run_id,
+                 rank,
                  lr_scheduler_level='epoch'):
         """
         Args:
@@ -33,6 +37,8 @@ class TrainValidation(object):
             num_batches_per_epoch_for_validation (int): Number of batches in one validation epoch
             train_set_init_op (:obj:`tf.Operation`): Op for initializing training dataset.
             validation_set_init_op (:obj:`tf.Operation`): Op for initializing validation dataset.
+            run_id (str): the id of the run in the dashboard
+            rank (int): the rank of the current worker
             lr_scheduler_level (str): Learning rate is updated based on `epoch` or `batch`.
         """
         self.batch_size = batch_size
@@ -47,6 +53,8 @@ class TrainValidation(object):
         self.train_epochs = train_epochs
         self.train_set_init_op = train_set_init_op
         self.validation_set_init_op = validation_set_init_op
+        self.run_id = run_id
+        self.rank = rank
 
     def train_one_epoch(self, tracker):
         """Train a model for an epoch and use tracker to log stats."""
@@ -58,11 +66,15 @@ class TrainValidation(object):
 
         for i_batch in range(self.num_batches_per_epoch_for_train):
             # for i_batch in range(1):
+            tracker.batch_stats = [("start", time.time())]
+
             out = self.sess.run({
                 "metrics": [m['value'] for m in self.metrics],
                 "loss": self.loss,
                 "train_op": self.train_op,
             })
+
+            tracker.batch_stats.append(('end', time.time()))
 
             # Update tracker
             loss_meter.update(out["loss"], n=self.batch_size)
@@ -82,9 +94,25 @@ class TrainValidation(object):
                         tracker.best_epoch_value))
 
         # Record training loss and metrics.
-        tracker.records['train_loss'].append(loss_meter.avg)
+        tracker.cumu_time_train.append(
+            tracker.batch_stats[-1][1] - tracker.batch_stats[0][1])
+        LogMetrics.log(
+                self.run_id,
+                self.rank,
+                tracker.current_epoch,
+                'train_loss',
+                loss_meter.avg,
+                tracker=tracker,
+                time=sum(tracker.cumu_time_train))
         for metric, meter in zip(self.metrics, metrics_meter):
-            tracker.records['train_' + metric['name']].append(meter.avg)
+            LogMetrics.log(
+                self.run_id,
+                self.rank,
+                tracker.current_epoch,
+                'train_' + metric['name'],
+                meter.avg,
+                tracker=tracker,
+                time=sum(tracker.cumu_time_train))
 
         logging.info("Finish training for one epoch.")
 
@@ -110,17 +138,33 @@ class TrainValidation(object):
                         ",".join([format(m.avg, "10.3e")
                                   for m in metrics_meter])))
 
-        tracker.records['val_loss'].append(loss_meter.avg)
+        LogMetrics.log(
+                self.run_id,
+                self.rank,
+                tracker.current_epoch,
+                'val_loss',
+                loss_meter.avg,
+                tracker=tracker,
+                time=sum(tracker.cumu_time_train))
+
         for i, metric, meter in zip(range(len(self.metrics)), self.metrics, metrics_meter):
             metric_name = 'val_' + metric['name']
 
             # Here we implicitly assume the larger metrics value means better results
-            if (i == 0) and (len(tracker.records[metric_name]) == 0 or
-                             meter.avg > max(tracker.records[metric_name])):
+            if ((i == 0)
+                    and (len([r for r in tracker.records if r['name'] == metric_name]) == 0
+                         or meter.avg > max([float(r.value) for r in tracker.records if r['name'] == metric_name]))):
                 tracker.best_epoch = tracker.current_epoch
                 tracker.best_epoch_value = meter.avg
 
-            tracker.records[metric_name].append(meter.avg)
+            LogMetrics.log(
+                self.run_id,
+                self.rank,
+                tracker.current_epoch,
+                metric_name,
+                meter.avg,
+                tracker=tracker,
+                time=sum(tracker.cumu_time_train))
 
     def train_and_eval(self, initial_epoch=0, lr_tensor_name=None):
         """Train and evaluate one epoch.
@@ -135,7 +179,8 @@ class TrainValidation(object):
         tracker.current_epoch = 0
         tracker.best_epoch = 0
         tracker.best_epoch_value = 0
-        tracker.records = defaultdict(list)
+        tracker.records = []
+        tracker.cumu_time_train = []
 
         final_epoch = min(self.max_train_steps,
                           self.train_epochs)
@@ -152,3 +197,4 @@ class TrainValidation(object):
             self.valid_one_epoch(tracker)
 
         return tracker
+

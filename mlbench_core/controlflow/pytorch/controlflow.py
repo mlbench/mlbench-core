@@ -5,7 +5,8 @@ import time
 from mlbench_core.utils import AverageMeter, Tracker
 from mlbench_core.utils.pytorch.distributed import aggregate_gradients, global_average
 from mlbench_core.utils.pytorch.helpers import Timeit, update_best_runtime_metric, \
-    iterate_dataloader, LogMetrics
+    iterate_dataloader
+from mlbench_core.utils import LogMetrics
 
 import torch
 import torch.distributed as dist
