@@ -198,7 +198,7 @@ def test_create_run_official(mocker, kubernetes_api_client_node_port):
         5,
         num_cpus=4.1,
         max_bandwidth=10000,
-        image='Test Image')
+        image='PyTorch Cifar-10 ResNet-20 Open-MPI')
 
     assert result is not None
     assert result.result().json() == "a"
