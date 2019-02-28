@@ -16,7 +16,7 @@ class LogMetrics(object):
         api = ApiClient()
 
     @staticmethod
-    def log(run_id, rank, epoch, metric_name, value, tracker=None, time=None):
+    def log(run_id, rank, epoch, metric_name, value):
         """ Logs metrics to the Metrics API
 
         Currently only logs inside of a cluster
@@ -42,13 +42,3 @@ class LogMetrics(object):
             metric_name,
             value,
             metadata="{{rank: {}, epoch:{}}}".format(rank, epoch))
-
-        if tracker and time:
-            tracker.records.append({
-                "run_id": run_id,
-                "name": metric_name,
-                "cumulative": True,
-                "date": str(datetime.datetime.now()),
-                "time": str(time),
-                "value": str(value),
-                "metadata": "{{rank: {}, epoch:{}}}".format(rank, epoch)})

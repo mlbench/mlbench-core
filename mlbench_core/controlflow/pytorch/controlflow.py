@@ -124,21 +124,12 @@ class TrainValidation(object):
 
         # Initialize Tracker or resume from checkpoint
         if resume:
-            start_epoch = self.tracker.current_epoch + 1 if resume else 0
+            start_epoch = self.tracker.current_epoch + 1
         else:
             start_epoch = 0
 
-            # Initialize Tracker
-            self.tracker.current_epoch = 0
-            self.tracker.best_epoch = 0
-            self.tracker.best_metric_value = 0
-            self.tracker.records = []
-            self.tracker.start_time = time.time()
-
         dist.barrier()
         for epoch in range(start_epoch, self.train_epochs):
-            self.tracker.current_epoch = epoch
-
             # schedule learning rates
             if self.schedule_per == 'epoch':
                 self.scheduler.step()
@@ -169,17 +160,17 @@ class TrainValidation(object):
 
                 self._get_dataloader_stats(dataloader_train, dataloader_val)
 
+            self.tracker.epoch_end()
+
     def train_epoch(self, dataloader):
         """Train model for one epoch of data.
 
         Args:
             dataloader (:obj:`torch.utils.data.DataLoader`): The train set
         """
-        self.tracker.epoch_stats = {
-            k: AverageMeter()
-            for k in ["loss"] + [m.name for m in self.metrics]}
         # switch to train mode
         self.model.train()
+        self.tracker.train()
         data_iter = iterate_dataloader(
             dataloader,
             self.dtype,
@@ -188,30 +179,32 @@ class TrainValidation(object):
             self.transform_target_type)
 
         for batch_idx, (data, target) in enumerate(data_iter):
-            self.tracker.batch_stats = [("start", time.time())]
+            self.tracker.batch_start()
 
             if self.schedule_per == 'batch':
                 self.scheduler.step()
 
             # Clear gradients in the optimizer.
             self.optimizer.zero_grad()
-            self.tracker.batch_stats.append(('init', time.time()))
+            self.tracker.record_batch_step('init')
 
             # Compute the output
             output = self.model(data)
-            self.tracker.batch_stats.append(('fwd_pass', time.time()))
+            self.tracker.record_batch_step('fwd_pass')
 
             # Compute the loss
             loss = self.loss_function(output, target)
-            self.tracker.batch_stats.append(('comp_loss', time.time()))
+            self.tracker.record_batch_step('comp_loss')
 
             # Backprop
             loss.backward()
-            self.tracker.batch_stats.append(('backprop', time.time()))
+            self.tracker.record_batch_step('backprop')
 
             # Aggregate gradients/parameters from all workers and apply updates to model
             self.optimizer.step()
-            self.tracker.batch_stats.append(('opt_step', time.time()))
+            self.tracker.record_batch_step('opt_step')
+
+            self.tracker.batch_end()
 
             self.record_train_batch_stats(
                 batch_idx,
@@ -231,60 +224,19 @@ class TrainValidation(object):
         progress = batch_idx / self.num_batches_per_device_train
         progress += self.tracker.current_epoch
 
-        self.tracker.epoch_stats["loss"].update(loss, output.size()[0])
-
-        if not hasattr(self.tracker, 'cumu_time_train'):
-            self.tracker.cumu_time_train = []
-
-        self.tracker.cumu_time_train.append(
-            self.tracker.batch_stats[-1][1] - self.tracker.batch_stats[0][1])
-
-        str_builder = ["Epoch {:5.2f} Batch {:4}: loss={:6.2e}".format(
-            progress, batch_idx, self.tracker.epoch_stats["loss"].avg)]
+        self.tracker.record_loss(loss, output.size()[0], log_to_api=True)
 
         # Compute metrics for one batch
         for metric in self.metrics:
             metric_value = metric(output, target).item()
 
-            self.tracker.epoch_stats[metric.name].update(
+            self.tracker.record_metric(
+                metric,
                 metric_value,
-                output.size()[0])
+                output.size()[0],
+                log_to_api=True)
 
-            str_builder.append("{} {:.2e}".format(
-                metric.name, self.tracker.epoch_stats[metric.name].avg))
-
-            LogMetrics.log(
-                self.run_id,
-                self.rank,
-                self.tracker.current_epoch,
-                'train_' + metric.name,
-                metric_value,
-                tracker=self.tracker,
-                time=sum(self.tracker.cumu_time_train))
-
-        # Compute time spent on each step
-        tracker_stats = zip(
-            self.tracker.batch_stats[:-1],
-            self.tracker.batch_stats[1:])
-        for (_, t1), (name, t2) in tracker_stats:
-            str_builder.append("{} {:.1e}".format(name, t2 - t1))
-
-        logger.info(" | ".join(str_builder))
-
-        if not hasattr(self.tracker, 'cumu_time_train'):
-            self.tracker.cumu_time_train = []
-
-        self.tracker.cumu_time_train.append(
-            self.tracker.batch_stats[-1][1] - self.tracker.batch_stats[0][1])
-
-        LogMetrics.log(
-            self.run_id,
-            self.rank,
-            self.tracker.current_epoch,
-            'train_loss',
-            loss,
-            tracker=self.tracker,
-            time=sum(self.tracker.cumu_time_train))
+        logger.info(str(self.tracker))
 
     def do_validate(self, dataloader):
         """Evaluate the model on the test dataset and save to the checkpoint.
@@ -293,55 +245,31 @@ class TrainValidation(object):
             dataloader (:obj:`torch.utils.data.DataLoader`): The validation set
         """
         # evaluate the model.
-        start_time = time.time()
+        self.tracker.validation()
+
+        self.tracker.validation_start()
         metrics_values, loss = self.validate(dataloader)
-
-        if not hasattr(self.tracker, 'cumu_time_val'):
-            self.tracker.cumu_time_val = []
-
-        self.tracker.cumu_time_val.append(time.time() - start_time)
+        self.tracker.validation_end()
 
         if len(metrics_values) > 0:
-            # Assume the first metric is used to determine the best model to checkpoint.
-            prim_metric = self.metrics[0]
-            prim_metric_value = metrics_values[prim_metric.name]
-
-            is_best, best_metric_name = update_best_runtime_metric(
-                self.tracker, prim_metric_value, prim_metric.name)
-
             # Save
-            for name, value in metrics_values.items():
-                LogMetrics.log(
-                    self.run_id,
-                    self.rank,
-                    self.tracker.current_epoch,
-                    'val_' + name,
-                    value,
-                    tracker=self.tracker,
-                    time=sum(self.tracker.cumu_time_val))
+            for metric, value in metrics_values.items():
+                self.tracker.record_metric(metric, value, log_to_api=True)
 
             if self.rank == 0:
                 logger.info('{} for rank {}:(best epoch {}, current epoch {}): {:.3f}'.format(
-                    best_metric_name,
+                    self.tracker.primary_metric,
                     self.rank,
                     self.tracker.best_epoch,
                     self.tracker.current_epoch,
                     self.tracker.best_metric_value))
         else:
-            is_best = False
             if self.rank == 0:
                 logger.info("Validation loss={:.3f}".format(loss))
 
-        LogMetrics.log(
-            self.run_id,
-            self.rank,
-            self.tracker.current_epoch,
-            'val_loss',
-            loss,
-            tracker=self.tracker,
-            time=sum(self.tracker.cumu_time_val))
+        self.tracker.record_loss(loss, log_to_api=True)
 
-        return is_best
+        return self.tracker.is_best()
 
     def validate(self, dataloader):
         r"""Validate the quality of the model in terms of loss and metrics.
@@ -382,7 +310,7 @@ class TrainValidation(object):
                     metric.update(metric_value, data.size(0))
 
         # Aggregate metrics and loss for all workers
-        metrics_averages = {metric.name: metric.average().item()
+        metrics_averages = {metric: metric.average().item()
                             for metric in self.metrics}
         loss_average = global_average(losses.sum, losses.count).item()
         return metrics_averages, loss_average
