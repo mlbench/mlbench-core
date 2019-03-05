@@ -1,7 +1,7 @@
 import argparse
 import time
 
-from mlbench_core.utils import LogMetrics
+from .log_metrics import LogMetrics
 
 
 class AverageMeter(object):
@@ -51,10 +51,10 @@ class Tracker(object):
         self.primary_metric = metrics[0]
 
     def train(self):
-        self.is_training = False
+        self.is_training = True
 
     def validation(self):
-        self.is_training = True
+        self.is_training = False
 
     def validation_start(self):
         self.validation_times = [('start', time.time())]
@@ -121,7 +121,7 @@ class Tracker(object):
     def record_metric(self, metric, value, n=1, log_to_api=False):
         self.record_stat(metric.name, value, n, log_to_api)
 
-        if metric.name == self.primary_metric and not self.is_training:
+        if metric.name == self.primary_metric.name and not self.is_training:
             self.update_primary_metric(value)
 
     def update_primary_metric(self, new_metric_value):
@@ -134,13 +134,18 @@ class Tracker(object):
         return self.current_epoch == self.best_epoch
 
     def __str__(self):
+        prefix = self.train_prefix
+
+        if not self.is_training:
+            prefix = self.val_prefix
+
         # loss
-        str_builder = ['loss={:6.2e}'.format(self.epoch_stats['loss'].avg)]
+        str_builder = ['loss={:6.2e}'.format(self.epoch_stats[prefix + 'loss'].avg)]
 
         # metrics
         for metric in self.metrics:
             str_builder.append("{} {:.2e}".format(
-                metric.name, self.epoch_stats[metric.name].avg))
+                metric.name, self.epoch_stats[prefix + metric.name].avg))
 
         # batch times
         self.batch_times.sort(key=lambda x: x[0])

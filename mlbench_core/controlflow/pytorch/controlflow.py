@@ -14,16 +14,17 @@ logger = logging.getLogger('mlbench')
 def create_train_validation_step(model, optimizer, loss_function, metrics,
                                  scheduler, batch_size, train_epochs, rank,
                                  run_id, dtype, validate=True,
-                                 schedule_per='epoch', checkpoint=None,
+                                 schedule_per='epoch',
                                  transform_target_type=None, use_cuda=False,
                                  max_batch_per_epoch=None, tracker=None):
-    tracker = tracker or Tracker(metrics, run_id, rank)
+    if not tracker:
+        tracker = Tracker(metrics, run_id, rank)
 
     train = TrainStep(model, optimizer, loss_function, metrics, scheduler,
                       dtype, schedule_per, transform_target_type, use_cuda,
                       max_batch_per_epoch, tracker)
     valid = ValidationStep(model, loss_function, metrics, rank, dtype,
-                           checkpoint, transform_target_type, use_cuda,
+                           rank, transform_target_type, use_cuda,
                            max_batch_per_epoch, tracker)
 
     return train, valid, tracker
@@ -31,11 +32,11 @@ def create_train_validation_step(model, optimizer, loss_function, metrics,
 
 class TrainStep(object):
     def __init__(self, model, optimizer, loss_function, metrics, scheduler,
-                 train_epochs,  dtype,
+                 dtype,
                  schedule_per='epoch',
                  transform_target_type=None,
                  use_cuda=False, max_batch_per_epoch=None, tracker=None):
-        self.tracker = tracker or Tracker()
+        self.tracker = tracker
         self.model = model
         self.optimizer = optimizer
         self.loss_function = loss_function
@@ -71,7 +72,9 @@ class TrainStep(object):
                 output.size()[0],
                 log_to_api=True)
 
-        logger.info(str(self.tracker))
+        status = "Epoch {:5.2f} Batch {:4}: ".format(progress, batch_idx)
+
+        logger.info(status + str(self.tracker))
 
     def __call__(self, dataloader):
         self.model.train()
@@ -82,6 +85,8 @@ class TrainStep(object):
             self.max_batch_per_epoch,
             self.use_cuda,
             self.transform_target_type)
+
+        self.num_batches_per_device_train = len(dataloader)
 
         for batch_idx, (data, target) in enumerate(data_iter):
             self.tracker.batch_start()
@@ -120,57 +125,26 @@ class TrainStep(object):
 
 class ValidationStep(object):
     def __init__(self, model,  loss_function, metrics,
-                 run_id, dtype,
-                 checkpoint=None,
+                 run_id, dtype, rank,
                  transform_target_type=None,
                  use_cuda=False, max_batch_per_epoch=None, tracker=None):
-        self.tracker = tracker or Tracker()
+        self.tracker = tracker
         self.model = model
         self.loss_function = loss_function
         self.metrics = metrics
-        self.checkpoint = checkpoint
         self.run_id = run_id
         self.transform_target_type = transform_target_type
         self.use_cuda = use_cuda
         self.max_batch_per_epoch = max_batch_per_epoch
         self.dtype = dtype
+        self.rank = rank
 
-    def do_validate(self, dataloader):
-        """Evaluate the model on the test dataset and save to the checkpoint.
+    def validate(self, dataloader):
+        """Evaluate the model on the test dataset.
 
         Args:
             dataloader (:obj:`torch.utils.data.DataLoader`): The validation set
         """
-        # evaluate the model.
-        self.tracker.validation()
-
-        self.tracker.validation_start()
-        metrics_values, loss = self.validate(dataloader)
-        self.tracker.validation_end()
-
-        if len(metrics_values) > 0:
-            # Save
-            for metric, value in metrics_values.items():
-                self.tracker.record_metric(metric, value, log_to_api=True)
-
-            if self.rank == 0:
-                logger.info('{} for rank {}:(best epoch {}, current epoch {}): {:.3f}'.format(
-                    self.tracker.primary_metric,
-                    self.tracker.rank,
-                    self.tracker.best_epoch,
-                    self.tracker.current_epoch,
-                    self.tracker.best_metric_value))
-        else:
-            if self.rank == 0:
-                logger.info("Validation loss={:.3f}".format(loss))
-
-        self.tracker.record_loss(loss, log_to_api=True)
-
-        return self.tracker.is_best()
-
-    def __call__(self, dataloader):
-        self.model.eval()
-
         # Initialize the accumulators for loss and metrics
         losses = AverageMeter()
         for metric in self.metrics:
@@ -205,6 +179,34 @@ class ValidationStep(object):
                             for metric in self.metrics}
         loss_average = global_average(losses.sum, losses.count).item()
         return metrics_averages, loss_average
+
+    def __call__(self, dataloader):
+        self.model.eval()
+        self.tracker.validation()
+
+        self.tracker.validation_start()
+        metrics_values, loss = self.validate(dataloader)
+        self.tracker.validation_end()
+
+        if len(metrics_values) > 0:
+            # Save
+            for metric, value in metrics_values.items():
+                self.tracker.record_metric(metric, value, log_to_api=True)
+
+            if self.rank == 0:
+                logger.info('{} for rank {}:(best epoch {}, current epoch {}): {:.3f}'.format(
+                    self.tracker.primary_metric,
+                    self.tracker.rank,
+                    self.tracker.best_epoch,
+                    self.tracker.current_epoch,
+                    self.tracker.best_metric_value))
+        else:
+            if self.rank == 0:
+                logger.info("Validation loss={:.3f}".format(loss))
+
+        self.tracker.record_loss(loss, log_to_api=True)
+
+        return self.tracker.is_best()
 
 
 class TrainValidation(object):
@@ -260,11 +262,10 @@ class TrainValidation(object):
             dtype,
             validate=True,
             schedule_per='epoch',
-            checkpoint=None,
             transform_target_type=None,
             use_cuda=False,
             max_batch_per_epoch=None,
-            tracker=None)
+            tracker=tracker)
 
         self.trainstep, self.validstep, self.tracker = steps
 

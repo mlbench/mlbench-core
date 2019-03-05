@@ -10,6 +10,7 @@ import torch
 
 from mlbench_core.utils.pytorch.helpers import Timeit, maybe_range, update_best_runtime_metric, convert_dtype, config_pytorch, config_path, iterate_dataloader, log_metrics
 from mlbench_core.utils import Tracker, LogMetrics
+from mlbench_core.evaluation.pytorch.metrics import TopKAccuracy
 
 
 def test_timeit():
@@ -52,10 +53,7 @@ def test_maybe_range():
 
 
 def test_update_best_runtime_metric(mocker):
-    tracker = Tracker()
-    tracker.records = {}
-    tracker.current_epoch = 1
-    tracker.best_metric_value = 0
+    tracker = Tracker([TopKAccuracy(5)], 1, 0)
     # tracker = mocker.patch('mlbench_core.utils.pytorch.helpers.Tracker')
 
     is_best, best_metric_name = update_best_runtime_metric(
