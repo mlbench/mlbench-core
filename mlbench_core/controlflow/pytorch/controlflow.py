@@ -195,7 +195,7 @@ class ValidationStep(object):
 
             if self.rank == 0:
                 logger.info('{} for rank {}:(best epoch {}, current epoch {}): {:.3f}'.format(
-                    self.tracker.primary_metric,
+                    self.tracker.primary_metric.name,
                     self.tracker.rank,
                     self.tracker.best_epoch,
                     self.tracker.current_epoch,
