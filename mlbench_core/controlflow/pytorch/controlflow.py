@@ -12,11 +12,34 @@ logger = logging.getLogger('mlbench')
 
 
 def create_train_validation_step(model, optimizer, loss_function, metrics,
-                                 scheduler, batch_size, train_epochs, rank,
-                                 run_id, dtype, validate=True,
-                                 schedule_per='epoch',
+                                 scheduler, batch_size, rank,
+                                 run_id, dtype, schedule_per='epoch',
                                  transform_target_type=None, use_cuda=False,
                                  max_batch_per_epoch=None, tracker=None):
+    """ Utility method to initialize a corresponding TrainSetp, ValidationStep
+    and Tracker
+
+    Args:
+        model (`obj`:torch.nn.Module): The model to train
+        optimizer (`obj`:torch.optim): The optimizer
+        loss_function (`obj`:torch.nn.Module): The loss function
+        metrics (list): List of metrics to track
+        scheduler (`obj`:torch.optim.lr_scheduler): Learning Rate scheduler
+        batch_size (int): The batch size
+        rank (int): The rank of the current worker node
+        run_id (int): The id of the current run
+        dtype (str): The datatype to use, one of `fp32`or `fp64`
+        scheduler_per (str): Learning Rate scheduler mode, one of `batch` or `epoch`
+        transform_target_type (str): Datatype to convert data to, default: `None`
+        use_cuda (bool): Whether to use GPU for training, default: `False`
+        max_batch_per_epoch (int): Maximum number of batches tot rain for per epoch,
+                                   default: `None` (all batches)
+        tracker (`obj`:mlbench_core.utils.Tracker): Tracker object to use. Will be
+                                                    created if not supplied
+
+    Returns:
+        Tuple of (TrainStep, ValidationStep, Tracker)
+    """
     if not tracker:
         tracker = Tracker(metrics, run_id, rank)
 
@@ -31,10 +54,26 @@ def create_train_validation_step(model, optimizer, loss_function, metrics,
 
 
 class TrainStep(object):
+    """ Callable for handling one full iteration of training.
+    This is means a full epoch in most cases
+
+    Args:
+        model (`obj`:torch.nn.Module): The model to train
+        optimizer (`obj`:torch.optim): The optimizer
+        loss_function (`obj`:torch.nn.Module): The loss function
+        metrics (list): List of metrics to track
+        scheduler (`obj`:torch.optim.lr_scheduler): Learning Rate scheduler
+        dtype (str): The datatype to use, one of `fp32`or `fp64`
+        scheduler_per (str): Learning Rate scheduler mode, one of `batch` or `epoch`
+        transform_target_type (str): Datatype to convert data to, default: `None`
+        use_cuda (bool): Whether to use GPU for training, default: `False`
+        max_batch_per_epoch (int): Maximum number of batches tot rain for per epoch,
+                                   default: `None` (all batches)
+        tracker (`obj`:mlbench_core.utils.Tracker): Tracker object to use. Will be
+                                                    created if not supplied
+    """
     def __init__(self, model, optimizer, loss_function, metrics, scheduler,
-                 dtype,
-                 schedule_per='epoch',
-                 transform_target_type=None,
+                 dtype, schedule_per='epoch', transform_target_type=None,
                  use_cuda=False, max_batch_per_epoch=None, tracker=None):
         self.tracker = tracker
         self.model = model
@@ -77,6 +116,11 @@ class TrainStep(object):
         logger.info(status + str(self.tracker))
 
     def __call__(self, dataloader):
+        """Train the model on the train set.
+
+        Args:
+            dataloader (:obj:`torch.utils.data.DataLoader`): The train set
+        """
         self.model.train()
         self.tracker.train()
         data_iter = iterate_dataloader(
@@ -87,6 +131,9 @@ class TrainStep(object):
             self.transform_target_type)
 
         self.num_batches_per_device_train = len(dataloader)
+
+        if self.schedule_per == 'epoch':
+            self.scheduler.step()
 
         for batch_idx, (data, target) in enumerate(data_iter):
             self.tracker.batch_start()
@@ -124,9 +171,25 @@ class TrainStep(object):
 
 
 class ValidationStep(object):
+    """ Callable for handling one full iteration of validation.
+    Runs over the whole validation set
+
+    Args:
+        model (`obj`:torch.nn.Module): The model to train
+        loss_function (`obj`:torch.nn.Module): The loss function
+        metrics (list): List of metrics to track
+        rank (int): The rank of the current worker node
+        run_id (int): The id of the current run
+        dtype (str): The datatype to use, one of `fp32`or `fp64`
+        transform_target_type (str): Datatype to convert data to, default: `None`
+        use_cuda (bool): Whether to use GPU for training, default: `False`
+        max_batch_per_epoch (int): Maximum number of batches tot rain for per epoch,
+                                   default: `None` (all batches)
+        tracker (`obj`:mlbench_core.utils.Tracker): Tracker object to use. Will be
+                                                    created if not supplied
+    """
     def __init__(self, model,  loss_function, metrics,
-                 run_id, dtype, rank,
-                 transform_target_type=None,
+                 run_id, dtype, rank, transform_target_type=None,
                  use_cuda=False, max_batch_per_epoch=None, tracker=None):
         self.tracker = tracker
         self.model = model
@@ -181,6 +244,11 @@ class ValidationStep(object):
         return metrics_averages, loss_average
 
     def __call__(self, dataloader):
+        """Performs one round ov validation
+
+        Args:
+            dataloader (:obj:`torch.utils.data.DataLoader`): The validation set
+        """
         self.model.eval()
         self.tracker.validation()
 
