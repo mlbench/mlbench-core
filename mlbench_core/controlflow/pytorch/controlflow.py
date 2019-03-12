@@ -324,11 +324,9 @@ class TrainValidation(object):
             metrics,
             scheduler,
             batch_size,
-            train_epochs,
             rank,
             run_id,
             dtype,
-            validate=True,
             schedule_per='epoch',
             transform_target_type=None,
             use_cuda=False,
@@ -401,10 +399,6 @@ class TrainValidation(object):
 
         dist.barrier()
         for epoch in range(start_epoch, self.train_epochs):
-            # schedule learning rates
-            if self.schedule_per == 'epoch':
-                self.scheduler.step()
-
             # Per epoch information.
             logger.info("Current epoch : {} : lr={}"
                         .format(epoch, self.scheduler.get_lr()))
