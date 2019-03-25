@@ -1,12 +1,12 @@
 r"""A controlflow which train and evaluate a model."""
 import logging
-from collections import defaultdict
-import time
 
-from mlbench_core.utils import AverageMeter, Tracker, LogMetrics
+from mlbench_core.utils import AverageMeter, Tracker
 
 
-def train_round(session, train_set_init_op, train_op, loss, metrics, batch_size, num_batches_per_epoch_for_train, tracker):
+def train_round(session, train_set_init_op, train_op, loss, metrics,
+                batch_size, num_batches_per_epoch_for_train, tracker,
+                lr_scheduler_level=None, lr_tensor=None):
     logging.info("Initialize training dataset.")
     session.run(train_set_init_op)
     tracker.train()
@@ -14,9 +14,19 @@ def train_round(session, train_set_init_op, train_op, loss, metrics, batch_size,
     loss_meter = AverageMeter()
     metrics_meter = [AverageMeter() for _ in metrics]
 
+    if lr_scheduler_level == "epoch" and lr_tensor is not None:
+        lr = session.run(lr_tensor)
+        logging.debug("Epoch {} Learning Rate : {:10.3e}".format(
+            tracker.current_epoch, lr))
+
     for i_batch in range(num_batches_per_epoch_for_train):
         # for i_batch in range(1):
         tracker.batch_start()
+
+        if lr_scheduler_level == "batch" and lr_tensor is not None:
+            lr = session.run(lr_tensor)
+            logging.debug("Epoch {} Learning Rate : {:10.3e}".format(
+                tracker.current_epoch, lr))
 
         out = session.run({
             "metrics": [m['value'] for m in metrics],
@@ -51,7 +61,9 @@ def train_round(session, train_set_init_op, train_op, loss, metrics, batch_size,
     logging.info("Finish training for one epoch.")
 
 
-def validation_round(session, validation_set_init_op, loss, metrics, batch_size, num_batches_per_epoch_for_validation,  tracker):
+def validation_round(session, validation_set_init_op, loss, metrics,
+                     batch_size, num_batches_per_epoch_for_validation,
+                     tracker):
     session.run(validation_set_init_op)
     tracker.validation()
 
@@ -135,12 +147,19 @@ class TrainValidation(object):
         else:
             self.tracker = Tracker(metrics, run_id, rank)
 
-    def train_one_epoch(self):
+    def train_one_epoch(self, lr_tensor_name=None):
         """Train a model for an epoch and use tracker to log stats."""
-        train_round(self.sess, self.train_set_init_op, self.train_op, self.loss, self.metrics, self.batch_size, self.num_batches_per_epoch_for_train, self.tracker)
+        train_round(self.sess, self.train_set_init_op, self.train_op,
+                    self.loss, self.metrics, self.batch_size,
+                    self.num_batches_per_epoch_for_train, self.tracker,
+                    lr_tensor=lr_tensor_name,
+                    lr_scheduler_level=self.lr_scheduler_level)
 
     def valid_one_epoch(self):
-        validation_round(self.sess, self.validation_set_init_op, self.loss, self.metrics, self.batch_size, self.num_batches_per_epoch_for_validation, self.tracker)
+        validation_round(self.sess, self.validation_set_init_op, self.loss,
+                         self.metrics, self.batch_size,
+                         self.num_batches_per_epoch_for_validation,
+                         self.tracker)
 
     def train_and_eval(self, initial_epoch=0, lr_tensor_name=None):
         """Train and evaluate one epoch.
@@ -154,11 +173,6 @@ class TrainValidation(object):
                           self.train_epochs)
         for i_epoch in range(initial_epoch, final_epoch):
             logging.debug("=> Epoch {}".format(i_epoch))
-
-            if self.lr_scheduler_level == "epoch" and lr_tensor_name is not None:
-                lr = self.sess.run(lr_tensor_name)
-                logging.debug("Epoch {} Learning Rate : {:10.3e}".format(
-                    i_epoch, lr))
 
             self.train_one_epoch()
             self.valid_one_epoch()
