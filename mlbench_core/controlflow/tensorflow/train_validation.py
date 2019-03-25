@@ -6,11 +6,79 @@ import time
 from mlbench_core.utils import AverageMeter, Tracker, LogMetrics
 
 
-def train_round():
-    pass
+def train_round(session, train_set_init_op, train_op, loss, metrics, batch_size, num_batches_per_epoch_for_train, tracker):
+    logging.info("Initialize training dataset.")
+    session.run(train_set_init_op)
+    tracker.train()
 
-def validation_round():
-    pass
+    loss_meter = AverageMeter()
+    metrics_meter = [AverageMeter() for _ in metrics]
+
+    for i_batch in range(num_batches_per_epoch_for_train):
+        # for i_batch in range(1):
+        tracker.batch_start()
+
+        out = session.run({
+            "metrics": [m['value'] for m in metrics],
+            "loss": loss,
+            "train_op": train_op,
+        })
+
+        tracker.batch_end()
+
+        # Update tracker
+        loss_meter.update(out["loss"], n=batch_size)
+        for meter, o in zip(metrics_meter, out['metrics']):
+            meter.update(o, n=batch_size)
+
+        # Print logging information.
+        progress = i_batch / num_batches_per_epoch_for_train,
+        progress += tracker.current_epoch
+
+        status = "Epoch {:5.2f} Batch {:4}: ".format(progress, i_batch)
+
+        logging.info(status + str(tracker))
+
+    # Record training loss and metrics.
+    tracker.record_loss(loss_meter.avg, log_to_api=True)
+
+    for metric, meter in zip(metrics, metrics_meter):
+        tracker.record_metric(
+            metric,
+            meter.avg,
+            log_to_api=True)
+
+    logging.info("Finish training for one epoch.")
+
+
+def validation_round(session, validation_set_init_op, loss, metrics, batch_size, num_batches_per_epoch_for_validation,  tracker):
+    session.run(validation_set_init_op)
+    tracker.validation()
+
+    loss_meter = AverageMeter()
+    metrics_meter = [AverageMeter() for _ in metrics]
+
+    for i_batch in range(num_batches_per_epoch_for_validation):
+        out = session.run({
+            "metrics": [m['value'] for m in metrics],
+            "loss": loss})
+
+        # Update tracker
+        loss_meter.update(out["loss"], n=batch_size)
+        for meter, o in zip(metrics_meter, out['metrics']):
+            meter.update(o, n=batch_size)
+
+        logging.debug(
+            "{}/{} Validation loss={:10.3e} | metrics: [{}]"
+            .format(tracker.current_epoch, i_batch, loss_meter.avg,
+                    ",".join([format(m.avg, "10.3e")
+                              for m in metrics_meter])))
+
+    tracker.record_loss(loss_meter.avg, log_to_api=True)
+
+    for i, metric, meter in zip(range(len(metrics)), metrics, metrics_meter):
+        tracker.record_metric(metric, meter.avg, log_to_api=True)
+
 
 class TrainValidation(object):
     """A control flow to train and evaluate a model."""
@@ -69,76 +137,10 @@ class TrainValidation(object):
 
     def train_one_epoch(self):
         """Train a model for an epoch and use tracker to log stats."""
-        logging.info("Initialize training dataset.")
-        self.sess.run(self.train_set_init_op)
-        self.tracker.train()
-
-        loss_meter = AverageMeter()
-        metrics_meter = [AverageMeter() for _ in self.metrics]
-
-        for i_batch in range(self.num_batches_per_epoch_for_train):
-            # for i_batch in range(1):
-            self.tracker.batch_start()
-
-            out = self.sess.run({
-                "metrics": [m['value'] for m in self.metrics],
-                "loss": self.loss,
-                "train_op": self.train_op,
-            })
-
-            self.tracker.batch_end()
-
-            # Update tracker
-            loss_meter.update(out["loss"], n=self.batch_size)
-            for meter, o in zip(metrics_meter, out['metrics']):
-                meter.update(o, n=self.batch_size)
-
-            # Print logging information.
-            progress = i_batch / self.num_batches_per_epoch_for_train,
-            progress += self.tracker.current_epoch
-
-            status = "Epoch {:5.2f} Batch {:4}: ".format(progress, i_batch)
-
-            logging.info(status + str(self.tracker))
-
-        # Record training loss and metrics.
-        self.tracker.record_loss(loss_meter.avg, log_to_api=True)
-
-        for metric, meter in zip(self.metrics, metrics_meter):
-            self.tracker.record_metric(
-                metric,
-                meter.avg,
-                log_to_api=True)
-
-        logging.info("Finish training for one epoch.")
+        train_round(self.sess, self.train_set_init_op, self.train_op, self.loss, self.metrics, self.batch_size, self.num_batches_per_epoch_for_train, self.tracker)
 
     def valid_one_epoch(self):
-        self.sess.run(self.validation_set_init_op)
-        self.tracker.validation()
-
-        loss_meter = AverageMeter()
-        metrics_meter = [AverageMeter() for _ in self.metrics]
-
-        for i_batch in range(self.num_batches_per_epoch_for_validation):
-            out = self.sess.run({
-                "metrics": [m['value'] for m in self.metrics],
-                "loss": self.loss})
-
-            # Update tracker
-            loss_meter.update(out["loss"], n=self.batch_size)
-            for meter, o in zip(metrics_meter, out['metrics']):
-                meter.update(o, n=self.batch_size)
-
-            logging.debug(
-                "{}/{} Validation loss={:10.3e} | metrics: [{}]"
-                .format(self.tracker.current_epoch, i_batch, loss_meter.avg,
-                        ",".join([format(m.avg, "10.3e")
-                                  for m in metrics_meter])))
-
-        self.tracker.record_loss(loss_meter.avg, log_to_api=True)
-
-        for i, metric, meter in zip(range(len(self.metrics)), self.metrics, metrics_meter):
-            self.tracker.record_metric(metric, meter.avg, log_to_api=True)
+        validation_round(self.sess, self.validation_set_init_op, self.loss, self.metrics, self.batch_size, self.num_batches_per_epoch_for_validation, self.tracker)
 
     def train_and_eval(self, initial_epoch=0, lr_tensor_name=None):
         """Train and evaluate one epoch.
