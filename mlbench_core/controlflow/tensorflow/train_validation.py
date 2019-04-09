@@ -29,7 +29,7 @@ def train_round(session, train_set_init_op, train_op, loss, metrics,
                 tracker.current_epoch, lr))
 
         out = session.run({
-            "metrics": [m['value'] for m in metrics],
+            "metrics": [m.metric_op for m in metrics],
             "loss": loss,
             "train_op": train_op,
         })
@@ -38,11 +38,17 @@ def train_round(session, train_set_init_op, train_op, loss, metrics,
 
         # Update tracker
         loss_meter.update(out["loss"], n=batch_size)
-        for meter, o in zip(metrics_meter, out['metrics']):
+        tracker.record_loss(loss_meter.avg, log_to_api=True)
+
+        for metric, meter, o in zip(metrics, metrics_meter, out['metrics']):
             meter.update(o, n=batch_size)
+            tracker.record_metric(
+                metric,
+                meter.avg,
+                log_to_api=True)
 
         # Print logging information.
-        progress = i_batch / num_batches_per_epoch_for_train,
+        progress = i_batch / num_batches_per_epoch_for_train
         progress += tracker.current_epoch
 
         status = "Epoch {:5.2f} Batch {:4}: ".format(progress, i_batch)
@@ -72,7 +78,7 @@ def validation_round(session, validation_set_init_op, loss, metrics,
 
     for i_batch in range(num_batches_per_epoch_for_validation):
         out = session.run({
-            "metrics": [m['value'] for m in metrics],
+            "metrics": [m.metric_op for m in metrics],
             "loss": loss})
 
         # Update tracker
