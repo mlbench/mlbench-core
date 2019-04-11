@@ -4,6 +4,13 @@ import tensorflow as tf
 
 
 class TopKAccuracy(object):
+    """Compute the top-k accuracy of logits.
+
+    Args:
+        logits (:obj:`tf.Tensor`): input tensor
+        labels (:obj:`tf.Tensor`): input one-hot encoded tensor.
+        topkk (:obj:`int`, optional): Defaults to 1. top k accuracy.
+    """
     def __init__(self, logits, labels, topk=1):
         labels = tf.cast(labels, tf.int32)
         true_classes = tf.argmax(labels, axis=1)
