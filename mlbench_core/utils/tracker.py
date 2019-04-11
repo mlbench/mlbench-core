@@ -31,7 +31,8 @@ class Tracker(object):
     Args:
         metrics (list): List of metrics objects
         run_id (int): The id of the current run
-        rank (int): The rank of this worker node"""
+        rank (int): The rank of this worker node
+        goal(func): A task goal to check for when logging metrics"""
     batch_times = []
     validation_times = []
     epoch_stats = {}
@@ -47,13 +48,24 @@ class Tracker(object):
     train_prefix = 'train_'
     val_prefix = 'val_'
 
-    def __init__(self, metrics, run_id, rank):
+    start_time = None
+
+    def __init__(self, metrics, run_id, rank, goal=None):
         self.metrics = metrics
         self.run_id = run_id
         self.rank = rank
         self.reset_epoch_stats()
+        self.goal = goal
+        self.goal_reached = False
 
         self.primary_metric = metrics[0]
+
+    def start(self):
+        """ Starts Tracking """
+        if self.start_time is not None:
+            raise Exception("Tracking already started")
+
+        self.start_time = time.time()
 
     def train(self):
         """ Switch Tracker to training mode"""
@@ -140,6 +152,21 @@ class Tracker(object):
                 name,
                 value
             )
+
+        if self.goal:
+            goal_result = self.goal(name, value, self)
+
+            if goal_result:
+                self.goal_reached = True
+
+                if log_to_api:
+                    LogMetrics.log(
+                        self.run_id,
+                        self.rank,
+                        self.current_epoch,
+                        goal_result[0],
+                        goal_result[1]
+                    )
 
     def record_loss(self, value, n=1, log_to_api=False):
         """Records a loss value
