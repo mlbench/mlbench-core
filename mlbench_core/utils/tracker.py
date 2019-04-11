@@ -164,8 +164,8 @@ class Tracker(object):
                         self.run_id,
                         self.rank,
                         self.current_epoch,
-                        goal_result[0],
-                        goal_result[1]
+                        "TaskResult",
+                        goal_result
                     )
 
     def record_loss(self, value, n=1, log_to_api=False):
