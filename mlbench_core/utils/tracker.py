@@ -153,10 +153,10 @@ class Tracker(object):
                 value
             )
 
-        if self.goal:
+        if self.goal and self.rank == 0:
             goal_result = self.goal(name, value, self)
 
-            if goal_result:
+            if goal_result is not None and not self.goal_reached:
                 self.goal_reached = True
 
                 if log_to_api:
@@ -225,7 +225,7 @@ class Tracker(object):
                 metric.name, self.epoch_stats[prefix + metric.name].avg))
 
         # batch times
-        self.batch_times.sort(key=lambda x: x[0])
+        self.batch_times.sort(key=lambda x: x[1])
 
         tracker_stats = zip(
             self.batch_times[:-1],

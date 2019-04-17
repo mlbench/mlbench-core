@@ -4,7 +4,7 @@ import time
 def task1_time_to_accuracy_light_goal(metric_name, value, tracker):
     """ Accuracy over Time target for benchmark task 1: Image classification (Light)
 
-    Light target is 80% accuracy
+    Light target is 70% accuracy
 
     Args:
         metric_name(str): Name of the metric to test the value for, only "val_Prec@1" is counted
@@ -16,9 +16,9 @@ def task1_time_to_accuracy_light_goal(metric_name, value, tracker):
     if metric_name != "val_Prec@1":
         return None
 
-    if value >= 0.8:
+    if value >= 70:
         duration = time.time() - tracker.start_time
-        result = "80% Top 1 Validation Accuracy reached in {0:.3f} seconds"\
+        result = "70% Top 1 Validation Accuracy reached in {0:.3f} seconds"\
             .format(duration)
         return result
 
@@ -28,7 +28,7 @@ def task1_time_to_accuracy_light_goal(metric_name, value, tracker):
 def task1_time_to_accuracy_goal(metric_name, value, tracker):
     """ Accuracy over Time target for benchmark task 1: Image classification
 
-    Target is 90% accuracy
+    Target is 80% accuracy
 
     Args:
         metric_name(str): Name of the metric to test the value for, only "val_Prec@1" is counted
@@ -40,9 +40,9 @@ def task1_time_to_accuracy_goal(metric_name, value, tracker):
     if metric_name != "val_Prec@1":
         return None
 
-    if value >= 0.9:
+    if value >= 80:
         duration = time.time() - tracker.start_time
-        result = "90% Top 1 Validation Accuracy reached in {0:.3f} seconds"\
+        result = "80% Top 1 Validation Accuracy reached in {0:.3f} seconds"\
             .format(duration)
         return result
 
