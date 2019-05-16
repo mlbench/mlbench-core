@@ -13,7 +13,7 @@ def task1_time_to_accuracy_light_goal(metric_name, value, tracker):
     Return:
         result (str) or `None` if target is not reached
     """
-    if metric_name != "val_Prec@1":
+    if metric_name != "global_val_Prec@1":
         return None
 
     if value >= 70:
@@ -37,7 +37,7 @@ def task1_time_to_accuracy_goal(metric_name, value, tracker):
     Return:
         result (str) or `None` if target is not reached
     """
-    if metric_name != "val_Prec@1":
+    if metric_name != "global_val_Prec@1":
         return None
 
     if value >= 80:
