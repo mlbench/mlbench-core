@@ -27,17 +27,19 @@ def _record_train_batch_stats(batch_idx, loss, output, target, metrics,
     progress = batch_idx / num_batches_per_device_train
     progress += tracker.current_epoch
 
-    tracker.record_loss(loss, output.size()[0], log_to_api=True)
+    if tracker:
+            tracker.record_loss(loss, output.size()[0], log_to_api=True)
 
     # Compute metrics for one batch
     for metric in metrics:
         metric_value = metric(output, target).item()
 
-        tracker.record_metric(
-            metric,
-            metric_value,
-            output.size()[0],
-            log_to_api=True)
+        if tracker:
+            tracker.record_metric(
+                metric,
+                metric_value,
+                output.size()[0],
+                log_to_api=True)
 
     status = "Epoch {:5.2f} Batch {:4}: ".format(progress, batch_idx)
 
@@ -67,7 +69,10 @@ def train_round(dataloader, model, optimizer, loss_function, metrics,
         tracker (`obj`:mlbench_core.utils.Tracker): Tracker object to use.
     """
     model.train()
-    tracker.train()
+
+    if tracker:
+        tracker.train()
+
     data_iter = iterate_dataloader(
         dataloader,
         dtype,
@@ -81,32 +86,38 @@ def train_round(dataloader, model, optimizer, loss_function, metrics,
         scheduler.step()
 
     for batch_idx, (data, target) in enumerate(data_iter):
-        tracker.batch_start()
+        if tracker:
+            tracker.batch_start()
 
         if schedule_per == 'batch':
             scheduler.step()
 
         # Clear gradients in the optimizer.
         optimizer.zero_grad()
-        tracker.record_batch_step('init')
+        if tracker:
+            tracker.record_batch_step('init')
 
         # Compute the output
         output = model(data)
-        tracker.record_batch_step('fwd_pass')
+        if tracker:
+            tracker.record_batch_step('fwd_pass')
 
         # Compute the loss
         loss = loss_function(output, target)
-        tracker.record_batch_step('comp_loss')
+        if tracker:
+            tracker.record_batch_step('comp_loss')
 
         # Backprop
         loss.backward()
-        tracker.record_batch_step('backprop')
+        if tracker:
+            tracker.record_batch_step('backprop')
 
         # Aggregate gradients/parameters from all workers and apply updates to model
         optimizer.step()
-        tracker.record_batch_step('opt_step')
+        if tracker:
+            tracker.record_batch_step('opt_step')
 
-        tracker.batch_end()
+            tracker.batch_end()
 
         _record_train_batch_stats(
             batch_idx,
@@ -191,20 +202,33 @@ def validation_round(dataloader, model,  loss_function, metrics,
                                                     created if not supplied
     """
     model.eval()
-    tracker.validation()
 
-    tracker.validation_start()
+    if tracker:
+        tracker.validation()
+
+        tracker.validation_start()
+
     metrics_values, loss = _validate(dataloader, model, loss_function, metrics,
                                      dtype, transform_target_type, use_cuda,
                                      max_batch_per_epoch)
-    tracker.validation_end()
+    if tracker:
+        tracker.validation_end()
 
     if len(metrics_values) > 0:
         # Save
-        for metric, value in metrics_values.items():
-            tracker.record_metric(metric, value, log_to_api=True)
+        if tracker:
+            for metric, value in metrics_values.items():
+                tracker.record_metric(metric, value, log_to_api=True)
 
-        if rank == 0:
+                global_metric_value = global_average(value, 1).item()
+
+                if rank == 0:
+                    tracker.record_stat(
+                        "global_{}".format(metric.name),
+                        global_metric_value,
+                        log_to_api=True)
+
+        if rank == 0 and tracker:
             logger.info('{} for rank {}:(best epoch {}, current epoch {}): {:.3f}'.format(
                 tracker.primary_metric.name,
                 tracker.rank,
@@ -215,9 +239,18 @@ def validation_round(dataloader, model,  loss_function, metrics,
         if rank == 0:
             logger.info("Validation loss={:.3f}".format(loss))
 
-    tracker.record_loss(loss, log_to_api=True)
+    if tracker:
+        tracker.record_loss(loss, log_to_api=True)
 
-    return tracker.is_best()
+        global_loss = global_average(loss, 1).item()
+
+        if rank == 0:
+            tracker.record_stat(
+                "global_loss",
+                global_loss,
+                log_to_api=True)
+
+    return tracker.is_best() if tracker else False
 
 
 class TrainValidation(object):
