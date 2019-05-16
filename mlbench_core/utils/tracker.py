@@ -100,6 +100,14 @@ class Tracker(object):
                 self.batch_times[-1][1]
                 - self.batch_times[0][1])
 
+            LogMetrics.log(
+                self.run_id,
+                self.rank,
+                self.current_epoch,
+                "CumulativeTrainTimeEpoch",
+                sum(self.cumulative_train_time)
+            )
+
     def epoch_end(self):
         """Ends a training epoch"""
         self.current_epoch += 1
@@ -140,6 +148,9 @@ class Tracker(object):
 
         name = prefix + name
 
+        if name not in self.epoch_stats:
+            self.epoch_stats[name] = AverageMeter()
+
         self.epoch_stats[name].update(value, n)
 
         self.history.append((self.run_id, self.rank, name, value, time.time()))
@@ -166,6 +177,14 @@ class Tracker(object):
                         self.current_epoch,
                         "TaskResult",
                         goal_result
+                    )
+
+                    LogMetrics.log(
+                        self.run_id,
+                        self.rank,
+                        self.current_epoch,
+                        "TotalCumulativeTrainTime",
+                        sum(self.cumulative_train_time)
                     )
 
     def record_loss(self, value, n=1, log_to_api=False):
