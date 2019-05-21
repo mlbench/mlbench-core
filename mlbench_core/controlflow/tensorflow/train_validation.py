@@ -94,8 +94,20 @@ def validation_round(session, validation_set_init_op, loss, metrics,
 
     tracker.record_loss(loss_meter.avg, log_to_api=True)
 
+    if tracker.rank == 0:
+        tracker.record_stat(
+            "global_loss",
+            loss_meter.avg,
+            log_to_api=True)
+
     for i, metric, meter in zip(range(len(metrics)), metrics, metrics_meter):
         tracker.record_metric(metric, meter.avg, log_to_api=True)
+
+        if tracker.rank == 0:
+            tracker.record_stat(
+                "global_{}".format(metric.name),
+                meter.avg,
+                log_to_api=True)
 
 
 class TrainValidation(object):
