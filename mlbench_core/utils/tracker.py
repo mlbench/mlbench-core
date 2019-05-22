@@ -105,7 +105,7 @@ class Tracker(object):
                 self.rank,
                 self.current_epoch,
                 "CumulativeTrainTimeEpoch",
-                sum(self.cumulative_train_time)
+                self.cumulative_train_time[-1]
             )
 
     def epoch_end(self):
@@ -184,7 +184,7 @@ class Tracker(object):
                         self.rank,
                         self.current_epoch,
                         "TotalCumulativeTrainTime",
-                        sum(self.cumulative_train_time)
+                        self.get_total_train_time()
                     )
 
     def record_loss(self, value, n=1, log_to_api=False):
@@ -227,6 +227,12 @@ class Tracker(object):
     def is_best(self):
         """ Whether the current epoch is the best epoch so far"""
         return self.current_epoch == self.best_epoch
+
+    def get_total_train_time(self):
+        return sum(self.cumulative_train_time)
+
+    def get_total_val_time(self):
+        return sum(self.cumulative_val_time)
 
     def __str__(self):
         """ String representation of current epoch"""
