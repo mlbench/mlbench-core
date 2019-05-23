@@ -17,7 +17,7 @@ def task1_time_to_accuracy_light_goal(metric_name, value, tracker):
         return None
 
     if value >= 70:
-        duration = time.time() - tracker.start_time
+        duration = tracker.get_total_train_time()
         result = "70% Top 1 Validation Accuracy reached in {0:.3f} seconds"\
             .format(duration)
         return result
@@ -41,7 +41,7 @@ def task1_time_to_accuracy_goal(metric_name, value, tracker):
         return None
 
     if value >= 80:
-        duration = time.time() - tracker.start_time
+        duration = tracker.get_total_train_time()
         result = "80% Top 1 Validation Accuracy reached in {0:.3f} seconds"\
             .format(duration)
         return result
