@@ -23,13 +23,13 @@ class TopKAccuracy(object):
         with tf.name_scope("metrics"):
             if topk == 1:
                 self.name = "Prec@1"
-                self.metric_op = tf.reduce_mean(
-                    tf.cast(tf.equal(true_classes, pred_classes), tf.float32))
+                self.metric_op = tf.mul(tf.reduce_mean(
+                    tf.cast(tf.equal(true_classes, pred_classes), tf.float32)), 100.0)
             else:
                 topk_op = tf.nn.in_top_k(predictions=pred_probs,
                                          targets=true_classes, k=topk)
                 self.name = "Prec@" + str(topk)
-                self.metric_op = tf.reduce_mean(tf.cast(topk_op, tf.float32))
+                self.metric_op = tf.mul(tf.reduce_mean(tf.cast(topk_op, tf.float32)), 100.0)
 
 
 def topk_accuracy_with_logits(logits, labels, k=1):
