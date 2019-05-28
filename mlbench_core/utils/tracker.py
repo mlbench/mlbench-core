@@ -95,7 +95,7 @@ class Tracker(object):
         """End a training batch and calculate time spent"""
         self.record_batch_step("end")
 
-        if len(self.batch_times) > 2:
+        if len(self.batch_times) > 1:
             self.cumulative_train_time.append(
                 self.batch_times[-1][1]
                 - self.batch_times[0][1])
