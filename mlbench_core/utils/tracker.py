@@ -28,6 +28,8 @@ class AverageMeter(object):
 class Tracker(object):
     """A class to track running stats and metrics.
 
+    Also responsible for posting metrics to the API/Dashboard
+
     Args:
         metrics (list): List of metrics objects
         run_id (int): The id of the current run

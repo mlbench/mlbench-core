@@ -166,6 +166,23 @@ def multistep_learning_rates_with_warmup(optimizer,
 
 
 class MultistepLearningRatesWithWarmup(LambdaLR):
+    """ Multistep Learningrate Scheduler with Warmup Period
+
+    Args:
+        optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
+        world_size (int): The total number of workers
+        gamma (float): Decay factor for learning rate
+        milestones (:obj:`list` of :obj:`int`): The epochs/steps at which to reduce the
+            learning rate
+        lr (float): The initial learning rate
+        warmup_duration (int): The number of epochs to perform warmup before regular
+            lr scaling starts. Default: `None`
+        warmup_linear_scaling (bool): Whether or not to linearily scale lr during
+            warmup. Default: `False`
+        warmup_init_lr (float): The initial learning rate to use for the warmup epochs. Default: `None`
+    Returns:
+        A learning rate scheduler (:obj:`torch.optim.lr_scheduler.LambdaLR`)
+    """
     def __init__(self,
                  optimizer,
                  world_size,
@@ -213,8 +230,7 @@ class MultistepLearningRatesWithWarmup(LambdaLR):
 
 
 class SparsifiedSGDLR(LambdaLR):
-    """ 
-    Learning rate schedule for sparsifiedSGD (gamma / l2_coef * (t + shifting_param))
+    """ Learning rate schedule for sparsifiedSGD (gamma / l2_coef * (t + shifting_param))
 
     Args:
         optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
@@ -240,7 +256,6 @@ class SparsifiedSGDLR(LambdaLR):
 
 
 class TimeDecayLR(LambdaLR):
-
     """
     Time based decay learning rate schedule for SGD (alpha / (t + beta))
 

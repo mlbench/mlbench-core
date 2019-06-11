@@ -25,6 +25,8 @@ _LIBSVM_DATASETS = [
 
 class IMDBPT(torch.utils.data.Dataset):
     """
+    LMDB Dataset loader
+
     Args:
         root (string): Either root directory for the database files,
             or a absolute path pointing to the file.
@@ -110,6 +112,19 @@ class IMDBPT(torch.utils.data.Dataset):
 
 
 class LMDBPTClass(torch.utils.data.Dataset):
+    """
+    LMDB Dataset loader Class
+
+    Args:
+        root (string): Either root directory for the database files,
+            or a absolute path pointing to the file.
+        transform (callable, optional): A function/transform that
+            takes in an PIL image and returns a transformed version.
+            E.g, ``transforms.RandomCrop``
+        target_transform (callable, optional):
+            A function/transform that takes in the target and transforms it.
+        is_image (bool): Whether the dataset file is an image or not
+    """
     def __init__(self, root, transform=None, target_transform=None, is_image=True):
         self.root = os.path.expanduser(root)
         self.transform = transform
