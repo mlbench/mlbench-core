@@ -173,6 +173,7 @@ def config_pytorch(use_cuda=False, seed=None, cudnn_deterministic=False):
 
     return rank, world_size, graph
 
+
 @deprecation.deprecated(
     deprecated_in="1.3.1",
     details="This method was moved to mlbench_core.utils.log_metrics")

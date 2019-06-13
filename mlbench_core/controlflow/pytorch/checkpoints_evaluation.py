@@ -112,7 +112,10 @@ class CheckpointsEvaluationControlFlow(object):
                               metric.name] += metric(output, target) * count
 
                     logger.info("E{:4}B{:4}: total loss={:10.3e}"
-                                .format(epoch, i, stats['total_loss'] / stats['count']))
+                                .format(
+                                    epoch,
+                                    i,
+                                    stats['total_loss'] / stats['count']))
 
             # Keep globally averaged loss / metrics, etc.
             stats["loss"] = global_average(

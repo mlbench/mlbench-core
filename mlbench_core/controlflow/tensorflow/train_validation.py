@@ -4,9 +4,25 @@ import logging
 from mlbench_core.utils import AverageMeter, Tracker
 
 
-def train_round(session, train_set_init_op, train_op, loss, metrics,
+def train_round(session, train_set_init_op, train_op, loss_op, metrics,
                 batch_size, num_batches_per_epoch_for_train, tracker,
                 lr_scheduler_level=None, lr_tensor=None):
+    """ Performs num_batches_per_epoch_for_train batches of training (or full trainset if
+    not specified)
+
+    Args:
+        session (obj): The tensorflow session
+        train_set_init_op (obj): The trainset initialisation tf operation
+        train_op (obj): The tensorflow training operation
+        loss_op (obj): The tensorflow loss operation
+        metrics (list): List of metrics to track
+        batch_size (int): The batch size
+        num_batches_per_epoch_for_train (int): Maximum number of batches tot rain for per epoch,
+                                   default: `None` (all batches)
+        tracker (`obj`:mlbench_core.utils.Tracker): Tracker object to use
+        lr_scheduler_level (str): Learning Rate scheduler mode, one of `batch` or `epoch`
+        lr_tensor (obj): The learningrate schedule tensorflow operation
+    """
     logging.info("Initialize training dataset.")
     session.run(train_set_init_op)
     tracker.train()
@@ -30,7 +46,7 @@ def train_round(session, train_set_init_op, train_op, loss, metrics,
 
         out = session.run({
             "metrics": [m.metric_op for m in metrics],
-            "loss": loss,
+            "loss": loss_op,
             "train_op": train_op,
         })
 
@@ -67,9 +83,21 @@ def train_round(session, train_set_init_op, train_op, loss, metrics,
     logging.info("Finish training for one epoch.")
 
 
-def validation_round(session, validation_set_init_op, loss, metrics,
+def validation_round(session, validation_set_init_op, loss_op, metrics,
                      batch_size, num_batches_per_epoch_for_validation,
                      tracker):
+    """ Handles one full iteration of validation on the whole validation set.
+
+    Args:
+        session (obj): The tensorflow session
+        validation_set_init_op (obj): The trainset initialisation tf operation
+        loss_op (obj): The tensorflow loss operation
+        metrics (list): List of metrics to track
+        batch_size (int): The batch size
+        num_batches_per_epoch_for_validation (int): Maximum number of batches to validate
+            for per epoch, default: `None` (all batches)
+        tracker (`obj`:mlbench_core.utils.Tracker): Tracker object to use
+    """
     session.run(validation_set_init_op)
     tracker.validation()
 
@@ -79,7 +107,7 @@ def validation_round(session, validation_set_init_op, loss, metrics,
     for i_batch in range(num_batches_per_epoch_for_validation):
         out = session.run({
             "metrics": [m.metric_op for m in metrics],
-            "loss": loss})
+            "loss": loss_op})
 
         # Update tracker
         loss_meter.update(out["loss"], n=batch_size)
@@ -166,7 +194,10 @@ class TrainValidation(object):
             self.tracker = Tracker(metrics, run_id, rank)
 
     def train_one_epoch(self, lr_tensor_name=None):
-        """Train a model for an epoch and use tracker to log stats."""
+        """Train a model for an epoch and use tracker to log stats.
+
+        Args:
+            lr_tensor (obj): The learningrate schedule tensorflow operation"""
         train_round(self.sess, self.train_set_init_op, self.train_op,
                     self.loss, self.metrics, self.batch_size,
                     self.num_batches_per_epoch_for_train, self.tracker,
@@ -174,6 +205,7 @@ class TrainValidation(object):
                     lr_scheduler_level=self.lr_scheduler_level)
 
     def valid_one_epoch(self):
+        """Validate a model for an epoch and use tracker to log stats."""
         validation_round(self.sess, self.validation_set_init_op, self.loss,
                          self.metrics, self.batch_size,
                          self.num_batches_per_epoch_for_validation,

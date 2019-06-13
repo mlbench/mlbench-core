@@ -28,6 +28,8 @@ class AverageMeter(object):
 class Tracker(object):
     """A class to track running stats and metrics.
 
+    Also responsible for posting metrics to the API/Dashboard
+
     Args:
         metrics (list): List of metrics objects
         run_id (int): The id of the current run
@@ -95,7 +97,7 @@ class Tracker(object):
         """End a training batch and calculate time spent"""
         self.record_batch_step("end")
 
-        if len(self.batch_times) > 2:
+        if len(self.batch_times) > 1:
             self.cumulative_train_time.append(
                 self.batch_times[-1][1]
                 - self.batch_times[0][1])

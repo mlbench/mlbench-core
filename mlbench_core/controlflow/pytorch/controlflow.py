@@ -132,7 +132,7 @@ def train_round(dataloader, model, optimizer, loss_function, metrics,
 def _validate(dataloader, model, loss_function, metrics,
               dtype, transform_target_type=None, use_cuda=False,
               max_batch_per_epoch=None):
-        """Evaluate the model on the test dataset.
+    """Evaluate the model on the test dataset.
 
     Args:
         dataloader (:obj:`torch.utils.data.DataLoader`): The validation set
@@ -145,40 +145,40 @@ def _validate(dataloader, model, loss_function, metrics,
         max_batch_per_epoch (int): Maximum number of batches tot rain for per epoch,
                                    default: `None` (all batches)
         """
-        # Initialize the accumulators for loss and metrics
-        losses = AverageMeter()
-        for metric in metrics:
-            metric.reset()
+    # Initialize the accumulators for loss and metrics
+    losses = AverageMeter()
+    for metric in metrics:
+        metric.reset()
 
-        # Each worker computer their own losses and metrics
-        with torch.no_grad():
-            data_iter = iterate_dataloader(
-                dataloader,
-                dtype,
-                max_batch_per_epoch,
-                use_cuda,
-                transform_target_type)
+    # Each worker computer their own losses and metrics
+    with torch.no_grad():
+        data_iter = iterate_dataloader(
+            dataloader,
+            dtype,
+            max_batch_per_epoch,
+            use_cuda,
+            transform_target_type)
 
-            for data, target in data_iter:
-                # Inference
-                output = model(data)
+        for data, target in data_iter:
+            # Inference
+            output = model(data)
 
-                # Compute loss
-                loss = loss_function(output, target)
+            # Compute loss
+            loss = loss_function(output, target)
 
-                # Update loss
-                losses.update(loss.item(), data.size(0))
+            # Update loss
+            losses.update(loss.item(), data.size(0))
 
-                # Update metrics
-                for metric in metrics:
-                    metric_value = metric(output, target)
-                    metric.update(metric_value, data.size(0))
+            # Update metrics
+            for metric in metrics:
+                metric_value = metric(output, target)
+                metric.update(metric_value, data.size(0))
 
-        # Aggregate metrics and loss for all workers
-        metrics_averages = {metric: metric.average().item()
-                            for metric in metrics}
-        loss_average = global_average(losses.sum, losses.count).item()
-        return metrics_averages, loss_average
+    # Aggregate metrics and loss for all workers
+    metrics_averages = {metric: metric.average().item()
+                        for metric in metrics}
+    loss_average = global_average(losses.sum, losses.count).item()
+    return metrics_averages, loss_average
 
 
 def validation_round(dataloader, model,  loss_function, metrics,
@@ -229,12 +229,13 @@ def validation_round(dataloader, model,  loss_function, metrics,
                         log_to_api=True)
 
         if rank == 0 and tracker:
-            logger.info('{} for rank {}:(best epoch {}, current epoch {}): {:.3f}'.format(
-                tracker.primary_metric.name,
-                tracker.rank,
-                tracker.best_epoch,
-                tracker.current_epoch,
-                tracker.best_metric_value))
+            logger.info(
+                '{} for rank {}:(best epoch {}, current epoch {}): {:.3f}'.format(
+                    tracker.primary_metric.name,
+                    tracker.rank,
+                    tracker.best_epoch,
+                    tracker.current_epoch,
+                    tracker.best_metric_value))
     else:
         if rank == 0:
             logger.info("Validation loss={:.3f}".format(loss))
