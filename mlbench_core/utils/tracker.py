@@ -1,5 +1,5 @@
-import argparse
 import time
+from collections import defaultdict
 
 from .log_metrics import LogMetrics
 
@@ -38,6 +38,7 @@ class Tracker(object):
     batch_times = []
     validation_times = []
     epoch_stats = {}
+    epoch_metrics = defaultdict(list)
     records = []
     history = []
     cumulative_train_time = []
@@ -98,21 +99,46 @@ class Tracker(object):
         self.record_batch_step("end")
 
         if len(self.batch_times) > 1:
+            metric = 'CumulativeTrainTimeEpoch'
+
             self.cumulative_train_time.append(
                 self.batch_times[-1][1]
                 - self.batch_times[0][1])
+            time_diff = self.cumulative_train_time[-1]
 
+            if len(self.epoch_metrics[metric]) < self.current_epoch + 1:
+                self.epoch_metrics[metric].append(0.0)
+
+            self.epoch_metrics[metric][self.current_epoch] += time_diff
+
+            # batch times
+            self.batch_times.sort(key=lambda x: x[1])
+
+            tracker_stats = zip(
+                self.batch_times[:-1],
+                self.batch_times[1:])
+
+            for (_, t1), (name, t2) in tracker_stats:
+                time_diff = t2 - t1
+
+                if len(self.epoch_metrics[name]) < self.current_epoch + 1:
+                    self.epoch_metrics[name].append(0.0)
+
+                self.epoch_metrics[name][self.current_epoch] += time_diff
+
+    def epoch_end(self):
+        """Ends a training epoch and logs epoch metrics"""
+        for k, v in dict(self.epoch_metrics).items():
             LogMetrics.log(
                 self.run_id,
                 self.rank,
                 self.current_epoch,
-                "CumulativeTrainTimeEpoch",
-                self.cumulative_train_time[-1]
+                k,
+                v[-1]
             )
 
-    def epoch_end(self):
-        """Ends a training epoch"""
         self.current_epoch += 1
+
         self.reset_epoch_stats()
 
     def reset_epoch_stats(self):
@@ -189,6 +215,15 @@ class Tracker(object):
                         self.get_total_train_time()
                     )
 
+                    for k, v in dict(self.epoch_stats).items():
+                        LogMetrics.log(
+                            self.run_id,
+                            self.rank,
+                            self.current_epoch,
+                            'global_cum_{}'.format(k),
+                            sum(v)
+                        )
+
     def record_loss(self, value, n=1, log_to_api=False):
         """Records a loss value
 
@@ -244,7 +279,8 @@ class Tracker(object):
             prefix = self.val_prefix
 
         # loss
-        str_builder = ['loss={:6.2e}'.format(self.epoch_stats[prefix + 'loss'].avg)]
+        str_builder = [
+            'loss={:6.2e}'.format(self.epoch_stats[prefix + 'loss'].avg)]
 
         # metrics
         for metric in self.metrics:
