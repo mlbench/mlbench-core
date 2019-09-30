@@ -46,7 +46,18 @@ r"""
 Dict of official benchmark images
 
 Note:
-    Format: ``{name: image_name}``"""
+    Format: ``{name: (image_name, command, run_on_all, GPU_supported)}``"""
+
+
+class _CustomApiClient(client.ApiClient):
+    """
+    Deals with a bug introduced by a fix in swagger.
+    https://github.com/kubernetes-client/python/issues/411
+    https://github.com/swagger-api/swagger-codegen/issues/6392
+    """
+
+    def __del__(self):
+        pass
 
 
 class ApiClient(object):
@@ -83,101 +94,106 @@ class ApiClient(object):
 
     def __init__(self, max_workers=5, in_cluster=True,
                  label_selector='component=master,app=mlbench',
-                 k8s_namespace='default', service_name=None,
-                 url=None):
+                 k8s_namespace='default', url=None):
         self.executor = concurrent.futures.ThreadPoolExecutor(
             max_workers=max_workers)
         self.in_cluster = in_cluster
 
-        if url is not None:
-            self.endpoint = "http://{url}/api/".format(url=url)
-            return
+        if url is None:
+            if self.in_cluster:
+                url = self.__get_in_cluster_url(
+                    label_selector,
+                    k8s_namespace)
+            else:
+                url = self.__get_out_of_cluster_url(
+                    label_selector,
+                    k8s_namespace)
 
-        class _CustomApiClient(client.ApiClient):
-            """
-            A bug introduced by a fix.
-            https://github.com/kubernetes-client/python/issues/411
-            https://github.com/swagger-api/swagger-codegen/issues/6392
-            """
+        self.endpoint = "http://{url}/api/".format(url=url)
 
-            def __del__(self):
-                pass
-
-        if self.in_cluster:
-            config.load_incluster_config()
-        else:
-            config.load_kube_config()
+    def __get_in_cluster_url(self, label_selector, k8s_namespace):
+        """Get the API url for the dashboard when running in a cluster """
+        config.load_incluster_config()
 
         configuration = client.Configuration()
         k8s_client = client.CoreV1Api(_CustomApiClient(configuration))
-        if self.in_cluster:
-            namespaced_pods = k8s_client.list_namespaced_pod(
-                k8s_namespace, label_selector=label_selector)
+        namespaced_pods = k8s_client.list_namespaced_pod(
+            k8s_namespace, label_selector=label_selector)
 
-            assert len(namespaced_pods.items) == 1
+        assert len(namespaced_pods.items) == 1
 
-            master_pod = namespaced_pods.items[0]
-            url = master_pod.status.pod_ip + ":80"
-        else:
-            # figure out ip and port based on service type
-            if service_name is None:
-                raise ValueError("'service_name' must be set for "
-                                 "out of cluster use")
-            service = k8s_client.read_namespaced_service(
-                service_name,
-                k8s_namespace)
-            print(service)
-            service_type = service.spec.type
+        master_pod = namespaced_pods.items[0]
 
-            if service_type == "ClusterIP":
-                # cluster ip: up to user to grant access
-                ip = service.spec.cluster_ip
-                port = service.spec.ports[0].port
-            elif service_type == "NodePort":
-                port = service.spec.ports[0].node_port
-                if (service.spec.external_i_ps and
-                        len(service.spec.external_i_ps) > 0):
+        return master_pod.status.pod_ip + ":80"
 
-                    ip = service.spec.external_i_ps[0]
-                else:
-                    # try and get public node ip
-                    namespaced_pods = k8s_client.list_namespaced_pod(
-                        k8s_namespace, label_selector=label_selector)
+    def __get_out_of_cluster_url(self, label_selector, k8s_namespace):
+        """Get the API url for the dashboard when running out of a cluster """
+        config.load_kube_config()
 
-                    assert len(namespaced_pods.items) == 1
+        configuration = client.Configuration()
+        k8s_client = client.CoreV1Api(_CustomApiClient(configuration))
+        ret = k8s_client.list_service_for_all_namespaces(
+            label_selector=label_selector)
 
-                    master_pod = namespaced_pods.items[0]
-                    node_name = master_pod.spec.node_name
-                    node = k8s_client.read_node(node_name)
-                    ip = None
-                    internal_ip = None
-                    for address in node.status.addresses:
-                        if address.type == "ExternalIP":
-                            ip = address.address
-                            break
-                        if address.type == "InternalIP":
-                            internal_ip = address.address
-                    if not ip:
-                        # no external IP found, maybe internal works
-                        logging.warning(
-                            "No ExternalIP found for NodePort "
-                            "Service. Trying InternalIP. This only works "
-                            "if the cluster internal IP's are reachable.")
-                        ip = internal_ip
-            elif service_type == "LoadBalancer":
-                port = service.spec.ports[0].port
-                if service.status.load_balancer.ingress is None:
-                    raise NotImplementedError(
-                        "Service Type 'LoadBalancer' only works with an "
-                        "'Ingress' ip defined"
-                    )
-                ip = service.status.load_balancer.ingress.ip
+        if len(ret.items) == 0:
+            raise ValueError("Couldn't find a deployed dashboard service")
+
+        if len(ret.items) > 1:
+            raise ValueError("Found multiple deployed dashboard services")
+
+        service = ret.items[0]
+        service_type = service.spec.type
+
+        if service_type == "ClusterIP":
+            # cluster ip: up to user to grant access
+            ip = service.spec.cluster_ip
+            port = service.spec.ports[0].port
+        elif service_type == "NodePort":
+            port = next(p.node_port for p in service.spec.ports
+                        if p.port == 80)
+
+            if (service.spec.external_i_ps and
+                    len(service.spec.external_i_ps) > 0):
+
+                ip = service.spec.external_i_ps[0]
             else:
-                raise NotImplementedError
+                # try and get public node ip
+                namespaced_pods = k8s_client.list_namespaced_pod(
+                    k8s_namespace, label_selector=label_selector)
 
-            url = "{ip}:{port}".format(ip=ip, port=port)
+                assert len(namespaced_pods.items) == 1
 
-        self.endpoint = "http://{url}/api/".format(url=url)
+                master_pod = namespaced_pods.items[0]
+                node_name = master_pod.spec.node_name
+                node = k8s_client.read_node(node_name)
+                ip = None
+                internal_ip = None
+                for address in node.status.addresses:
+                    if address.type == "ExternalIP":
+                        ip = address.address
+                        break
+                    if address.type == "InternalIP":
+                        internal_ip = address.address
+                if not ip:
+                    # no external IP found, maybe internal works
+                    logging.warning(
+                        "No ExternalIP found for NodePort "
+                        "Service. Trying InternalIP. This only works "
+                        "if the cluster internal IP's are reachable.")
+                    ip = internal_ip
+        elif service_type == "LoadBalancer":
+            port = service.spec.ports[0].port
+
+            if service.status.load_balancer.ingress is None:
+                raise NotImplementedError(
+                    "Service Type 'LoadBalancer' only works with an "
+                    "'Ingress' ip defined"
+                )
+            ip = service.status.load_balancer.ingress.ip
+        else:
+            raise NotImplementedError
+
+        return "{ip}:{port}".format(ip=ip, port=port)
 
     def get_all_metrics(self):
         """ Get all metrics ever recorded by the master node.
@@ -231,7 +247,7 @@ class ApiClient(object):
                                           summarize=summarize)
 
     def _get_filtered_metrics(self, pod_id=None, run_id=None, since=None,
-                              summarize=None):
+                              summarize=None, format=None):
         """Get metrics for a run or pod"""
         if pod_id is None and run_id is None:
             raise ValueError("Either pod_id or pod_id must be specified")
@@ -250,6 +266,9 @@ class ApiClient(object):
         if since is not None:
             params['since'] = str(since)
 
+        if format is not None:
+            params['format'] = format
+
         if summarize is not None:
             params['summarize'] = str(summarize)
 
@@ -263,6 +282,24 @@ class ApiClient(object):
             params=params)
 
         return future
+
+    def download_run_metrics(self, run_id, since=None, summarize=None):
+        """ Get all metrics for a run as zip.
+
+        Args:
+            run_id(str): The id of the run to get metrics for
+            since (datetime): Only get metrics newer than this date
+                Default: ``None``
+            summarize (int): If set, metrics are summarized to at most this
+            many entries by averaging the metrics. Default: ``None``
+
+        Returns:
+            A ``concurrent.futures.Future`` objects wrapping
+            ``requests.response`` object. Get the result by calling
+            ``return_value.result().json()``
+        """
+        return self._get_filtered_metrics(run_id=run_id, since=since,
+                                          summarize=summarize, format='zip')
 
     def post_metric(self, run_id, name, value, cumulative=False,
                     metadata="", date=None):
@@ -342,7 +379,7 @@ class ApiClient(object):
     def create_run(self, name, num_workers, num_cpus=2.0, max_bandwidth=1000,
                    image=None, custom_image_name=None,
                    custom_image_command=None, custom_image_all_nodes=False,
-                   gpu_enabled=False):
+                   gpu_enabled=False, light_target=False):
         """ Create a new benchmark run.
 
         Available official benchmarks can be found in
@@ -377,7 +414,9 @@ class ApiClient(object):
             "name": name,
             "num_workers": num_workers,
             "num_cpus": num_cpus,
-            "max_bandwidth": max_bandwidth
+            "max_bandwidth": max_bandwidth,
+            "gpu_enabled": False,
+            "light_target": light_target
         }
 
         if custom_image_name is not None:
@@ -387,7 +426,6 @@ class ApiClient(object):
             data['custom_image_all_nodes'] = custom_image_all_nodes
         elif image in MLBENCH_IMAGES:
             data['image_name'] = MLBENCH_IMAGES[image][0]
-            data['gpu_enabled'] = False
 
             if MLBENCH_IMAGES[image][3]:
                 data['gpu_enabled'] = gpu_enabled

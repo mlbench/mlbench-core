@@ -11,11 +11,16 @@ with open('README.md') as readme_file:
 with open('CHANGELOG.md') as history_file:
     history = history_file.read()
 
-requirements = ['kubernetes==7.0.0', 'dill==0.2.8.2', 'deprecation==2.0.6']
+requirements = [
+    'kubernetes>=9.0.0',
+    'dill>=0.2.8.2',
+    'deprecation>=2.0.6',
+    'Click>=6.0',
+    'tabulate>=0.8.5']
 
-setup_requirements = ['pytest-runner',]
+setup_requirements = ['pytest-runner', ]
 
-test_requirements = ['pytest', 'pytest-mock', 'deprecation==2.0.6']
+test_requirements = ['pytest>=3', 'pytest-mock', 'deprecation==2.0.6', ]
 
 setup(
     author="Ralf Grubenmann",
@@ -33,6 +38,11 @@ setup(
         'Programming Language :: Python :: 3.6',
     ],
     description="A public and reproducible collection of reference implementations and benchmark suite for distributed machine learning systems.",
+    entry_points={
+        'console_scripts': [
+            'mlbench=mlbench_core.cli:cli',
+        ],
+    },
     install_requires=requirements,
     license="Apache Software License 2.0",
     long_description=readme + '\n\n' + history,
@@ -44,6 +54,6 @@ setup(
     test_suite='tests',
     tests_require=test_requirements,
     url='https://github.com/mlbench/mlbench_core',
-    version='2.0.0',
+    version='2.0.0-dev2',
     zip_safe=False,
 )
