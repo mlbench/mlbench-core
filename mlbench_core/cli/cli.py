@@ -4,10 +4,10 @@
 from mlbench_core.api import ApiClient, MLBENCH_IMAGES
 
 import click
-from kubernetes import client, config
-from kubernetes.stream import stream
+from kubernetes import client
 from pyhelm.chartbuilder import ChartBuilder
 from pyhelm.tiller import Tiller
+import subprocess
 from tabulate import tabulate
 from time import sleep
 from urllib import request
@@ -40,13 +40,13 @@ spec:
         app: helm
         name: tiller
     spec:
-      automountServiceAccountToken: true
+      serviceAccount: tiller
       containers:
       - env:
         - name: TILLER_NAMESPACE
           value: kube-system
         - name: TILLER_HISTORY_MAX
-          value: "0"
+          value: '0'
         image: gcr.io/kubernetes-helm/tiller:v2.14.3
         imagePullPolicy: IfNotPresent
         livenessProbe:
@@ -128,12 +128,12 @@ def run(name, num_workers, dashboard_url):
         run_on_all = click.confirm(
             'Run command on all nodes (otherwise just first node):', type=bool)
         benchmark = {
-            "custom_image_name": image,
-            "custom_image_command": image_command,
-            "custom_image_all_nodes": run_on_all
+            'custom_image_name': image,
+            'custom_image_command': image_command,
+            'custom_image_all_nodes': run_on_all
         }
     else:
-        benchmark = {"image": images[selection]}
+        benchmark = {'image': images[selection]}
 
     client = ApiClient(in_cluster=False, url=dashboard_url)
 
@@ -148,8 +148,8 @@ def run(name, num_workers, dashboard_url):
     for res in results:
         act_result = res.result()
         if act_result.status > 201:
-            click.Abort("Couldn't start run: {}".format(act_result.json()["message"]))
-        click.echo("Run started with name {}".format(act_result.json()["name"]))
+            click.Abort('Couldn\'t start run: {}'.format(act_result.json()['message']))
+        click.echo('Run started with name {}'.format(act_result.json()['name']))
 
 
 @cli.command()
@@ -164,10 +164,10 @@ def status(name, dashboard_url):
 
     run = next(r for r in runs if r['name'] == name)
 
-    del run["job_id"]
-    del run["job_metadata"]
+    del run['job_id']
+    del run['job_metadata']
 
-    click.echo(tabulate([run], headers="keys"))
+    click.echo(tabulate([run], headers='keys'))
 
 
 @cli.command()
@@ -265,16 +265,16 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type, disk_s
         sleep(1)
 
     if response.status != response.DONE:
-        raise ValueError("Cluster creation failed!")
+        raise ValueError('Cluster creation failed!')
 
     cluster = gclient.get_cluster(None, None, None, name=name_path + '/' + name)
 
     auth_req = google.auth.transport.requests.Request()
     credentials.refresh(auth_req)
     configuration = client.Configuration()
-    configuration.host = f"https://{cluster.endpoint}:443"
+    configuration.host = f'https://{cluster.endpoint}:443'
     configuration.verify_ssl = False
-    configuration.api_key = {"authorization": "Bearer " + credentials.token}
+    configuration.api_key = {'authorization': 'Bearer ' + credentials.token}
     client.Configuration.set_default(configuration)
 
     if num_gpus > 0:
@@ -282,17 +282,18 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type, disk_s
             dep = yaml.safe_load(r)
             k8s_client = client.ExtensionsV1beta1Api()
             k8s_client.create_namespaced_deployment(
-                body=dep, namespace="default")
+                body=dep, namespace='default')
 
     # create tiller service account
     client.CoreV1Api().create_namespaced_service_account(
-        "kube-system",
+        'kube-system',
         {
             'apiVersion': 'v1',
             'kind': 'ServiceAccount',
             'metadata': {
-                'generateName': "tiller",
-                'namespace': "kube-system",
+                'name': 'tiller',
+                'generateName': 'tiller',
+                'namespace': 'kube-system',
             },
         })
 
@@ -321,16 +322,16 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type, disk_s
     tiller_service = yaml.safe_load(TILLER_MANIFEST_SERVICE)
     tiller_dep = yaml.safe_load(TILLER_MANIFEST_DEPLOYMENT)
     client.CoreV1Api().create_namespaced_service(
-        "kube-system",
+        'kube-system',
         tiller_service)
     client.ExtensionsV1beta1Api().create_namespaced_deployment(
-        "kube-system",
+        'kube-system',
         tiller_dep)
 
     sleep(1)
 
     pods = client.CoreV1Api().list_namespaced_pod(
-        namespace="kube-system",
+        namespace='kube-system',
         label_selector='app=helm'
     )
 
@@ -339,40 +340,61 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type, disk_s
     while True:
         # Wait for tiller
         resp = client.CoreV1Api().read_namespaced_pod(
-            namespace="kube-system",
+            namespace='kube-system',
             name=tiller_pod.metadata.name
         )
         if resp.status.phase != 'Pending':
             break
-        sleep(1)
+        sleep(5)
 
+    # kubernetes python doesn't currently support port forward
+    # https://github.com/kubernetes-client/python/issues/166
     ports = 44134
 
-    resp = stream(
-        client.CoreV1Api().connect_get_namespaced_pod_portforward,
-        name=tiller_pod.metadata.name,
-        namespace=tiller_pod.metadata.namespace,
-        ports=ports
-        )
+    # resp = stream(
+    #     client.CoreV1Api().connect_get_namespaced_pod_portforward,
+    #     name=tiller_pod.metadata.name,
+    #     namespace=tiller_pod.metadata.namespace,
+    #     ports=ports
+    #     )
 
-    # install chart
-    tiller = Tiller('127.0.0.1')
-    chart = ChartBuilder(
-        {
-            "name": "mlbench-helm",
-            "source": {
-                "type": "repo",
-                "location": "https://github.com/mlbench/mlbench-helm"
-            }})
-    tiller.install_release(
-        chart.get_helm_chart(),
-        name=name,
-        wait=True,
-        dry_run=False,
-        namespace='default')
+    with subprocess.Popen([
+            'kubectl',
+            'port-forward',
+            '--namespace={}'.format(tiller_pod.metadata.namespace),
+            tiller_pod.metadata.name, '{0}:{0}'.format(ports),
+            '--server={}'.format(configuration.host),
+            '--token={}'.format(credentials.token),
+            '--insecure-skip-tls-verify=true']) as portforward:
 
-    resp.close()
+        sleep(5)
+        # install chart
+        tiller = Tiller('localhost')
+        chart = ChartBuilder(
+            {
+                'name': 'mlbench-helm',
+                'source': {
+                    'type': 'git',
+                    'location': 'https://github.com/mlbench/mlbench-helm'
+                }})
+        tiller.install_release(
+            chart.get_helm_chart(),
+            name=name,
+            wait=True,
+            dry_run=False,
+            namespace='default',
+            values={
+                'limits': {
+                    'workers': num_workers - 1,
+                    'gpu': num_gpus,
+                    'cpu': num_cpus
+                }
+            })
+
+        portforward.terminate()
+
+    click.echo("MLBench successfully deployed")
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     sys.exit(cli())  # pragma: no cover
