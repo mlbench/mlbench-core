@@ -3,17 +3,20 @@
 """Console script for mlbench_cli."""
 from mlbench_core.api import ApiClient, MLBENCH_IMAGES
 
+from appdirs import user_data_dir
 import click
 from kubernetes import client
 from pyhelm.chartbuilder import ChartBuilder
 from pyhelm.tiller import Tiller
-import subprocess
 from tabulate import tabulate
+
+import configparser
+import os
+import subprocess
+import sys
 from time import sleep
 from urllib import request
 import yaml
-
-import sys
 
 
 GCLOUD_NVIDIA_DAEMONSET = ('https://raw.githubusercontent.com/'
@@ -135,7 +138,9 @@ def run(name, num_workers, dashboard_url):
     else:
         benchmark = {'image': images[selection]}
 
-    client = ApiClient(in_cluster=False, url=dashboard_url)
+    loaded = setup_client_from_config()
+
+    client = ApiClient(in_cluster=False, url=dashboard_url, load_config=not loaded)
 
     results = []
 
@@ -393,7 +398,68 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type, disk_s
 
         portforward.terminate()
 
+    config = get_config()
+
+    config['cluster'] = cluster.endpoint
+    config['provider'] = 'gke'
+
+    write_config(config)
+
     click.echo("MLBench successfully deployed")
+
+
+def get_config_path():
+    user_dir = user_data_dir("mlbench", "mlbench")
+    return os.path.join(user_dir, 'mlbench.ini')
+
+
+def get_config():
+    path = get_config_path()
+
+    config = configparser.ConfigParser()
+
+    if os.path.exists(path):
+        config.read(path)
+
+    return config
+
+
+def write_config(config):
+    path = get_config_path()
+    with open(path, 'w') as configfile:
+        config.write(configfile)
+
+
+def setup_client_from_config():
+    config = get_config()
+
+    if 'provider' not in config:
+        return False
+
+    if config['provider'] == 'gke':
+        return setup_gke_client_from_config(config)
+    else:
+        raise NotImplementedError()
+
+
+def setup_gke_client_from_config(config):
+    import google.auth
+
+    if 'cluster' not in config:
+        return False
+
+    cluster = config['cluster']
+
+    credentials, _ = google.auth.default()
+    auth_req = google.auth.transport.requests.Request()
+    credentials.refresh(auth_req)
+    configuration = client.Configuration()
+    configuration.host = f'https://{cluster}:443'
+    configuration.verify_ssl = False
+    configuration.api_key = {'authorization': 'Bearer ' + credentials.token}
+    client.Configuration.set_default(configuration)
+
+    return True
 
 
 if __name__ == '__main__':

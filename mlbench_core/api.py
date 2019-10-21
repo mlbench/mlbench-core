@@ -94,7 +94,7 @@ class ApiClient(object):
 
     def __init__(self, max_workers=5, in_cluster=True,
                  label_selector='component=master,app=mlbench',
-                 k8s_namespace='default', url=None):
+                 k8s_namespace='default', url=None, load_config=True):
         self.executor = concurrent.futures.ThreadPoolExecutor(
             max_workers=max_workers)
         self.in_cluster = in_cluster
@@ -103,17 +103,18 @@ class ApiClient(object):
             if self.in_cluster:
                 url = self.__get_in_cluster_url(
                     label_selector,
-                    k8s_namespace)
+                    k8s_namespace, load_config)
             else:
                 url = self.__get_out_of_cluster_url(
                     label_selector,
-                    k8s_namespace)
+                    k8s_namespace, load_config)
 
         self.endpoint = "http://{url}/api/".format(url=url)
 
-    def __get_in_cluster_url(self, label_selector, k8s_namespace):
+    def __get_in_cluster_url(self, label_selector, k8s_namespace, load_config):
         """Get the API url for the dashboard when running in a cluster """
-        config.load_incluster_config()
+        if load_config:
+            config.load_incluster_config()
 
         configuration = client.Configuration()
         k8s_client = client.CoreV1Api(_CustomApiClient(configuration))
@@ -126,9 +127,10 @@ class ApiClient(object):
 
         return master_pod.status.pod_ip + ":80"
 
-    def __get_out_of_cluster_url(self, label_selector, k8s_namespace):
+    def __get_out_of_cluster_url(self, label_selector, k8s_namespace, load_config):
         """Get the API url for the dashboard when running out of a cluster """
-        config.load_kube_config()
+        if load_config:
+            config.load_kube_config()
 
         configuration = client.Configuration()
         k8s_client = client.CoreV1Api(_CustomApiClient(configuration))
