@@ -129,7 +129,8 @@ class ApiClient(object):
 
         return master_pod.status.pod_ip + ":80"
 
-    def __get_out_of_cluster_url(self, label_selector, k8s_namespace, load_config):
+    def __get_out_of_cluster_url(self, label_selector, k8s_namespace,
+                                 load_config):
         """Get the API url for the dashboard when running out of a cluster """
         if load_config:
             config.load_kube_config()
@@ -154,7 +155,7 @@ class ApiClient(object):
             self.port = service.spec.ports[0].port
         elif service_type == "NodePort":
             self.port = next(p.node_port for p in service.spec.ports
-                        if p.port == 80)
+                             if p.port == 80)
 
             if (service.spec.external_i_ps and
                     len(service.spec.external_i_ps) > 0):

@@ -154,10 +154,12 @@ def run(name, num_workers, dashboard_url):
     for res in results:
         act_result = res.result()
         if act_result.status_code > 201:
-            click.echo('Couldn\'t start run: {}'.format(act_result.json()['message']))
+            click.echo('Couldn\'t start run: {}'.format(
+                act_result.json()['message']))
             return
 
-        click.echo('Run started with name {}'.format(act_result.json()['name']))
+        click.echo('Run started with name {}'.format(
+            act_result.json()['name']))
 
 
 @cli.command()
@@ -258,8 +260,6 @@ def delete_cluster():
 def delete_gcloud(name, zone, project):
     from google.cloud import container_v1
     import google.auth
-    from google.auth import compute_engine
-    from googleapiclient import discovery
 
     credentials, default_project = google.auth.default()
 
@@ -278,7 +278,8 @@ def delete_gcloud(name, zone, project):
 
     # wait for cluster to load
     while response.status < response.DONE:
-        response = gclient.get_operation(None,None,None,name=name_path + '/' + response.name)
+        response = gclient.get_operation(
+            None, None, None, name=name_path + '/' + response.name)
         sleep(1)
 
     if response.status != response.DONE:
@@ -304,11 +305,11 @@ def create_cluster():
 @click.option('--zone', '-z', default='europe-west1-b', type=str)
 @click.option('--project', '-p', default=None, type=str)
 @click.option('--preemptible', '-e', is_flag=True)
-def create_gcloud(num_workers, release, kubernetes_version, machine_type, disk_size, num_cpus,
-                  num_gpus, gpu_type, zone, project, preemptible):
+def create_gcloud(num_workers, release, kubernetes_version, machine_type,
+                  disk_size, num_cpus, num_gpus, gpu_type, zone, project,
+                  preemptible):
     from google.cloud import container_v1
     import google.auth
-    from google.auth import compute_engine
     from googleapiclient import discovery
 
     credentials, default_project = google.auth.default()
@@ -325,7 +326,8 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type, disk_s
     extraargs = {}
 
     if num_gpus > 0:
-        extraargs['accelerator'] = 'type={},count={}'.format(gpu_type, num_gpus)
+        extraargs['accelerator'] = 'type={},count={}'.format(
+            gpu_type, num_gpus)
 
     cluster = container_v1.types.Cluster(
             name=name,
@@ -339,14 +341,15 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type, disk_s
                 ],
                 **extraargs
             ),
-            addons_config=google.cloud.container_v1.types.AddonsConfig(
-                http_load_balancing=google.cloud.container_v1.types.HttpLoadBalancing(
+            addons_config=container_v1.types.AddonsConfig(
+                http_load_balancing=container_v1.types.HttpLoadBalancing(
                     disabled=True,
                 ),
-                horizontal_pod_autoscaling=google.cloud.container_v1.types.HorizontalPodAutoscaling(
-                    disabled=True,
-                ),
-                kubernetes_dashboard=google.cloud.container_v1.types.KubernetesDashboard(
+                horizontal_pod_autoscaling=
+                    container_v1.types.HorizontalPodAutoscaling(
+                        disabled=True,
+                    ),
+                kubernetes_dashboard=container_v1.types.KubernetesDashboard(
                     disabled=True,
                 ),
                 network_policy_config=container_v1.types.NetworkPolicyConfig(
@@ -360,13 +363,15 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type, disk_s
 
     # wait for cluster to load
     while response.status < response.DONE:
-        response = gclient.get_operation(None,None,None,name=name_path + '/' + response.name)
+        response = gclient.get_operation(
+            None, None, None, name=name_path + '/' + response.name)
         sleep(1)
 
     if response.status != response.DONE:
         raise ValueError('Cluster creation failed!')
 
-    cluster = gclient.get_cluster(None, None, None, name=name_path + '/' + name)
+    cluster = gclient.get_cluster(
+        None, None, None, name=name_path + '/' + name)
 
     auth_req = google.auth.transport.requests.Request()
     credentials.refresh(auth_req)
