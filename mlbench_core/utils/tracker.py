@@ -215,7 +215,10 @@ class Tracker(object):
                         self.get_total_train_time()
                     )
 
-                    for k, v in dict(self.epoch_metrics).items():
+                    metrics = dict(self.epoch_metrics).items()
+                    metrics = sorted(metrics, key=lambda k: k[0])
+
+                    for k, v in metrics:
                         LogMetrics.log(
                             self.run_id,
                             self.rank,

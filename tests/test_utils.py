@@ -31,21 +31,23 @@ def test_tracker_goal(mocker):
     tracker.train()
 
     tracker.record_stat('global_Prec@1', 69, log_to_api=True)
+    tracker.batch_end()
 
     assert not tracker.goal_reached
 
     tracker.record_stat('global_Prec@1', 70, log_to_api=True)
+    tracker.batch_end()
+
 
     assert not tracker.goal_reached
 
     tracker.validation()
 
     tracker.record_stat('global_Prec@1', 69, log_to_api=True)
+    tracker.batch_end()
 
     assert not tracker.goal_reached
 
     tracker.record_stat('global_Prec@1', 70, log_to_api=True)
 
     assert tracker.goal_reached
-    assert patched.log.call_count == 13
-    assert patched.log.call_args[0][3] == "global_cum_end"
