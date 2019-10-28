@@ -140,7 +140,8 @@ def run(name, num_workers, dashboard_url):
 
     loaded = setup_client_from_config()
 
-    client = ApiClient(in_cluster=False, url=dashboard_url, load_config=not loaded)
+    client = ApiClient(in_cluster=False, url=dashboard_url,
+                       load_config=not loaded)
 
     results = []
 
@@ -152,8 +153,10 @@ def run(name, num_workers, dashboard_url):
 
     for res in results:
         act_result = res.result()
-        if act_result.status > 201:
-            click.Abort('Couldn\'t start run: {}'.format(act_result.json()['message']))
+        if act_result.status_code > 201:
+            click.echo('Couldn\'t start run: {}'.format(act_result.json()['message']))
+            return
+
         click.echo('Run started with name {}'.format(act_result.json()['name']))
 
 
@@ -162,12 +165,19 @@ def run(name, num_workers, dashboard_url):
 @click.option('--dashboard-url', '--u', default=None, type=str)
 def status(name, dashboard_url):
     """Get the status of a benchmark run"""
-    client = ApiClient(in_cluster=False, url=dashboard_url)
+    loaded = setup_client_from_config()
+
+    client = ApiClient(in_cluster=False, url=dashboard_url,
+                       load_config=not loaded)
 
     ret = client.get_runs()
     runs = ret.result().json()
 
-    run = next(r for r in runs if r['name'] == name)
+    try:
+        run = next(r for r in runs if r['name'] == name)
+    except StopIteration:
+        click.echo('Run not found')
+        return
 
     del run['job_id']
     del run['job_metadata']
@@ -176,12 +186,54 @@ def status(name, dashboard_url):
 
 
 @cli.command()
+def get_dashboard_url():
+    """Returns the dashboard URL of the current cluster"""
+    loaded = setup_client_from_config()
+
+    if not loaded:
+        click.echo("No Cluster config found")
+        return
+
+    client = ApiClient(in_cluster=False, load_config=False)
+
+    click.echo(client.endpoint.replace('api/', ''))
+
+
+@cli.command()
+@click.argument('name', type=str)
+@click.option('--dashboard-url', '--u', default=None, type=str)
+def delete(name, dashboard_url):
+    """Delete a benchmark run"""
+    loaded = setup_client_from_config()
+
+    client = ApiClient(in_cluster=False, url=dashboard_url,
+                       load_config=not loaded)
+
+    ret = client.get_runs()
+    runs = ret.result().json()
+
+    try:
+        run = next(r for r in runs if r['name'] == name)
+    except StopIteration:
+        click.echo('Run not found')
+        return
+
+    del run['job_id']
+    del run['job_metadata']
+
+    client.delete_run(run['id'])
+
+
+@cli.command()
 @click.argument('name', type=str)
 @click.option('--output', '-o', type=str)
 @click.option('--dashboard-url', '-u', default=None, type=str)
 def download(name, output, dashboard_url):
     """Download the results of a benchmark run"""
-    client = ApiClient(in_cluster=False, url=dashboard_url)
+    loaded = setup_client_from_config()
+
+    client = ApiClient(in_cluster=False, url=dashboard_url,
+                       load_config=not loaded)
 
     ret = client.get_runs()
     runs = ret.result().json()
@@ -194,6 +246,47 @@ def download(name, output, dashboard_url):
         f.write(ret.result().content)
 
 
+@cli.group('delete-cluster')
+def delete_cluster():
+    pass
+
+
+@delete_cluster.command('gcloud')
+@click.argument('name', type=str)
+@click.option('--project', '-p', default=None, type=str)
+@click.option('--zone', '-z', default='europe-west1-b', type=str)
+def delete_gcloud(name, zone, project):
+    from google.cloud import container_v1
+    import google.auth
+    from google.auth import compute_engine
+    from googleapiclient import discovery
+
+    credentials, default_project = google.auth.default()
+
+    if not project:
+        project = default_project
+
+    # create cluster
+    gclient = container_v1.ClusterManagerClient()
+
+    name_path = 'projects/{}/locations/{}/'.format(
+        project, zone)
+
+    cluster_path = '{}clusters/{}'.format(name_path, name)
+
+    response = gclient.delete_cluster(None, None, None, name=cluster_path)
+
+    # wait for cluster to load
+    while response.status < response.DONE:
+        response = gclient.get_operation(None,None,None,name=name_path + '/' + response.name)
+        sleep(1)
+
+    if response.status != response.DONE:
+        raise ValueError('Cluster deletion failed!')
+
+    click.echo("Cluster deleted.")
+
+
 @cli.group('create-cluster')
 def create_cluster():
     pass
@@ -203,7 +296,7 @@ def create_cluster():
 @click.argument('num_workers', type=int, metavar='num-workers')
 @click.argument('release', type=str)
 @click.option('--kubernetes-version', '-k', type=str, default='1.13')
-@click.option('--machine-type', '-t', default='n1-standard-2', type=str)
+@click.option('--machine-type', '-t', default='n1-standard-4', type=str)
 @click.option('--disk-size', '-d', default=50, type=int)
 @click.option('--num-cpus', '-c', default=1, type=int)
 @click.option('--num-gpus', '-g', default=0, type=int)
@@ -216,6 +309,7 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type, disk_s
     from google.cloud import container_v1
     import google.auth
     from google.auth import compute_engine
+    from googleapiclient import discovery
 
     credentials, default_project = google.auth.default()
 
@@ -398,10 +492,33 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type, disk_s
 
         portforward.terminate()
 
+    # open port in firewall
+    mlbench_client = ApiClient(in_cluster=False, load_config=False)
+    firewalls = discovery.build(
+        'compute', 'v1', cache_discovery=False).firewalls()
+
+    existing_firewalls = firewalls.list(project=project).execute()
+    fw_name = '{}-firewall'.format(name)
+
+    if any(f['name'] == fw_name for f in existing_firewalls['items']):
+        firewalls.delete(project=project, firewall=fw_name).execute()
+
+    firewall_body = {
+        "name": fw_name,
+        "direction": "INGRESS",
+        "sourceRanges": "0.0.0.0/0",
+        "allowed": [
+            {"IPProtocol": "tcp", "ports": [mlbench_client.port]}
+        ]
+    }
+
+    firewalls.insert(project=project, body=firewall_body).execute()
+
     config = get_config()
 
-    config['cluster'] = cluster.endpoint
-    config['provider'] = 'gke'
+    config.set('general', 'provider', 'gke')
+
+    config.set('gke', 'cluster', cluster.endpoint)
 
     write_config(config)
 
@@ -421,11 +538,21 @@ def get_config():
     if os.path.exists(path):
         config.read(path)
 
+    if not config.has_section('general'):
+        config.add_section('general')
+
+    if not config.has_section('gke'):
+        config.add_section('gke')
+
     return config
 
 
 def write_config(config):
     path = get_config_path()
+
+    if not os.path.exists(path):
+        os.makedirs(os.path.dirname(path))
+
     with open(path, 'w') as configfile:
         config.write(configfile)
 
@@ -433,10 +560,12 @@ def write_config(config):
 def setup_client_from_config():
     config = get_config()
 
-    if 'provider' not in config:
+    provider = config.get('general', 'provider')
+
+    if not provider:
         return False
 
-    if config['provider'] == 'gke':
+    if provider == 'gke':
         return setup_gke_client_from_config(config)
     else:
         raise NotImplementedError()
@@ -445,10 +574,9 @@ def setup_client_from_config():
 def setup_gke_client_from_config(config):
     import google.auth
 
-    if 'cluster' not in config:
+    cluster = config.get('gke', 'cluster')
+    if not cluster:
         return False
-
-    cluster = config['cluster']
 
     credentials, _ = google.auth.default()
     auth_req = google.auth.transport.requests.Request()

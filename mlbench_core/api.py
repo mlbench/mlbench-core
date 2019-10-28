@@ -99,6 +99,8 @@ class ApiClient(object):
             max_workers=max_workers)
         self.in_cluster = in_cluster
 
+        self.port = None
+
         if url is None:
             if self.in_cluster:
                 url = self.__get_in_cluster_url(
@@ -149,9 +151,9 @@ class ApiClient(object):
         if service_type == "ClusterIP":
             # cluster ip: up to user to grant access
             ip = service.spec.cluster_ip
-            port = service.spec.ports[0].port
+            self.port = service.spec.ports[0].port
         elif service_type == "NodePort":
-            port = next(p.node_port for p in service.spec.ports
+            self.port = next(p.node_port for p in service.spec.ports
                         if p.port == 80)
 
             if (service.spec.external_i_ps and
@@ -184,7 +186,7 @@ class ApiClient(object):
                         "if the cluster internal IP's are reachable.")
                     ip = internal_ip
         elif service_type == "LoadBalancer":
-            port = service.spec.ports[0].port
+            self.port = service.spec.ports[0].port
 
             if service.status.load_balancer.ingress is None:
                 raise NotImplementedError(
@@ -195,7 +197,7 @@ class ApiClient(object):
         else:
             raise NotImplementedError
 
-        return "{ip}:{port}".format(ip=ip, port=port)
+        return "{ip}:{port}".format(ip=ip, port=self.port)
 
     def get_all_metrics(self):
         """ Get all metrics ever recorded by the master node.
@@ -438,6 +440,26 @@ class ApiClient(object):
             requests.post,
             request_url,
             data=data
+        )
+        return future
+
+    def delete_run(self, run_id):
+        """ Delete a benchmark run.
+
+         Args:
+            run_id(str): The id of the run to get
+
+        Returns:
+            A ``concurrent.futures.Future`` objects wrapping
+            ``requests.response`` object. Get the result by calling
+            ``return_value.result().json()``
+        """
+        request_url = "{endpoint}runs/{pk}".format(
+            endpoint=self.endpoint, pk=run_id)
+
+        future = self.executor.submit(
+            requests.delete,
+            request_url
         )
         return future
 
