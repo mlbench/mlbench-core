@@ -12,8 +12,9 @@ from mlbench_core.api import ApiClient
 @pytest.fixture
 def kubernetes_api_client_node_port(mocker):
     mock_client = mocker.patch('kubernetes.client.CoreV1Api')
-    mock_client.return_value.read_namespaced_service.return_value.spec.type = "NodePort"
-    mock_client.return_value.read_namespaced_service.return_value.spec.ports.__getitem__.return_value.node_port = 12345
+    mock_client.return_value.list_service_for_all_namespaces.return_value.items.__getitem__.return_value.spec.type = "NodePort"
+    mock_client.return_value.list_service_for_all_namespaces.return_value.items.__len__.return_value = 1
+    mock_client.return_value.list_service_for_all_namespaces.return_value.items.__getitem__.return_value.spec.ports.__iter__.return_value = [mocker.MagicMock(node_port=12345, port=80)]
     mock_client.return_value.list_namespaced_pod.return_value.items.__len__.return_value = 1
     mock_client.return_value.read_node.return_value.status.addresses.__len__.return_value = 1
     mock_client.return_value.read_node.return_value.status.addresses.__iter__.return_value = [mocker.MagicMock(type="ExternalIP", address="1.1.1.1")]
@@ -24,8 +25,10 @@ def kubernetes_api_client_node_port(mocker):
 @pytest.fixture
 def kubernetes_api_client_node_port_internal(mocker):
     mock_client = mocker.patch('kubernetes.client.CoreV1Api')
-    mock_client.return_value.read_namespaced_service.return_value.spec.type = "NodePort"
-    mock_client.return_value.read_namespaced_service.return_value.spec.ports.__getitem__.return_value.node_port = 12345
+    mock_client.return_value.list_service_for_all_namespaces.return_value.items.__getitem__.return_value.spec.type = "NodePort"
+    mock_client.return_value.list_service_for_all_namespaces.return_value.items.__len__.return_value = 1
+    mock_client.return_value.list_service_for_all_namespaces.return_value.items.__getitem__.return_value.spec.ports.__iter__.return_value = [mocker.MagicMock(node_port=12345, port=80)]
+    mock_client.return_value.list_service_for_all_namespaces.return_value.items.__getitem__.return_value.spec.ports.__len__.return_value = 1
     mock_client.return_value.list_namespaced_pod.return_value.items.__len__.return_value = 1
     mock_client.return_value.read_node.return_value.status.addresses.__len__.return_value = 1
     mock_client.return_value.read_node.return_value.status.addresses.__iter__.return_value = [mocker.MagicMock(type="InternalIP", address="1.1.1.1")]
@@ -36,9 +39,10 @@ def kubernetes_api_client_node_port_internal(mocker):
 @pytest.fixture
 def kubernetes_api_client_clusterip(mocker):
     mock_client = mocker.patch('kubernetes.client.CoreV1Api')
-    mock_client.return_value.read_namespaced_service.return_value.spec.type = "ClusterIP"
-    mock_client.return_value.read_namespaced_service.return_value.spec.cluster_ip = "1.1.1.1"
-    mock_client.return_value.read_namespaced_service.return_value.spec.ports.__getitem__.return_value.port = 12345
+    mock_client.return_value.list_service_for_all_namespaces.return_value.items.__getitem__.return_value.spec.type = "ClusterIP"
+    mock_client.return_value.list_service_for_all_namespaces.return_value.items.__len__.return_value = 1
+    mock_client.return_value.list_service_for_all_namespaces.return_value.items.__getitem__.return_value.spec.cluster_ip = "1.1.1.1"
+    mock_client.return_value.list_service_for_all_namespaces.return_value.items.__getitem__.return_value.spec.ports.__getitem__.return_value.port = 12345
 
     return mock_client
 
@@ -46,9 +50,10 @@ def kubernetes_api_client_clusterip(mocker):
 @pytest.fixture
 def kubernetes_api_client_loadbalancer(mocker):
     mock_client = mocker.patch('kubernetes.client.CoreV1Api')
-    mock_client.return_value.read_namespaced_service.return_value.spec.type = "LoadBalancer"
-    mock_client.return_value.read_namespaced_service.return_value.spec.ports.__getitem__.return_value.port = 12345
-    mock_client.return_value.read_namespaced_service.return_value.status.load_balancer.ingress.ip = "1.1.1.1"
+    mock_client.return_value.list_service_for_all_namespaces.return_value.items.__getitem__.return_value.spec.type = "LoadBalancer"
+    mock_client.return_value.list_service_for_all_namespaces.return_value.items.__len__.return_value = 1
+    mock_client.return_value.list_service_for_all_namespaces.return_value.items.__getitem__.return_value.spec.ports.__getitem__.return_value.port = 12345
+    mock_client.return_value.list_service_for_all_namespaces.return_value.items.__getitem__.return_value.status.load_balancer.ingress.ip = "1.1.1.1"
 
     return mock_client
 
@@ -64,14 +69,14 @@ def kubernetes_api_client_incluster(mocker):
 
 def test_instantiation(mocker, kubernetes_api_client_node_port):
     mocker.patch('kubernetes.config.load_kube_config')
-    with ApiClient(in_cluster=False, service_name="rel-mlbench-master") as client:
+    with ApiClient(in_cluster=False) as client:
         assert client is not None
         assert client.endpoint == "http://1.1.1.1:12345/api/"
 
 
 def test_instantiation_nodeport_internal(mocker, kubernetes_api_client_node_port_internal):
     mocker.patch('kubernetes.config.load_kube_config')
-    client = ApiClient(in_cluster=False, service_name="rel-mlbench-master")
+    client = ApiClient(in_cluster=False)
 
     assert client is not None
     assert client.endpoint == "http://1.1.1.1:12345/api/"
@@ -92,9 +97,10 @@ def test_instantiation_incluster(mocker, kubernetes_api_client_incluster):
     assert client is not None
     assert client.endpoint == "http://1.1.1.1:80/api/"
 
+
 def test_instantiation_clusterip(mocker, kubernetes_api_client_clusterip):
     mocker.patch('kubernetes.config.load_kube_config')
-    client = ApiClient(in_cluster=False, service_name="rel-mlbench-master")
+    client = ApiClient(in_cluster=False)
 
     assert client is not None
     assert client.endpoint == "http://1.1.1.1:12345/api/"
@@ -102,7 +108,7 @@ def test_instantiation_clusterip(mocker, kubernetes_api_client_clusterip):
 
 def test_instantiation_loadbalancer(mocker, kubernetes_api_client_loadbalancer):
     mocker.patch('kubernetes.config.load_kube_config')
-    client = ApiClient(in_cluster=False, service_name="rel-mlbench-master")
+    client = ApiClient(in_cluster=False)
 
     assert client is not None
     assert client.endpoint == "http://1.1.1.1:12345/api/"
@@ -113,7 +119,7 @@ def test_get_all_metrics(mocker, kubernetes_api_client_node_port):
     rg = mocker.patch('concurrent.futures.ThreadPoolExecutor')
     rg.return_value.submit.return_value.result.return_value.json.return_value = "a"
 
-    client = ApiClient(in_cluster=False, service_name="rel-mlbench-master")
+    client = ApiClient(in_cluster=False)
 
     result = client.get_all_metrics()
 
@@ -126,7 +132,7 @@ def test_get_run_metrics(mocker, kubernetes_api_client_node_port):
     rg = mocker.patch('concurrent.futures.ThreadPoolExecutor')
     rg.return_value.submit.return_value.result.return_value.json.return_value = "a"
 
-    client = ApiClient(in_cluster=False, service_name="rel-mlbench-master")
+    client = ApiClient(in_cluster=False)
 
     result = client.get_run_metrics("1", since=datetime.datetime.now(), summarize=100)
 
@@ -139,7 +145,7 @@ def test_get_pod_metrics(mocker, kubernetes_api_client_node_port):
     rg = mocker.patch('concurrent.futures.ThreadPoolExecutor')
     rg.return_value.submit.return_value.result.return_value.json.return_value = "a"
 
-    client = ApiClient(in_cluster=False, service_name="rel-mlbench-master")
+    client = ApiClient(in_cluster=False)
 
     result = client.get_pod_metrics("rel-mlbench-worker-0", since=datetime.datetime.now(), summarize=100)
 
@@ -152,7 +158,7 @@ def test_post_metrics(mocker, kubernetes_api_client_node_port):
     rg = mocker.patch('concurrent.futures.ThreadPoolExecutor')
     rg.return_value.submit.return_value.result.return_value.json.return_value = "a"
 
-    client = ApiClient(in_cluster=False, service_name="rel-mlbench-master")
+    client = ApiClient(in_cluster=False)
 
     result = client.post_metric("1", "loss", 10.0, cumulative=False)
 
@@ -165,7 +171,7 @@ def test_get_runs(mocker, kubernetes_api_client_node_port):
     rg = mocker.patch('concurrent.futures.ThreadPoolExecutor')
     rg.return_value.submit.return_value.result.return_value.json.return_value = "a"
 
-    client = ApiClient(in_cluster=False, service_name="rel-mlbench-master")
+    client = ApiClient(in_cluster=False)
 
     result = client.get_runs()
 
@@ -178,7 +184,7 @@ def test_get_run(mocker, kubernetes_api_client_node_port):
     rg = mocker.patch('concurrent.futures.ThreadPoolExecutor')
     rg.return_value.submit.return_value.result.return_value.json.return_value = "a"
 
-    client = ApiClient(in_cluster=False, service_name="rel-mlbench-master")
+    client = ApiClient(in_cluster=False)
 
     result = client.get_run("1")
 
@@ -191,7 +197,7 @@ def test_create_run_official(mocker, kubernetes_api_client_node_port):
     rg = mocker.patch('concurrent.futures.ThreadPoolExecutor')
     rg.return_value.submit.return_value.result.return_value.json.return_value = "a"
 
-    client = ApiClient(in_cluster=False, service_name="rel-mlbench-master")
+    client = ApiClient(in_cluster=False)
 
     result = client.create_run(
         "test_run",
@@ -209,7 +215,7 @@ def test_create_run_custom(mocker, kubernetes_api_client_node_port):
     rg = mocker.patch('concurrent.futures.ThreadPoolExecutor')
     rg.return_value.submit.return_value.result.return_value.json.return_value = "a"
 
-    client = ApiClient(in_cluster=False, service_name="rel-mlbench-master")
+    client = ApiClient(in_cluster=False)
 
     result = client.create_run(
         "test_run",
@@ -229,7 +235,7 @@ def test_get_worker_pods(mocker, kubernetes_api_client_node_port):
     rg = mocker.patch('concurrent.futures.ThreadPoolExecutor')
     rg.return_value.submit.return_value.result.return_value.json.return_value = "a"
 
-    client = ApiClient(in_cluster=False, service_name="rel-mlbench-master")
+    client = ApiClient(in_cluster=False)
 
     result = client.get_worker_pods()
 
