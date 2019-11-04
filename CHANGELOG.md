@@ -1,5 +1,12 @@
 # Change Log
 
+## [v2.1.0](https://github.com/mlbench/mlbench-core/tree/v2.1.0) (2019-11-4)
+[Full Changelog](https://github.com/mlbench/mlbench-core/compare/v2.0.0...v2.1.0)
+
+**Implemented enhancements:**
+
+- Added CLI for MLBench runs
+
 ## [v1.4.4](https://github.com/mlbench/mlbench-core/tree/v1.4.4) (2019-05-28)
 [Full Changelog](https://github.com/mlbench/mlbench-core/compare/v1.4.3...v1.4.4)
 
