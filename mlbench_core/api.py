@@ -215,7 +215,7 @@ class ApiClient(object):
 
         return future
 
-    def get_run_metrics(self, run_id, since=None, summarize=None):
+    def get_run_metrics(self, run_id, since=None, summarize=None, metric_filter=None, last_n=None):
         """ Get all metrics for a run.
 
         Args:
@@ -231,7 +231,7 @@ class ApiClient(object):
             ``return_value.result().json()``
         """
         return self._get_filtered_metrics(run_id=run_id, since=since,
-                                          summarize=summarize)
+                                          summarize=summarize, metric_filter=metric_filter, last_n=last_n)
 
     def get_pod_metrics(self, pod_id, since=None, summarize=None):
         """ Get all metrics for a worker pod.
@@ -252,7 +252,7 @@ class ApiClient(object):
                                           summarize=summarize)
 
     def _get_filtered_metrics(self, pod_id=None, run_id=None, since=None,
-                              summarize=None, format=None):
+                              summarize=None, metric_filter=None, last_n=None, format=None):
         """Get metrics for a run or pod"""
         if pod_id is None and run_id is None:
             raise ValueError("Either pod_id or pod_id must be specified")
@@ -276,6 +276,12 @@ class ApiClient(object):
 
         if summarize is not None:
             params['summarize'] = str(summarize)
+
+        if metric_filter is not None:
+            params['metric_filter'] = str(metric_filter)
+
+        if last_n is not None:
+            params['last_n'] = str(last_n)
 
         request_url = "{endpoint}metrics/{pk}".format(
             endpoint=self.endpoint,

@@ -186,6 +186,23 @@ def status(name, dashboard_url):
 
     click.echo(tabulate([run], headers='keys'))
 
+    loss = client.get_run_metrics(run['id'], metric_filter='val_global_loss @ 0', last_n=1)
+    prec = client.get_run_metrics(run['id'], metric_filter='val_global_Prec@1 @ 0', last_n=1)
+
+    loss = loss.result()
+    prec = prec.result()
+
+    if loss.status_code < 300 and 'val_global_loss @ 0' in loss.json():
+        val = loss.json()['val_global_loss @ 0'][0]
+        click.echo("Current Global Loss: {0:.2f} ({1})".format(float(val['value']), val['date']))
+    else:
+        click.echo("No Validation Loss Data yet")
+    if prec.status_code < 300 and 'val_global_Prec@1 @ 0' in prec.json():
+        val = prec.json()['val_global_Prec@1 @ 0'][0]
+        click.echo("Current Global Precision: {0:.2f} ({1})".format(float(val['value']), val['date']))
+    else:
+        click.echo("No Validation Precision Data yet")
+
 
 @cli.command()
 def get_dashboard_url():
@@ -305,9 +322,10 @@ def create_cluster():
 @click.option('--zone', '-z', default='europe-west1-b', type=str)
 @click.option('--project', '-p', default=None, type=str)
 @click.option('--preemptible', '-e', is_flag=True)
+@click.option('--custom-value', '-v', multiple=True)
 def create_gcloud(num_workers, release, kubernetes_version, machine_type,
                   disk_size, num_cpus, num_gpus, gpu_type, zone, project,
-                  preemptible):
+                  preemptible, custom_value):
     from google.cloud import container_v1
     import google.auth
     from googleapiclient import discovery
@@ -481,19 +499,38 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type,
                     'type': 'git',
                     'location': 'https://github.com/mlbench/mlbench-helm'
                 }})
+
+        values = {
+            'limits': {
+                'workers': num_workers - 1,
+                'gpu': num_gpus,
+                'cpu': num_cpus
+            }
+        }
+
+        if custom_value:
+            # merge custom values with values
+            for cv in custom_value:
+                key, v = cv.split("=", 1)
+
+                current = values
+                key_path = key.split(".")
+
+                for k in key_path[:-1]:
+                    if k not in current:
+                        current[k] = {}
+
+                    current = current[k]
+
+                current[key_path[-1]] = v
+
         tiller.install_release(
             chart.get_helm_chart(),
             name=name,
             wait=True,
             dry_run=False,
             namespace='default',
-            values={
-                'limits': {
-                    'workers': num_workers - 1,
-                    'gpu': num_gpus,
-                    'cpu': num_cpus
-                }
-            })
+            values=values)
 
         portforward.terminate()
 
@@ -507,6 +544,7 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type,
 
     if any(f['name'] == fw_name for f in existing_firewalls['items']):
         firewalls.delete(project=project, firewall=fw_name).execute()
+        sleep(5) # wait for fw to be deleted
 
     firewall_body = {
         "name": fw_name,
