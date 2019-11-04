@@ -543,8 +543,11 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type,
     fw_name = '{}-firewall'.format(name)
 
     if any(f['name'] == fw_name for f in existing_firewalls['items']):
-        firewalls.delete(project=project, firewall=fw_name).execute()
-        sleep(5) # wait for fw to be deleted
+        response = firewalls.delete(project=project, firewall=fw_name).execute()
+        while response.status < response.DONE:
+            response = gclient.get_operation(
+                None, None, None, name=response.selfLink)
+            sleep(1)
 
     firewall_body = {
         "name": fw_name,
