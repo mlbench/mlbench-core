@@ -16,7 +16,15 @@ requirements = [
     'dill>=0.2.8.2',
     'deprecation>=2.0.6',
     'Click>=6.0',
-    'tabulate>=0.8.5']
+    'tabulate>=0.8.5',
+    'dill==0.2.8.2',
+    'pyhelm==2.14.4',
+    'appdirs==1.4.3',
+    'google-api-python-client==1.7.11',
+    'google-auth==1.5.1',
+    'google-cloud==0.34.0',
+    'google-cloud-container==0.3.0',
+    'oauth2client==4.1.2']
 
 setup_requirements = ['pytest-runner', ]
 
