@@ -104,8 +104,10 @@ def cli(args=None):
 @cli.command()
 @click.argument('name', type=str)
 @click.argument('num_workers', nargs=-1, type=int, metavar='num-workers')
-@click.option('--dashboard-url', '--u', default=None, type=str)
-def run(name, num_workers, dashboard_url):
+@click.option('--gpu', '-g', default=False, type=bool, is_flag=True)
+@click.option('--light', '-l', default=False, type=bool, is_flag=True)
+@click.option('--dashboard-url', '-u', default=None, type=str)
+def run(name, num_workers, gpu, light, dashboard_url):
     """Start a new run for a benchmark image"""
     images = list(MLBENCH_IMAGES.keys())
 
@@ -137,6 +139,9 @@ def run(name, num_workers, dashboard_url):
         }
     else:
         benchmark = {'image': images[selection]}
+
+    benchmark['gpu_enabled']=gpu
+    benchmark['light_target']=light
 
     loaded = setup_client_from_config()
 
@@ -328,7 +333,7 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type,
                   preemptible, custom_value):
     from google.cloud import container_v1
     import google.auth
-    from googleapiclient import discovery
+    from googleapiclient import discovery, http
 
     credentials, default_project = google.auth.default()
 
@@ -344,9 +349,35 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type,
     extraargs = {}
 
     if num_gpus > 0:
-        extraargs['accelerator'] = 'type={},count={}'.format(
-            gpu_type, num_gpus)
+        extraargs['accelerators'] = [container_v1.types.AcceleratorConfig(
+            accelerator_count=num_gpus, accelerator_type=gpu_type)]
 
+    # delete existing firewall, if any
+    firewalls = discovery.build(
+        'compute', 'v1', cache_discovery=False).firewalls()
+
+    existing_firewalls = firewalls.list(project=project).execute()
+    fw_name = '{}-firewall'.format(name)
+
+    if any(f['name'] == fw_name for f in existing_firewalls['items']):
+        response = {}
+        while not hasattr(response, 'status'):
+            try:
+                response = firewalls.delete(
+                    project=project, firewall=fw_name).execute()
+            except http.HttpError as e:
+                if e.resp.status == 404:
+                    response = {}
+                    break
+                click.echo("Wait for firewall to be available for deletion")
+                sleep(5)
+                response = {}
+        while hasattr(response, 'status') and response.status < response.DONE:
+            response = gclient.get_operation(
+                None, None, None, name=response.selfLink)
+            sleep(1)
+
+    # create cluster
     cluster = container_v1.types.Cluster(
             name=name,
             initial_node_count=num_workers,
@@ -402,9 +433,12 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type,
     if num_gpus > 0:
         with request.urlopen(GCLOUD_NVIDIA_DAEMONSET) as r:
             dep = yaml.safe_load(r)
-            k8s_client = client.ExtensionsV1beta1Api()
-            k8s_client.create_namespaced_deployment(
-                body=dep, namespace='default')
+            dep['spec']['selector'] = {
+                'matchLabels': dep['spec']['template']['metadata']['labels']
+                }
+            dep = client.ApiClient()._ApiClient__deserialize(dep, 'V1DaemonSet')
+            k8s_client = client.AppsV1Api()
+            k8s_client.create_namespaced_daemon_set('kube-system', body=dep)
 
     # create tiller service account
     client.CoreV1Api().create_namespaced_service_account(
@@ -536,19 +570,6 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type,
 
     # open port in firewall
     mlbench_client = ApiClient(in_cluster=False, load_config=False)
-    firewalls = discovery.build(
-        'compute', 'v1', cache_discovery=False).firewalls()
-
-    existing_firewalls = firewalls.list(project=project).execute()
-    fw_name = '{}-firewall'.format(name)
-
-    if any(f['name'] == fw_name for f in existing_firewalls['items']):
-        response = firewalls.delete(project=project, firewall=fw_name).execute()
-        while response.status < response.DONE:
-            response = gclient.get_operation(
-                None, None, None, name=response.selfLink)
-            sleep(1)
-
     firewall_body = {
         "name": fw_name,
         "direction": "INGRESS",
