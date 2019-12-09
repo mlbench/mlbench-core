@@ -426,8 +426,8 @@ class ApiClient(object):
             "num_workers": num_workers,
             "num_cpus": num_cpus,
             "max_bandwidth": max_bandwidth,
-            "gpu_enabled": False,
-            "light_target": light_target
+            "gpu_enabled": 'true' if gpu_enabled else 'false',
+            "light_target": 'true' if light_target else 'false'
         }
 
         if custom_image_name is not None:
@@ -439,7 +439,7 @@ class ApiClient(object):
             data['image_name'] = MLBENCH_IMAGES[image][0]
 
             if MLBENCH_IMAGES[image][3]:
-                data['gpu_enabled'] = gpu_enabled
+                data['gpu_enabled'] = 'true' if gpu_enabled else 'false'
         else:
             raise ValueError("Image {image} not found".format(image=image))
 

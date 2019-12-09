@@ -11,6 +11,7 @@ from pyhelm.tiller import Tiller
 from tabulate import tabulate
 
 import configparser
+import json
 import os
 import subprocess
 import sys
@@ -140,8 +141,8 @@ def run(name, num_workers, gpu, light, dashboard_url):
     else:
         benchmark = {'image': images[selection]}
 
-    benchmark['gpu_enabled']=gpu
-    benchmark['light_target']=light
+    benchmark['gpu_enabled'] = gpu
+    benchmark['light_target'] = light
 
     loaded = setup_client_from_config()
 
@@ -159,8 +160,14 @@ def run(name, num_workers, gpu, light, dashboard_url):
     for res in results:
         act_result = res.result()
         if act_result.status_code > 201:
-            click.echo('Couldn\'t start run: {}'.format(
-                act_result.json()['message']))
+            try:
+                click.echo('Couldn\'t start run: {}'.format(
+                    act_result.json()['message']))
+            except json.JSONDecodeError:
+                print(str(act_result.text))
+                click.echo(
+                    'Couldn\'t start run: Status {} for request'.format(
+                        act_result.status_code))
             return
 
         click.echo('Run started with name {}'.format(

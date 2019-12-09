@@ -5,9 +5,12 @@ from .helpers import config_path
 from .helpers import Timeit
 from .topology import FCGraph
 
+from contextlib import contextmanager
+
 __all__ = ['initialize_backends', 'Timeit', 'FCGraph']
 
 
+@contextmanager
 def initialize_backends(comm_backend='mpi', logging_level='INFO',
                         logging_file='/mlbench.log', use_cuda=False,
                         seed=None, cudnn_deterministic=False,
@@ -34,4 +37,6 @@ def initialize_backends(comm_backend='mpi', logging_level='INFO',
 
     config_path(ckpt_run_dir, delete_existing_ckpts)
 
-    return rank, world_size, graph
+    yield rank, world_size, graph
+
+    dist.destroy_process_group()
