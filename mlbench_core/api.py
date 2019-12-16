@@ -349,7 +349,8 @@ class ApiClient(object):
                 "date": str(date),
                 "value": str(value),
                 "metadata": metadata
-            })
+            },
+            timeout=180)
         return future
 
     def get_runs(self):

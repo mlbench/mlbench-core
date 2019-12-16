@@ -10,6 +10,8 @@ import torch.distributed as dist
 
 logger = logging.getLogger('mlbench')
 
+LOG_EVERY_N_BATCHES=25
+
 
 def _record_train_batch_stats(batch_idx, loss, output, target, metrics,
                               tracker, num_batches_per_device_train):
@@ -27,8 +29,11 @@ def _record_train_batch_stats(batch_idx, loss, output, target, metrics,
     progress = batch_idx / num_batches_per_device_train
     progress += tracker.current_epoch
 
+    log_to_api = (batch_idx % LOG_EVERY_N_BATCHES == 0
+                  or batch_idx == num_batches_per_device_train)
+
     if tracker:
-            tracker.record_loss(loss, output.size()[0], log_to_api=True)
+        tracker.record_loss(loss, output.size()[0], log_to_api=log_to_api)
 
     # Compute metrics for one batch
     for metric in metrics:
@@ -39,7 +44,7 @@ def _record_train_batch_stats(batch_idx, loss, output, target, metrics,
                 metric,
                 metric_value,
                 output.size()[0],
-                log_to_api=True)
+                log_to_api=log_to_api)
 
     status = "Epoch {:5.2f} Batch {:4}: ".format(progress, batch_idx)
 
