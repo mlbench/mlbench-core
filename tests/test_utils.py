@@ -3,7 +3,10 @@
 
 """Tests for `mlbench_core.utils.pytorch.helpers` package."""
 
+import datetime
+from freezegun import freeze_time
 import pytest
+import time
 
 from mlbench_core.utils import Tracker
 from mlbench_core.evaluation.pytorch.metrics import TopKAccuracy
@@ -21,8 +24,6 @@ def test_tracker_goal(mocker):
 
     metric = TopKAccuracy(1)
     tracker = Tracker([metric], 1, 0, task1_time_to_accuracy_light_goal)
-
-    assert tracker is not None
 
     tracker.start()
 
@@ -51,3 +52,52 @@ def test_tracker_goal(mocker):
     tracker.record_stat('global_Prec@1', 70, log_to_api=True)
 
     assert tracker.goal_reached
+
+
+def test_tracker_goal_times(mocker):
+    patched = mocker.patch('mlbench_core.utils.tracker.LogMetrics')
+
+    metric = TopKAccuracy(1)
+    tracker = Tracker([metric], 1, 0, task1_time_to_accuracy_light_goal)
+
+    tracker.start()
+
+    assert tracker.start_time is not None
+
+    tracker.train()
+
+    with freeze_time(datetime.datetime.now()) as frozen:
+        tracker.batch_start()
+        frozen.tick(delta=datetime.timedelta(seconds=0.5))
+        tracker.record_batch_step('init')
+        frozen.tick(delta=datetime.timedelta(seconds=0.5))
+        tracker.record_batch_step('fwd_pass')
+        frozen.tick(delta=datetime.timedelta(seconds=0.5))
+        tracker.record_batch_step('comp_loss')
+        frozen.tick(delta=datetime.timedelta(seconds=0.5))
+        tracker.record_batch_step('backprop')
+        frozen.tick(delta=datetime.timedelta(seconds=0.5))
+        tracker.record_batch_step('opt_step')
+        frozen.tick(delta=datetime.timedelta(seconds=0.5))
+        tracker.batch_end()
+
+        assert abs(tracker.get_total_communication_time() - 0.5) < 0.01
+        assert abs(tracker.get_total_compute_time() - 1.5) < 0.01
+
+        tracker.batch_start()
+        frozen.tick(delta=datetime.timedelta(seconds=0.5))
+        tracker.record_batch_step('init')
+        frozen.tick(delta=datetime.timedelta(seconds=0.5))
+        tracker.record_batch_step('fwd_pass')
+        frozen.tick(delta=datetime.timedelta(seconds=0.5))
+        tracker.record_batch_step('comp_loss')
+        frozen.tick(delta=datetime.timedelta(seconds=0.5))
+        tracker.record_batch_step('backprop')
+        frozen.tick(delta=datetime.timedelta(seconds=0.5))
+        tracker.record_batch_step('opt_step')
+        frozen.tick(delta=datetime.timedelta(seconds=0.5))
+        tracker.batch_end()
+
+        assert abs(tracker.get_total_communication_time() - 1.0) < 0.01
+        assert abs(tracker.get_total_compute_time() - 3.0) < 0.01
+

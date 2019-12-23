@@ -35,25 +35,32 @@ class Tracker(object):
         run_id (int): The id of the current run
         rank (int): The rank of this worker node
         goal(func): A task goal to check for when logging metrics"""
-    batch_times = []
-    validation_times = []
-    epoch_stats = {}
-    epoch_metrics = defaultdict(list)
-    records = []
-    history = []
-    cumulative_train_time = []
-    cumulative_val_time = []
-    best_epoch = 0
-    current_epoch = 0
-    best_metric_value = 0
-    is_training = True
 
-    train_prefix = 'train_'
-    val_prefix = 'val_'
+    def __init__(self, metrics, run_id, rank, goal=None,
+                 communication_steps=['opt_step'],
+                 compute_steps=['fwd_pass', 'comp_loss', 'backprop']):
+        self.batch_times = []
+        self.validation_times = []
+        self.epoch_stats = {}
+        self.epoch_metrics = defaultdict(list)
+        self.records = []
+        self.history = []
+        self.cumulative_train_time = []
+        self.cumulative_compute_time = []
+        self.cumulative_communication_time = []
+        self.cumulative_val_time = []
+        self.best_epoch = 0
+        self.current_epoch = 0
+        self.best_metric_value = 0
+        self.is_training = True
 
-    start_time = None
+        self.communication_steps = []
+        self.compute_steps = []
 
-    def __init__(self, metrics, run_id, rank, goal=None):
+        self.train_prefix = 'train_'
+        self.val_prefix = 'val_'
+
+        self.start_time = None
         self.metrics = metrics
         self.run_id = run_id
         self.rank = rank
@@ -62,6 +69,16 @@ class Tracker(object):
         self.goal_reached = False
 
         self.primary_metric = metrics[0]
+
+        if not isinstance(communication_steps, list):
+            communication_steps = [communication_steps]
+
+        self.communication_steps = communication_steps
+
+        if not isinstance(compute_steps, list):
+            compute_steps = [compute_steps]
+
+        self.compute_steps = compute_steps
 
     def start(self):
         """ Starts Tracking """
@@ -106,17 +123,31 @@ class Tracker(object):
                 - self.batch_times[0][1])
             time_diff = self.cumulative_train_time[-1]
 
+            # batch times
+            self.batch_times.sort(key=lambda x: x[1])
+
+            tracker_stats = list(zip(
+                self.batch_times[:-1],
+                self.batch_times[1:]))
+
+            if self.compute_steps:
+                compute_times = [t[1][1] - t[0][1] for t in tracker_stats
+                                 if t[1][0] in self.compute_steps]
+                self.cumulative_compute_time.append(
+                    sum(compute_times)
+                )
+
+            if self.communication_steps:
+                communication_times = [t[1][1] - t[0][1] for t in tracker_stats
+                                       if t[1][0] in self.communication_steps]
+                self.cumulative_communication_time.append(
+                    sum(communication_times)
+                )
+
             if len(self.epoch_metrics[metric]) < self.current_epoch + 1:
                 self.epoch_metrics[metric].append(0.0)
 
             self.epoch_metrics[metric][self.current_epoch] += time_diff
-
-            # batch times
-            self.batch_times.sort(key=lambda x: x[1])
-
-            tracker_stats = zip(
-                self.batch_times[:-1],
-                self.batch_times[1:])
 
             for (_, t1), (name, t2) in tracker_stats:
                 time_diff = t2 - t1
@@ -270,6 +301,12 @@ class Tracker(object):
 
     def get_total_train_time(self):
         return sum(self.cumulative_train_time)
+
+    def get_total_compute_time(self):
+        return sum(self.cumulative_compute_time)
+
+    def get_total_communication_time(self):
+        return sum(self.cumulative_communication_time)
 
     def get_total_val_time(self):
         return sum(self.cumulative_val_time)

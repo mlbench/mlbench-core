@@ -1,4 +1,15 @@
-import time
+def _add_detailed_times(result, tracker):
+    compute_time = tracker.get_total_compute_time()
+
+    if compute_time:
+        result += ", Compute: {} seconds".format(compute_time)
+
+    communication_time = tracker.get_total_communication_time()
+
+    if communication_time:
+        result += ", Communication: {} seconds".format(communication_time)
+
+    return result
 
 
 def task1_time_to_accuracy_light_goal(metric_name, value, tracker):
@@ -18,8 +29,12 @@ def task1_time_to_accuracy_light_goal(metric_name, value, tracker):
 
     if value >= 70:
         duration = tracker.get_total_train_time()
+
         result = "70% Top 1 Validation Accuracy reached in {0:.3f} seconds"\
             .format(duration)
+
+        result = _add_detailed_times(result, tracker)
+
         return result
 
     return None
@@ -44,6 +59,9 @@ def task1_time_to_accuracy_goal(metric_name, value, tracker):
         duration = tracker.get_total_train_time()
         result = "80% Top 1 Validation Accuracy reached in {0:.3f} seconds"\
             .format(duration)
+
+        result = _add_detailed_times(result, tracker)
+
         return result
 
     return None

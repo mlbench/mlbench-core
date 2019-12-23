@@ -28,7 +28,7 @@ requirements = [
 
 setup_requirements = ['pytest-runner', ]
 
-test_requirements = ['pytest>=3', 'pytest-mock', 'deprecation==2.0.6', ]
+test_requirements = ['pytest>=3', 'pytest-mock', 'deprecation==2.0.6', 'freezegun==0.3.12' ]
 
 setup(
     author="Ralf Grubenmann",
