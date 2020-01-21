@@ -101,3 +101,10 @@ def test_tracker_goal_times(mocker):
         assert abs(tracker.get_total_communication_time() - 1.0) < 0.01
         assert abs(tracker.get_total_compute_time() - 3.0) < 0.01
 
+        tracker.validation()
+        tracker.record_stat('global_Prec@1', 70, log_to_api=True)
+
+        assert tracker.goal_reached
+        assert any(filter(lambda c: c[1][3] == 'TaskResult',
+                          patched.method_calls))
+
