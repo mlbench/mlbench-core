@@ -290,7 +290,13 @@ def delete_gcloud(name, zone, project):
     from google.cloud import container_v1
     import google.auth
 
-    credentials, default_project = google.auth.default()
+    try:
+        credentials, default_project = google.auth.default()
+    except DefaultCredentialsError:
+        click.UsageError("Couldn't find gcloud credentials. Install the gcloud"
+            " sdk ( https://cloud.google.com/sdk/docs/quickstart-linux ) and "
+            "run 'gcloud auth application-default login' to login and create "
+            "your credentials.")
 
     if not project:
         project = default_project
@@ -340,9 +346,16 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type,
                   preemptible, custom_value):
     from google.cloud import container_v1
     import google.auth
+    from google.auth.exceptions import DefaultCredentialsError
     from googleapiclient import discovery, http
 
-    credentials, default_project = google.auth.default()
+    try:
+        credentials, default_project = google.auth.default()
+    except DefaultCredentialsError:
+        click.UsageError("Couldn't find gcloud credentials. Install the gcloud"
+            " sdk ( https://cloud.google.com/sdk/docs/quickstart-linux ) and "
+            "run 'gcloud auth application-default login' to login and create "
+            "your credentials.")
 
     if not project:
         project = default_project
@@ -652,7 +665,13 @@ def setup_gke_client_from_config(config):
     if not cluster:
         return False
 
-    credentials, _ = google.auth.default()
+    try:
+        credentials, default_project = google.auth.default()
+    except DefaultCredentialsError:
+        click.UsageError("Couldn't find gcloud credentials. Install the gcloud"
+            " sdk ( https://cloud.google.com/sdk/docs/quickstart-linux ) and "
+            "run 'gcloud auth application-default login' to login and create "
+            "your credentials.")
     auth_req = google.auth.transport.requests.Request()
     credentials.refresh(auth_req)
     configuration = client.Configuration()
