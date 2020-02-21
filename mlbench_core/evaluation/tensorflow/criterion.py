@@ -3,11 +3,12 @@ r"""Define loss functions."""
 import tensorflow as tf
 
 
-def softmax_cross_entropy_with_logits_v2_l2_regularized(logits, labels, l2, loss_filter_fn):
+def softmax_cross_entropy_with_logits_v2_l2_regularized(logits, labels, l2,
+                                                        loss_filter_fn):
     """Return an op for computing cross entropy with weight decay.
 
-    The `labels` are assumed to be one-hot encoded. The loss filter function excludes some
-    tensors from computing weight decay.
+    The `labels` are assumed to be one-hot encoded. The loss filter function
+    excludes some tensors from computing weight decay.
 
     Args:
         logits (:obj:`tf.Tensor`): input logits tensor.

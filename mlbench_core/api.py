@@ -3,8 +3,9 @@
 import concurrent.futures
 import datetime
 import logging
-from kubernetes import client, config
+
 import requests
+from kubernetes import client, config
 
 MLBENCH_IMAGES = {
     "PyTorch Cifar-10 ResNet-20 Open-MPI": (
@@ -220,10 +221,14 @@ class ApiClient(object):
         Args:
             run_id(str): The id of the run to get metrics for
             since (datetime): Only get metrics newer than this date
-                Default: ``None``
+                            Default: ``None``
             summarize (int): If set, metrics are summarized to at most this
-            many entries by averaging the metrics. Default: ``None``
-
+                            many entries by averaging the metrics.
+                            Default: ``None``
+            metric_filter (str): Filter for metrics to get
+                            Default: ``None``
+            last_n (int): Index of last metric to get
+                            Default: ``None``
         Returns:
             A ``concurrent.futures.Future`` objects wrapping
             ``requests.response`` object. Get the result by calling
@@ -417,6 +422,10 @@ class ApiClient(object):
             custom_image_all_nodes (bool): Whether to run
                 ``custom_image_command`` on all worker nodes or only the
                 rank 0 node.
+            gpu_enabled (bool): True if the run should be done with GPU
+                Default: ``False``
+            light_target (bool): Perform the run with a light target
+                Default: ``False``
 
         Returns:
             A ``concurrent.futures.Future`` objects wrapping

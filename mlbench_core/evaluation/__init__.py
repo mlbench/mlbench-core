@@ -1,11 +1,11 @@
 try:
-    import torch
-    from . import pytorch
+    import torch  # noqa
+    from . import pytorch  # noqa
 except ImportError:
     pass
 
 try:
-    import tensorflow
-    from . import tensorflow
+    import tensorflow  # noqa
+    from . import tensorflow  # noqa
 except ImportError:
     pass

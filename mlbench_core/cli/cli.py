@@ -1,15 +1,6 @@
 # -*- coding: utf-8 -*-
 
 """Console script for mlbench_cli."""
-from mlbench_core.api import ApiClient, MLBENCH_IMAGES
-
-from appdirs import user_data_dir
-import click
-from kubernetes import client
-from pyhelm.chartbuilder import ChartBuilder
-from pyhelm.tiller import Tiller
-from tabulate import tabulate
-
 import configparser
 import json
 import os
@@ -17,8 +8,15 @@ import subprocess
 import sys
 from time import sleep
 from urllib import request
-import yaml
 
+import click
+import yaml
+from appdirs import user_data_dir
+from kubernetes import client
+from mlbench_core.api import ApiClient, MLBENCH_IMAGES
+from pyhelm.chartbuilder import ChartBuilder
+from pyhelm.tiller import Tiller
+from tabulate import tabulate
 
 GCLOUD_NVIDIA_DAEMONSET = ('https://raw.githubusercontent.com/'
                            'GoogleCloudPlatform/container-engine-accelerators/'
@@ -198,20 +196,27 @@ def status(name, dashboard_url):
 
     click.echo(tabulate([run], headers='keys'))
 
-    loss = client.get_run_metrics(run['id'], metric_filter='val_global_loss @ 0', last_n=1)
-    prec = client.get_run_metrics(run['id'], metric_filter='val_global_Prec@1 @ 0', last_n=1)
+    loss = client.get_run_metrics(run['id'],
+                                  metric_filter='val_global_loss @ 0',
+                                  last_n=1)
+    prec = client.get_run_metrics(run['id'],
+                                  metric_filter='val_global_Prec@1 @ 0',
+                                  last_n=1)
 
     loss = loss.result()
     prec = prec.result()
 
     if loss.status_code < 300 and 'val_global_loss @ 0' in loss.json():
         val = loss.json()['val_global_loss @ 0'][0]
-        click.echo("Current Global Loss: {0:.2f} ({1})".format(float(val['value']), val['date']))
+        click.echo(
+            "Current Global Loss: {0:.2f} ({1})".format(float(val['value']),
+                                                        val['date']))
     else:
         click.echo("No Validation Loss Data yet")
     if prec.status_code < 300 and 'val_global_Prec@1 @ 0' in prec.json():
         val = prec.json()['val_global_Prec@1 @ 0'][0]
-        click.echo("Current Global Precision: {0:.2f} ({1})".format(float(val['value']), val['date']))
+        click.echo("Current Global Precision: {0:.2f} ({1})".format(
+            float(val['value']), val['date']))
     else:
         click.echo("No Validation Precision Data yet")
 
@@ -288,15 +293,20 @@ def delete_cluster():
 @click.option('--zone', '-z', default='europe-west1-b', type=str)
 def delete_gcloud(name, zone, project):
     from google.cloud import container_v1
+    from google.auth.exceptions import DefaultCredentialsError
+
     import google.auth
 
     try:
         credentials, default_project = google.auth.default()
     except DefaultCredentialsError:
         click.UsageError("Couldn't find gcloud credentials. Install the gcloud"
-            " sdk ( https://cloud.google.com/sdk/docs/quickstart-linux ) and "
-            "run 'gcloud auth application-default login' to login and create "
-            "your credentials.")
+                         " sdk ( "
+                         "https://cloud.google.com/sdk/docs/quickstart-linux "
+                         ") and "
+                         "run 'gcloud auth application-default login' to "
+                         "login and create "
+                         "your credentials.")
 
     if not project:
         project = default_project
@@ -353,9 +363,12 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type,
         credentials, default_project = google.auth.default()
     except DefaultCredentialsError:
         click.UsageError("Couldn't find gcloud credentials. Install the gcloud"
-            " sdk ( https://cloud.google.com/sdk/docs/quickstart-linux ) and "
-            "run 'gcloud auth application-default login' to login and create "
-            "your credentials.")
+                         " sdk ( "
+                         "https://cloud.google.com/sdk/docs/quickstart-linux "
+                         ") and "
+                         "run 'gcloud auth application-default login' to "
+                         "login and create "
+                         "your credentials.")
 
     if not project:
         project = default_project
@@ -399,35 +412,35 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type,
 
     # create cluster
     cluster = container_v1.types.Cluster(
-            name=name,
-            initial_node_count=num_workers,
-            node_config=container_v1.types.NodeConfig(
-                machine_type=machine_type,
-                disk_size_gb=disk_size,
-                preemptible=preemptible,
-                oauth_scopes=[
-                    'https://www.googleapis.com/auth/devstorage.full_control',
-                ],
-                **extraargs
+        name=name,
+        initial_node_count=num_workers,
+        node_config=container_v1.types.NodeConfig(
+            machine_type=machine_type,
+            disk_size_gb=disk_size,
+            preemptible=preemptible,
+            oauth_scopes=[
+                'https://www.googleapis.com/auth/devstorage.full_control',
+            ],
+            **extraargs
+        ),
+        addons_config=container_v1.types.AddonsConfig(
+            http_load_balancing=container_v1.types.HttpLoadBalancing(
+                disabled=True,
             ),
-            addons_config=container_v1.types.AddonsConfig(
-                http_load_balancing=container_v1.types.HttpLoadBalancing(
-                    disabled=True,
-                ),
-                horizontal_pod_autoscaling=
-                    container_v1.types.HorizontalPodAutoscaling(
-                        disabled=True,
-                    ),
-                kubernetes_dashboard=container_v1.types.KubernetesDashboard(
-                    disabled=True,
-                ),
-                network_policy_config=container_v1.types.NetworkPolicyConfig(
-                    disabled=False,
-                ),
+            horizontal_pod_autoscaling=  # noqa
+            container_v1.types.HorizontalPodAutoscaling(
+                disabled=True,
             ),
-            logging_service=None,
-            monitoring_service=None
-        )
+            kubernetes_dashboard=container_v1.types.KubernetesDashboard(
+                disabled=True,
+            ),
+            network_policy_config=container_v1.types.NetworkPolicyConfig(
+                disabled=False,
+            ),
+        ),
+        logging_service=None,
+        monitoring_service=None
+    )
     response = gclient.create_cluster(None, None, cluster, parent=name_path)
 
     # wait for cluster to load
@@ -455,8 +468,9 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type,
             dep = yaml.safe_load(r)
             dep['spec']['selector'] = {
                 'matchLabels': dep['spec']['template']['metadata']['labels']
-                }
-            dep = client.ApiClient()._ApiClient__deserialize(dep, 'V1DaemonSet')
+            }
+            dep = client.ApiClient()._ApiClient__deserialize(dep,
+                                                             'V1DaemonSet')
             k8s_client = client.AppsV1Api()
             k8s_client.create_namespaced_daemon_set('kube-system', body=dep)
 
@@ -534,14 +548,13 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type,
     #     ports=ports
     #     )
 
-    with subprocess.Popen([
-            'kubectl',
-            'port-forward',
-            '--namespace={}'.format(tiller_pod.metadata.namespace),
-            tiller_pod.metadata.name, '{0}:{0}'.format(ports),
-            '--server={}'.format(configuration.host),
-            '--token={}'.format(credentials.token),
-            '--insecure-skip-tls-verify=true']) as portforward:
+    with subprocess.Popen(['kubectl', 'port-forward',
+                           '--namespace={}'.format(
+                               tiller_pod.metadata.namespace),
+                           tiller_pod.metadata.name, '{0}:{0}'.format(ports),
+                           '--server={}'.format(configuration.host),
+                           '--token={}'.format(credentials.token),
+                           '--insecure-skip-tls-verify=true']) as portforward:
 
         sleep(5)
         # install chart
@@ -647,7 +660,7 @@ def write_config(config):
 def setup_client_from_config():
     config = get_config()
 
-    provider = config.get('general', 'provider')
+    provider = config.get('general', 'provider', fallback=None)
 
     if not provider:
         return False
@@ -660,6 +673,7 @@ def setup_client_from_config():
 
 def setup_gke_client_from_config(config):
     import google.auth
+    from google.auth.exceptions import DefaultCredentialsError
 
     cluster = config.get('gke', 'cluster')
     if not cluster:
@@ -669,9 +683,12 @@ def setup_gke_client_from_config(config):
         credentials, default_project = google.auth.default()
     except DefaultCredentialsError:
         click.UsageError("Couldn't find gcloud credentials. Install the gcloud"
-            " sdk ( https://cloud.google.com/sdk/docs/quickstart-linux ) and "
-            "run 'gcloud auth application-default login' to login and create "
-            "your credentials.")
+                         " sdk ( "
+                         "https://cloud.google.com/sdk/docs/quickstart-linux "
+                         ") and "
+                         "run 'gcloud auth application-default login' to "
+                         "login and create "
+                         "your credentials.")
     auth_req = google.auth.transport.requests.Request()
     credentials.refresh(auth_req)
     configuration = client.Configuration()
