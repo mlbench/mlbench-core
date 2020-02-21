@@ -27,11 +27,12 @@ def global_average(sum, count):
         array = torch.Tensor(array)
         dist.all_reduce(array, op=dist.reduce_op.SUM)
         return array[0] / array[1]
+
     avg = helper([sum, count])
     return avg
 
 
-##########################################################################################
+###############################################################################
 
 class Aggregation(object):
     """Aggregate udpates / models from different processes."""

@@ -23,10 +23,12 @@ def initialize_backends(config):
     correctly.
 
     Args:
-        config (:obj:`types.SimpleNamespace`): a global object containing all of the config.
+        config (:obj:`types.SimpleNamespace`): a global object containing all
+            of the config.
 
     Returns:
-        (:obj:`types.SimpleNamespace`): a global object containing all of the config.
+        (:obj:`types.SimpleNamespace`): a global object containing all
+            of the config.
     """
     _init_cleanup(config)
 
@@ -36,7 +38,8 @@ def initialize_backends(config):
     return config
 
 
-def default_session_config(tf_allow_soft_placement, tf_log_device_placement, tf_gpu_mem):
+def default_session_config(tf_allow_soft_placement, tf_log_device_placement,
+                           tf_gpu_mem):
     """Initialize session configuration."""
     session_conf = tf.ConfigProto(
         allow_soft_placement=tf_allow_soft_placement,

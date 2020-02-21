@@ -2,6 +2,7 @@ import enum
 import json
 import os
 import shutil
+
 import dill
 import torch
 
@@ -18,12 +19,14 @@ class Checkpointer(object):
 
     Args:
         ckpt_run_dir (str): The path of the checkpoint directory.
-        rank (int): The rank of the eurrent worker.
-        freq (int): The frequency of checkpointing. Default: `CheckpointFreq.BEST`
+        rank (int): The rank of the current worker.
+        freq (int): The frequency of checkpoint.
+            Default: ``CheckpointFreq.BEST``
         save_stats (bool): Save stats to additional text files. Default: `True`
     """
 
-    def __init__(self, ckpt_run_dir, rank, freq=CheckpointFreq.BEST, save_stats=True):
+    def __init__(self, ckpt_run_dir, rank, freq=CheckpointFreq.BEST,
+                 save_stats=True):
         self.dirname = ckpt_run_dir
         self.rank = rank
         self.freq = freq
@@ -36,10 +39,12 @@ class Checkpointer(object):
         Args:
             tracker (:obj:`mlbench_core.utils.pytorch.helpers.Tracker`): The
                 metrics tracker object
-            model (:obj:`torch.nn.Module`): a pytorch model to be trained and validated.
-            optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
-            scheduler (:obj:`mlbench_core.lr_scheduler.pytorch.lr.*`): a scheduler for
-                hyperparameters.
+            model (:obj:`torch.nn.Module`): a pytorch model to be trained and
+                validated.
+            optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the
+                given model.
+            scheduler (:obj:`mlbench_core.lr_scheduler.pytorch.lr.*`):
+                a scheduler for hyper-parameters.
             epoch (int): The current epoch
             is_best (bool): Whether the current model is a new best scoring one
         """
@@ -83,10 +88,12 @@ class Checkpointer(object):
         Args:
             ckpt_run_dir (str): Folder path of checkpoint directory
             rank (int): The rank of the current worker
-            model (:obj:`torch.nn.Module`): a pytorch model to be trained and validated.
-            optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
-            scheduler (:obj:`mlbench_core.lr_scheduler.pytorch.lr.*`): a scheduler for
-                hyperparameters.
+            model (:obj:`torch.nn.Module`): a pytorch model to be trained and
+                validated.
+            optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the
+                given model.
+            scheduler (:obj:`mlbench_core.lr_scheduler.pytorch.lr.*`):
+                a scheduler for hyper-parameters.
 
         Returns:
             A tuple of `(Checkpointer, model, optimizer, scheduler)`
@@ -96,7 +103,8 @@ class Checkpointer(object):
 
         if not os.path.isfile(checkpoint_path):
             raise FileNotFoundError(
-                "No checkpoint found at '{}' for rank '{}'".format(ckpt_run_dir, rank))
+                "No checkpoint found at '{}' for rank '{}'".format(
+                    ckpt_run_dir, rank))
 
         checkpoint = torch.load(checkpoint_path, pickle_module=dill)
 
@@ -109,7 +117,8 @@ class Checkpointer(object):
         freq = checkpoint['freq']
 
         checkpointer = Checkpointer(ckpt_run_dir, rank, freq)
-        # checkpointer.runtime['cumu_time_val'] = checkpoint['tracker']['cumu_time_val']
+        # checkpointer.runtime['cumu_time_val'] = checkpoint['tracker'][
+        # 'cumu_time_val']
 
         return checkpointer, model, optimizer, scheduler, tracker
 
@@ -121,7 +130,8 @@ class Checkpointer(object):
             ckpt_run_dir (str): Folder path of checkpoint directory
             rank (int): The rank of the current worker
             epoch (int): Epoch of the model to be loaded.
-            model (:obj:`torch.nn.Module`): a pytorch model to be trained and validated.
+            model (:obj:`torch.nn.Module`): a pytorch model to be trained and
+                validated.
 
         Returns:
             `model`
@@ -131,7 +141,8 @@ class Checkpointer(object):
 
         if not os.path.isfile(checkpoint_path):
             raise FileNotFoundError(
-                "No checkpoint found at '{}' for rank '{}'".format(ckpt_run_dir, rank))
+                "No checkpoint found at '{}' for rank '{}'".format(
+                    ckpt_run_dir, rank))
 
         checkpoint = torch.load(checkpoint_path)
 
@@ -154,7 +165,8 @@ class Checkpointer(object):
             ckpt_run_dir, '{}_{}.pth.tar'.format(epoch, rank))
         if not os.path.isfile(checkpoint_path):
             raise FileNotFoundError(
-                "No checkpoint found at '{}' for rank '{}'".format(ckpt_run_dir, rank))
+                "No checkpoint found at '{}' for rank '{}'".format(
+                    ckpt_run_dir, rank))
 
 
 def determine_restore_ckpt_path(rank, checkpoint_root):

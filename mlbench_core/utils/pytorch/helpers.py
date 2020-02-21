@@ -8,12 +8,12 @@ import random
 import shutil
 import socket
 import time
-from mlbench_core.api import ApiClient
-from mlbench_core.utils.pytorch.topology import FCGraph
 
+import deprecation
 import torch
 import torch.distributed as dist
-import deprecation
+from mlbench_core.api import ApiClient
+from mlbench_core.utils.pytorch.topology import FCGraph
 
 
 class Timeit(object):
@@ -58,7 +58,8 @@ class Timeit(object):
 
 
 def maybe_range(maximum):
-    """Map an integer or None to an integer iterator starting from 0 with strid 1.
+    """Map an integer or None to an integer iterator starting from 0 with
+    strid 1.
 
     If maximum number of batches per epoch is limited, then return an finite
     iterator. Otherwise, return an iterator of infinite length.
@@ -71,7 +72,8 @@ def maybe_range(maximum):
 
 
 def update_best_runtime_metric(tracker, metric_value, metric_name):
-    """Update the runtime information to config if the metric value is the best."""
+    """Update the runtime information to config if the metric
+    value is the best."""
     best_metric_name = "best_{}".format(metric_name)
     is_best = metric_value > tracker.best_metric_value
 
@@ -128,7 +130,8 @@ def config_logging(logging_level='INFO', logging_file='/mlbench.log'):
 def config_pytorch(use_cuda=False, seed=None, cudnn_deterministic=False):
     """Config pytorch packages.
 
-    Fix random number for packages and initialize distributed environment for pytorch.
+    Fix random number for packages and initialize distributed environment for
+    pytorch.
     Setup cuda environment for pytorch.
 
     :param config: A global object containing specified config.
@@ -167,9 +170,12 @@ def config_pytorch(use_cuda=False, seed=None, cudnn_deterministic=False):
         if torch.backends.cudnn.version() is None:
             print("CUDNN not found on device.")
 
-        print("World size={}, Rank={}, hostname={}, cuda_available={}, cuda_device={}".format(
-            world_size, rank, socket.gethostname(), torch.cuda.is_available(),
-            torch.cuda.current_device()))
+        print(
+            "World size={}, Rank={}, hostname={}, cuda_available={}, "
+            "cuda_device={}".format(
+                world_size, rank, socket.gethostname(),
+                torch.cuda.is_available(),
+                torch.cuda.current_device()))
 
     return rank, world_size, graph
 
@@ -210,8 +216,9 @@ class LogMetrics(object):
 @deprecation.deprecated(
     deprecated_in="1.1.1",
     details="This method has performance implications, use"
-    " mlbench_core.utils.pytorch.helpers.LogMetrics instead")
-def log_metrics(run_id, rank, epoch, metric_name, value, tracker=None, time=None):
+            " mlbench_core.utils.pytorch.helpers.LogMetrics instead")
+def log_metrics(run_id, rank, epoch, metric_name, value, tracker=None,
+                time=None):
     """ Log metrics to mlbench master/dashboard
 
     Args:
@@ -253,7 +260,8 @@ def config_path(ckpt_run_dir, delete_existing_ckpts=False):
     os.makedirs(ckpt_run_dir, exist_ok=True)
 
 
-def iterate_dataloader(dataloader, dtype, max_batch_per_epoch=None, use_cuda=False,
+def iterate_dataloader(dataloader, dtype, max_batch_per_epoch=None,
+                       use_cuda=False,
                        transform_target_type=None):
     for _, (data, target) in zip(maybe_range(max_batch_per_epoch),
                                  dataloader):

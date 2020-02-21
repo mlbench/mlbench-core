@@ -103,8 +103,7 @@ class Tracker(object):
         """End Validation step"""
         self.validation_times = [('end', time.time())]
         self.cumulative_val_time.append(
-            self.validation_times[-1][1]
-            - self.validation_times[0][1])
+            self.validation_times[-1][1] - self.validation_times[0][1])
 
     def batch_start(self):
         """Start a training batch"""
@@ -119,8 +118,7 @@ class Tracker(object):
             metric = 'CumulativeTrainTimeEpoch'
 
             self.cumulative_train_time.append(
-                self.batch_times[-1][1]
-                - self.batch_times[0][1])
+                self.batch_times[-1][1] - self.batch_times[0][1])
             time_diff = self.cumulative_train_time[-1]
 
             # batch times
@@ -177,14 +175,15 @@ class Tracker(object):
         stat_names = [k for k in ["loss"] + [m.name for m in self.metrics]]
 
         stat_names = [self.train_prefix + k for k in stat_names] \
-            + [self.val_prefix + k for k in stat_names]
+                     + [self.val_prefix + k for k in stat_names]  # noqa
 
         self.epoch_stats = {
             k: AverageMeter()
             for k in stat_names}
 
     def record_batch_step(self, name):
-        """Records a specific batch step for timing (e.g. "backpropagation" or "model_forward
+        """Records a specific batch step for timing
+            (e.g. "backpropagation" or "model_forward")
 
         Args:
             name (str): The name of the step to record"""
@@ -198,7 +197,8 @@ class Tracker(object):
             value (number): The stat value to record
             n (int): The number of individual samples this stat is made up of
                      in case of an average value
-            log_to_api (bool): Whether to submit the stat to the Dashboard API, default:False
+            log_to_api (bool): Whether to submit the stat to the Dashboard API,
+                Default: ``False``
         """
         prefix = self.train_prefix
 
@@ -264,8 +264,10 @@ class Tracker(object):
         Args:
             value (number): The stat value to record
             n (int): The number of individual losses this stat is made up of
-                     in case of an average value (e.g. if batch loss use batch size)
-            log_to_api (bool): Whether to submit the stat to the Dashboard API, default:False
+                     in case of an average value
+                    (e.g. if batch loss use batch size)
+            log_to_api (bool): Whether to submit the stat to the Dashboard API.
+                Default: ``False``
         """
         self.record_stat("loss", value, n, log_to_api)
 
@@ -277,7 +279,8 @@ class Tracker(object):
             value (number): The stat value to record
             n (int): The number of individual samples this stat is made up of
                      in case of an average value
-            log_to_api (bool): Whether to submit the stat to the Dashboard API, default:False
+            log_to_api (bool): Whether to submit the stat to the Dashboard API.
+                Default: ``False``
         """
         self.record_stat(metric.name, value, n, log_to_api)
 
@@ -340,5 +343,3 @@ class Tracker(object):
                 for (_, t1), (name, t2) in tracker_stats))
 
         return ' | '.join(str_builder)
-
-

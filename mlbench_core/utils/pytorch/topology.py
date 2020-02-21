@@ -1,4 +1,5 @@
 import socket
+
 import torch
 import torch.distributed as dist
 
@@ -39,7 +40,7 @@ class FCGraph(object):
 
     @property
     def current_device_name(self):
-        return 'cuda:{}'.format(torch.cuda.current_device())\
+        return 'cuda:{}'.format(torch.cuda.current_device()) \
             if self.use_cuda else 'cpu'
 
     @property

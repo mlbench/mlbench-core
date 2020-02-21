@@ -1,4 +1,3 @@
-import datetime
 import os
 
 from mlbench_core.api import ApiClient
@@ -27,9 +26,6 @@ class LogMetrics(object):
             epoch (float): The current epoch (fractional)
             metric_name (str): The name of the metric
             value (float / int / str): The metric value to write
-            tracker(:obj:`mlbench_core.utils.Tracker`): The value Tracker
-            time (float): The current time (used for Tracker)
-
         """
 
         if not LogMetrics.in_cluster:

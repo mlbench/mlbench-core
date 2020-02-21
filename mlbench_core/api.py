@@ -156,8 +156,8 @@ class ApiClient(object):
             self.port = next(p.node_port for p in service.spec.ports
                              if p.port == 80)
 
-            if (service.spec.external_i_ps and
-                    len(service.spec.external_i_ps) > 0):
+            if (service.spec.external_i_ps
+                    and len(service.spec.external_i_ps) > 0): # noqa
 
                 ip = service.spec.external_i_ps[0]
             else:
