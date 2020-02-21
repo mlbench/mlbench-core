@@ -6,7 +6,6 @@ import logging
 from kubernetes import client, config
 import requests
 
-
 MLBENCH_IMAGES = {
     "PyTorch Cifar-10 ResNet-20 Open-MPI": (
         'mlbench/pytorch-cifar10-resnet:latest',
@@ -25,7 +24,8 @@ MLBENCH_IMAGES = {
         False,
         True),
     "PyTorch Linear Logistic Regression Open-MPI": (
-        'mlbench/pytorch-openmpi-epsilon-logistic-regression-all-reduce:latest',
+        'mlbench/pytorch-openmpi-epsilon-logistic-regression-all-reduce'
+        ':latest',
         '/.openmpi/bin/mpirun --mca btl_tcp_if_exclude docker0,lo '
         '-x KUBERNETES_SERVICE_HOST -x KUBERNETES_SERVICE_PORT '
         '-x LD_LIBRARY_PATH=/usr/local/nvidia/lib64 --host {hosts}'
@@ -85,12 +85,10 @@ class ApiClient(object):
             ``component=master,app=mlbench``
         k8s_namespace (str): K8s namespace mlbench is running in.
             Default: ``default``
-        service_name (str): Name of the master service, usually something
-            like ``release-mlbench-master``. Only needed when running
-            outside of a cluster. Default: ``None``
         url (str): ip:port/path or hostname:port/path that overrides
             automatic endpoint detection, pointing to the root of the
-            master/dashboard node. Default: ``None``"""
+            master/dashboard node. Default: ``None``
+        load_config (bool): Load kubernetes configuration file or not"""
 
     def __init__(self, max_workers=5, in_cluster=True,
                  label_selector='component=master,app=mlbench',
@@ -215,7 +213,8 @@ class ApiClient(object):
 
         return future
 
-    def get_run_metrics(self, run_id, since=None, summarize=None, metric_filter=None, last_n=None):
+    def get_run_metrics(self, run_id, since=None, summarize=None,
+                        metric_filter=None, last_n=None):
         """ Get all metrics for a run.
 
         Args:
@@ -231,7 +230,9 @@ class ApiClient(object):
             ``return_value.result().json()``
         """
         return self._get_filtered_metrics(run_id=run_id, since=since,
-                                          summarize=summarize, metric_filter=metric_filter, last_n=last_n)
+                                          summarize=summarize,
+                                          metric_filter=metric_filter,
+                                          last_n=last_n)
 
     def get_pod_metrics(self, pod_id, since=None, summarize=None):
         """ Get all metrics for a worker pod.
@@ -252,7 +253,8 @@ class ApiClient(object):
                                           summarize=summarize)
 
     def _get_filtered_metrics(self, pod_id=None, run_id=None, since=None,
-                              summarize=None, metric_filter=None, last_n=None, format=None):
+                              summarize=None, metric_filter=None, last_n=None,
+                              format=None):
         """Get metrics for a run or pod"""
         if pod_id is None and run_id is None:
             raise ValueError("Either pod_id or pod_id must be specified")
