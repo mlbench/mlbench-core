@@ -67,3 +67,57 @@ def task1_time_to_accuracy_goal(metric_name, value, tracker):
     return None
 
 
+def task3_time_to_preplexity_goal(metric_name, value, tracker):
+    """Time to perplexity goal for benchmark task 3: Language Modelling
+
+    Target is a perplexity of 50
+
+    Args:
+        metric_name(str): Name of the metric to test the value for, only "val_Prec@1" is counted
+        value (float): Metric value to check
+        tracker (`obj`:mlbench_core.utils.tracker.Tracker): Tracker object used for the current run
+    Return:
+        result (str) or `None` if target is not reached
+    """
+
+    if metric_name != "val_global_Perplexity":
+        return None
+
+    if value <= 50:
+        duration = tracker.get_total_train_time()
+        result = "Validation perplexity of 50 reached in {0:.3f} seconds"\
+            .format(duration)
+
+        result = _add_detailed_times(result, tracker)
+
+        return result
+
+    return None
+
+
+def task3_time_to_preplexity_light_goal(metric_name, value, tracker):
+    """Time to perplexity goal for benchmark task 3: Language Modelling
+
+    Target is a perplexity of 50
+
+    Args:
+        metric_name(str): Name of the metric to test the value for, only "val_Prec@1" is counted
+        value (float): Metric value to check
+        tracker (`obj`:mlbench_core.utils.tracker.Tracker): Tracker object used for the current run
+    Return:
+        result (str) or `None` if target is not reached
+    """
+
+    if metric_name != "val_global_Perplexity":
+        return None
+
+    if value <= 100:
+        duration = tracker.get_total_train_time()
+        result = "Validation perplexity of 50 reached in {0:.3f} seconds"\
+            .format(duration)
+
+        result = _add_detailed_times(result, tracker)
+
+        return result
+
+    return None

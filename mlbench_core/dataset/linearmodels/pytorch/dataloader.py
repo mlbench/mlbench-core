@@ -9,8 +9,6 @@ import logging
 from tensorpack.utils.compatible_serialize import loads
 from tensorpack.dataflow.serialize import LMDBSerializer
 
-from .partition import DataPartitioner
-
 _logger = logging.getLogger('mlbench')
 
 _LIBSVM_DATASETS = [
@@ -215,26 +213,4 @@ def load_libsvm_lmdb(name, lmdb_path):
     dataset = IMDBPT(lmdb_path, transform=maybe_transform_sparse(stats),
                      target_transform=None, is_image=False)
     return dataset
-
-
-def partition_dataset_by_rank(dataset, rank, world_size, distribution='uniform', shuffle=True):
-    r"""Given a dataset, partition it by a distribution and each rank takes part of data.
-
-    Args:
-        dataset (:obj:`torch.utils.data.Dataset`): The dataset
-        rank (int): The rank of the current worker
-        world_size (int): The total number of workers
-        distribution (str): The sampling distribution to use. Default: `uniform`
-        shuffle (bool): Whether to shuffle the dataset before partitioning. Default: `True`
-    """
-    if distribution != 'uniform':
-        raise NotImplementedError(
-            "Distribution {} not implemented.".format(distribution))
-
-    partition_sizes = [1.0 / world_size for _ in range(world_size)]
-    partition = DataPartitioner(
-        dataset, rank, shuffle, partition_sizes)
-    partitioned_data = partition.use(rank)
-    _logger.debug("Partition dataset use {}-th.".format(rank))
-    return partitioned_data
 

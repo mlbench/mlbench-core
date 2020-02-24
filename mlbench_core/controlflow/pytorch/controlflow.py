@@ -37,7 +37,7 @@ def _record_train_batch_stats(batch_idx, loss, output, target, metrics,
 
     # Compute metrics for one batch
     for metric in metrics:
-        metric_value = metric(output, target).item()
+        metric_value = metric(loss, output, target).item()
 
         if tracker:
             tracker.record_metric(
@@ -176,7 +176,7 @@ def _validate(dataloader, model, loss_function, metrics,
 
             # Update metrics
             for metric in metrics:
-                metric_value = metric(output, target)
+                metric_value = metric(loss, output, target)
                 metric.update(metric_value, data.size(0))
 
     # Aggregate metrics and loss for all workers
