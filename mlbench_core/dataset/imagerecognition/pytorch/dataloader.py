@@ -1,6 +1,7 @@
 r""" Create dataset and dataloader in PyTorch. """
 import logging
 import os
+
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 
@@ -59,7 +60,8 @@ class Imagenet(datasets.ImageFolder):
     Based on `torchvision.datasets.ImageFolder`
 
     Args:
-        root (str): Root folder of Imagenet dataset (without `train/` or `val/`)
+        root (str): Root folder of Imagenet dataset
+            (without `train/` or `val/`)
         train (bool): Whether to get the train or validation set (default=True)
     """
 
@@ -93,15 +95,19 @@ class Imagenet(datasets.ImageFolder):
         super().__init__(self.root, transform)
 
 
-def partition_dataset_by_rank(dataset, rank, world_size, distribution='uniform', shuffle=True):
-    r"""Given a dataset, partition it by a distribution and each rank takes part of data.
+def partition_dataset_by_rank(dataset, rank, world_size,
+                              distribution='uniform', shuffle=True):
+    """Given a dataset, partition it by a distribution and each rank takes
+     part of data.
 
     Args:
         dataset (:obj:`torch.utils.data.Dataset`): The dataset
         rank (int): The rank of the current worker
         world_size (int): The total number of workers
-        distribution (str): The sampling distribution to use. Default: `uniform`
-        shuffle (bool): Whether to shuffle the dataset before partitioning. Default: `True`
+        distribution (str): The sampling distribution to use.
+            Default: `uniform`
+        shuffle (bool): Whether to shuffle the dataset before partitioning.
+            Default: `True`
     """
     if distribution != 'uniform':
         raise NotImplementedError(

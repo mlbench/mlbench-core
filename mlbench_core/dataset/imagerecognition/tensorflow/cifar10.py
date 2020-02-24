@@ -1,22 +1,26 @@
-r"""Test the tensorflow load and preprocess cifar-10 correctly.
+"""Test the tensorflow load and preprocess cifar-10 correctly.
 
-Credit https://github.com/tensorflow/models/blob/master/tutorials/image/cifar10/cifar10_input.py
+Credit https://github.com/tensorflow/models/blob/master/tutorials/image
+/cifar10/cifar10_input.py # noqa
 """
 import logging
 import os
 import sys
 import tarfile
-from six.moves import urllib, xrange
+
 import tensorflow as tf
+from six.moves import urllib, xrange
 
 
 class DatasetCifar(object):
     """
     This clas is adapted from the following script
-    https://github.com/tensorflow/models/blob/master/tutorials/image/cifar10/cifar10_input.py
+    https://github.com/tensorflow/models/blob/master/tutorials/image/cifar10
+    /cifar10_input.py
     """
 
-    def __init__(self, dataset, dataset_root, batch_size, world_size, rank, seed, tf_dtype=tf.float32):
+    def __init__(self, dataset, dataset_root, batch_size, world_size, rank,
+                 seed, tf_dtype=tf.float32):
         """
         Args:
             dataset (str): Name of the dataset e.g. `cifar-10`, `cifar-100`.
@@ -25,13 +29,13 @@ class DatasetCifar(object):
             world_size (int): Size of the world size.
             rank (int): Rank of the process.
             seed (int): Seed of random number.
-            tf_dtype (tensorflow.python.framework.dtypes.DType, optional): Defaults to tf.float32.
-                Datatypes of the tensor.
+            tf_dtype (tensorflow.python.framework.dtypes.DType, optional):
+             Defaults to tf.float32. Datatypes of the tensor.
         """
 
         # define image size and some commonly used parameters.
-        self.data_url = 'http://www.cs.toronto.edu/~kriz/{}-binary.tar.gz'.format(
-            dataset)
+        self.data_url = 'http://www.cs.toronto.edu/~kriz/{}-binary.tar.gz' \
+            .format(dataset)
 
         self.dataset = dataset
         self.dataset_dir = dataset_root
@@ -59,22 +63,28 @@ class DatasetCifar(object):
 
         # Every record consists of a label followed by the image,
         # with a fixed number of bytes for each.
-        self.image_bytes = self.image_size * self.image_size * self.image_channel
-        self.record_bytes = self.label_bytes + self.label_offset + self.image_bytes
+        self.image_bytes = self.image_size * self.image_size * \
+                           self.image_channel  # noqa
+        self.record_bytes = self.label_bytes + self.label_offset + \
+                            self.image_bytes  # noqa
 
         # download the dataset.
         self.maybe_download_and_extract()
 
         # Define dataset for both training and validation
         self.train_dataset = self.input_fn(
-            is_train=True, repeat_count=-1, num_shards=world_size, shard_index=rank)
+            is_train=True, repeat_count=-1,
+            num_shards=world_size, shard_index=rank)
         self.validation_dataset = self.input_fn(
-            is_train=False, repeat_count=-1, num_shards=world_size, shard_index=rank)
+            is_train=False, repeat_count=-1,
+            num_shards=world_size, shard_index=rank)
 
         # Define reinitializable iterators for dataset.
-        # Initialize operations like train_init_op and validation_init_op when switch mode.
-        iterator = tf.data.Iterator.from_structure(self.train_dataset.output_types,
-                                                   self.train_dataset.output_shapes)
+        # Initialize operations like train_init_op and validation_init
+        # _op when switch mode.
+        iterator = tf.data.Iterator. \
+            from_structure(self.train_dataset.output_types,
+                           self.train_dataset.output_shapes)
         self.train_init_op = iterator.make_initializer(self.train_dataset)
         self.validation_init_op = iterator.make_initializer(
             self.validation_dataset)
@@ -98,6 +108,7 @@ class DatasetCifar(object):
                     filename,
                     float(count * block_size) / float(total_size) * 100.0))
                 sys.stdout.flush()
+
             filepath, _ = urllib.request.urlretrieve(
                 self.data_url, filepath, _progress)
             logging.debug('download file to the path:' + filepath)
@@ -187,8 +198,10 @@ class DatasetCifar(object):
 
         if self.dataset == 'cifar-10':
             stats = {
-                "mean": tf.constant([0.4914, 0.4822, 0.4465], dtype=tf.float32),
-                "std": tf.constant([0.2023, 0.1994, 0.2010], dtype=tf.float32)
+                "mean": tf.constant([0.4914, 0.4822, 0.4465],
+                                    dtype=tf.float32),
+                "std": tf.constant([0.2023, 0.1994, 0.2010],
+                                   dtype=tf.float32)
             }
             image = (image / 256 - stats['mean']) / stats['std']
         else:
@@ -200,18 +213,20 @@ class DatasetCifar(object):
     def input_fn(self, is_train, repeat_count=-1, num_shards=1, shard_index=0):
         """Input_fn using the tf.data input pipeline for CIFAR-10 dataset.
 
-        In synchronized training, faster nodes may use more batches than the number
-        of batches availble. Thus repeat dataset for engouh times to avoid throwing
-        error.
+        In synchronized training, faster nodes may use more batches than the
+        number of batches available. Thus repeat dataset for enough times to
+        avoid throwing error.
 
         In the distributed settings, datasets are split into `num_shards`
         non-overlapping parts and each process takes one shard by its index.
 
         Args:
-            is_train (bool): A boolean denoting whether the input is for training.
+            is_train (bool): A boolean denoting whether the input is for
+                training.
             repeat_count (int): Defaults to -1. Count of dataset repeated times
                 with -1 for infinite.
-            num_shards (int): Defaults to 1. Number of Shards the dataset is splitted.
+            num_shards (int): Defaults to 1. Number of Shards the dataset is
+                split into.
             shard_index (int): Defaults to 0. Index of shard to use.
 
         Returns
@@ -238,7 +253,8 @@ class DatasetCifar(object):
             num_parallel_calls=8
         )
         # TODO: change prefetch size? to `tf.contrib.data.AUTOTUNE`
-        # https://github.com/tensorflow/models/blob/master/official/resnet/resnet_run_loop.py#L103
+        # https://github.com/tensorflow/models/blob/master/official/resnet
+        # /resnet_run_loop.py#L103
         dataset = dataset.prefetch(2 * self.batch_size)
 
         # We call repeat after shuffling, rather than before,
@@ -249,6 +265,7 @@ class DatasetCifar(object):
         # and then fetch the tuple from the iterator.
         dataset = dataset.batch(self.batch_size)
 
-        # A boolean indicating the mode / dataset type : True for training and False for validation.
+        # A boolean indicating the mode / dataset type : True for training
+        # and False for validation.  # noqa
         mode = tf.data.Dataset.from_tensor_slices([is_train]).repeat()
         return tf.data.Dataset.zip((dataset, mode))

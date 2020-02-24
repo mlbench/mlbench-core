@@ -10,7 +10,7 @@ import torch.distributed as dist
 
 logger = logging.getLogger('mlbench')
 
-LOG_EVERY_N_BATCHES=25
+LOG_EVERY_N_BATCHES = 25
 
 
 def _record_train_batch_stats(batch_idx, loss, output, target, metrics,
@@ -29,8 +29,7 @@ def _record_train_batch_stats(batch_idx, loss, output, target, metrics,
     progress = batch_idx / num_batches_per_device_train
     progress += tracker.current_epoch
 
-    log_to_api = (batch_idx % LOG_EVERY_N_BATCHES == 0
-                  or batch_idx == num_batches_per_device_train)
+    log_to_api = (batch_idx % LOG_EVERY_N_BATCHES == 0 or batch_idx == num_batches_per_device_train)  # noqa
 
     if tracker:
         tracker.record_loss(loss, output.size()[0], log_to_api=log_to_api)
@@ -66,11 +65,15 @@ def train_round(dataloader, model, optimizer, loss_function, metrics,
         metrics (list): List of metrics to track
         scheduler (`obj`:torch.optim.lr_scheduler): Learning Rate scheduler
         dtype (str): The datatype to use, one of `fp32`or `fp64`
-        scheduler_per (str): Learning Rate scheduler mode, one of `batch` or `epoch`
-        transform_target_type (str): Datatype to convert data to, default: `None`
-        use_cuda (bool): Whether to use GPU for training, default: `False`
-        max_batch_per_epoch (int): Maximum number of batches tot rain for per epoch,
-                                   default: `None` (all batches)
+        schedule_per (str): Learning Rate scheduler mode, one of `batch` or
+            `epoch`
+        transform_target_type (str): Datatype to convert data to.
+            Default: `None`
+        use_cuda (bool): Whether to use GPU for training.
+            Default: `False`
+        max_batch_per_epoch (int): Maximum number of batches tot rain for per
+            epoch.
+            Default: `None` (all batches)
         tracker (`obj`:mlbench_core.utils.Tracker): Tracker object to use.
     """
     model.train()
@@ -117,7 +120,8 @@ def train_round(dataloader, model, optimizer, loss_function, metrics,
         if tracker:
             tracker.record_batch_step('backprop')
 
-        # Aggregate gradients/parameters from all workers and apply updates to model
+        # Aggregate gradients/parameters from all workers and apply
+        # updates to model
         optimizer.step()
         if tracker:
             tracker.record_batch_step('opt_step')
@@ -145,10 +149,12 @@ def _validate(dataloader, model, loss_function, metrics,
         loss_function (`obj`:torch.nn.Module): The loss function
         metrics (list): List of metrics to track
         dtype (str): The datatype to use, one of `fp32`or `fp64`
-        transform_target_type (str): Datatype to convert data to, default: `None`
+        transform_target_type (str): Datatype to convert data to.
+            Default: `None`
         use_cuda (bool): Whether to use GPU for training, default: `False`
-        max_batch_per_epoch (int): Maximum number of batches tot rain for per epoch,
-                                   default: `None` (all batches)
+        max_batch_per_epoch (int): Maximum number of batches tot rain for
+            per epoch.
+            Default: `None` (all batches)
         """
     # Initialize the accumulators for loss and metrics
     losses = AverageMeter()
@@ -186,7 +192,7 @@ def _validate(dataloader, model, loss_function, metrics,
     return metrics_averages, loss_average
 
 
-def validation_round(dataloader, model,  loss_function, metrics,
+def validation_round(dataloader, model, loss_function, metrics,
                      run_id, rank, dtype, transform_target_type=None,
                      use_cuda=False, max_batch_per_epoch=None, tracker=None):
     """ Handles one full iteration of validation on the whole validation set.
@@ -199,12 +205,14 @@ def validation_round(dataloader, model,  loss_function, metrics,
         run_id (int): The id of the current run
         rank (int): The rank of the current worker node
         dtype (str): The datatype to use, one of `fp32`or `fp64`
-        transform_target_type (str): Datatype to convert data to, default: `None`
+        transform_target_type (str): Datatype to convert data to.
+            Default: `None`
         use_cuda (bool): Whether to use GPU for training, default: `False`
-        max_batch_per_epoch (int): Maximum number of batches tot rain for per epoch,
-                                   default: `None` (all batches)
-        tracker (`obj`:mlbench_core.utils.Tracker): Tracker object to use. Will be
-                                                    created if not supplied
+        max_batch_per_epoch (int): Maximum number of batches tot rain for per
+            epoch.
+            Default: `None` (all batches)
+        tracker (`obj`:mlbench_core.utils.Tracker): Tracker object to use.
+            Will be created if not supplied
     """
     model.eval()
 
@@ -235,7 +243,8 @@ def validation_round(dataloader, model,  loss_function, metrics,
 
         if rank == 0 and tracker:
             logger.info(
-                '{} for rank {}:(best epoch {}, current epoch {}): {:.3f}'.format(
+                '{} for rank {}:(best epoch {}, '
+                'current epoch {}): {:.3f}'.format(
                     tracker.primary_metric.name,
                     tracker.rank,
                     tracker.best_epoch,
@@ -263,27 +272,38 @@ class TrainValidation(object):
     r"""Train and validate a model.
 
     Args:
-        model (:obj:`torch.nn.Module`): a pytorch model to be trained and validated.
-        optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
+        model (:obj:`torch.nn.Module`): a pytorch model to be trained and
+            validated.
+        optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given
+            model.
         loss_function (:obj:`torch.nn.modules.loss._Loss`): loss function.
-        metrics (:obj:`list` of :obj:`mlbench_core.evaluation.pytorch.*`): metrics like TopKAccuracy.
-        scheduler (:obj:`mlbench_core.lr_scheduler.pytorch.lr.*`): a scheduler for hyperparameters.
+        metrics (:obj:`list` of :obj:`mlbench_core.evaluation.pytorch.*`):
+            metrics like TopKAccuracy.
+        scheduler (:obj:`mlbench_core.lr_scheduler.pytorch.lr.*`): a scheduler
+            for hyperparameters.
         batch_size (int): The size of batches provided by the dataloader
         train_epochs (int): The number of epochs to train for
         rank (int): The rank of the current workers
         world_size (int): The total number of workers
         run_id (str): The id of the current run
         dtype (str): The datatype to use for the dataloader data
-        validate (bool): Whether to run validation on the val dataset. Default: `True`
+        validate (bool): Whether to run validation on the val dataset.
+            Default: `True`
         schedule_per (str): When to perform a step for the lr scheduler, one of
             `epoch` or `batch`. Default: `epoch`
-        checkpoint (:obj:`Checkpointer`): Class that handles checkpointing. Default: `None`
-        transform_target_type (str): dtype to transform the target to. Not used. Default: `None`
-        average_models (bool): Whether to average models together. Default: `False`
+        checkpoint (:obj:`Checkpointer`): Class that handles checkpointing.
+            Default: `None`
+        transform_target_type (str): dtype to transform the target to.
+            Not used. Default: `None`
+        average_models (bool): Whether to average models together.
+            Default: `False`
         use_cuda (bool): Whether to train on GPU or not. Default: `False`
-        max_batch_per_epoch (int): Maximum number of batches per epoch. Whole dataset
-            is used if not specified. Default: `None`
-        tracker (:obj:`mlbench_core.utils.Tracker`): Tracker for the controlflow. Default: `None`
+        max_batch_per_epoch (int): Maximum number of batches per epoch.
+            Whole dataset is used if not specified.
+            Default: `None`
+        tracker (:obj:`mlbench_core.utils.Tracker`): Tracker for the
+            controlflow.
+            Default: `None`
     """
 
     def __init__(self, model, optimizer, loss_function, metrics, scheduler,
@@ -321,8 +341,10 @@ class TrainValidation(object):
         """ Sets the stats for the supplied dataloaders
 
         Args:
-            dataloader_train (:obj:`torch.utils.data.DataLoader`): The train set
-            dataloader_val (:obj:`torch.utils.data.DataLoader`): The validation set
+            dataloader_train (:obj:`torch.utils.data.DataLoader`): The train
+                set
+            dataloader_val (:obj:`torch.utils.data.DataLoader`): The validation
+                set
         """
         self.num_batches_per_device_train = len(dataloader_train)
         self.num_batches_per_device_val = len(dataloader_val)
@@ -336,17 +358,24 @@ class TrainValidation(object):
         `dataloader_val` and `dataloader_val_fn` are mutually exclusive.
 
         Args:
-            dataloader_train (:obj:`torch.utils.data.DataLoader`): A dataloader for the train set.
+            dataloader_train (:obj:`torch.utils.data.DataLoader`): A dataloader
+                for the train set.
                 Default: `None`
-            dataloader_val (:obj:`torch.utils.data.DataLoader`): A dataloader for the val set.
+            dataloader_val (:obj:`torch.utils.data.DataLoader`): A dataloader
+                for the val set.
                 Default: `None`
-            dataloader_train_fn (:func:`Function`): A function returning a :obj:`torch.utils.data.DataLoader`
-                for the train set. Default: `None`
-            dataloader_val_fn (:func:`Function`): A function returning a :obj:`torch.utils.data.DataLoader`
-                for the val set. Default: `None`
-            resume (bool): Whether this is a resume of a previous run or not. Default: `False`
-            repartition_per_epoch (bool): Whether to repartition the dataset again every epoch.
-                Requires dataloader_train_fn and/or dataloader_val_fn to be set. Default: `False`
+            dataloader_train_fn (:func:`Function`): A function returning a
+                :obj:`torch.utils.data.DataLoader` for the train set.
+                 Default: `None`
+            dataloader_val_fn (:func:`Function`): A function returning a
+                :obj:`torch.utils.data.DataLoader` for the val set.
+                 Default: `None`
+            resume (bool): Whether this is a resume of a previous run or not.
+                Default: `False`
+            repartition_per_epoch (bool): Whether to repartition the dataset
+                again every epoch. Requires dataloader_train_fn and/or
+                dataloader_val_fn to be set.
+                 Default: `False`
         """
 
         if not dataloader_train_fn and not dataloader_train:

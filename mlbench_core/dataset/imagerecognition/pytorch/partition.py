@@ -6,6 +6,8 @@ import numpy as np
 import torch
 import torch.distributed as dist
 
+DEFAULT_SIZES = [0.7, 0.2, 0.1]
+
 
 class Partition(object):
     """Dataset-like object, but only access a subset of it.
@@ -57,7 +59,7 @@ class DataPartitioner(Partitioner):
             splits. Should sum up to 1.0. (Default = [0.7, 0.2, 0.1])
     """
 
-    def __init__(self, data, rank, shuffle, sizes=[0.7, 0.2, 0.1]):
+    def __init__(self, data, rank, shuffle, sizes=DEFAULT_SIZES):
         # prepare info.
         self.data = data
         self.data_size = len(self.data)

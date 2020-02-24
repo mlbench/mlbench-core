@@ -1,11 +1,10 @@
 """Evaluate training/validation set using models in checkpoints"""
 import logging
 
+import torch
 from mlbench_core.utils.pytorch.distributed import AllReduceAggregation
 from mlbench_core.utils.pytorch.distributed import global_average
 from mlbench_core.utils.pytorch.helpers import iterate_dataloader
-
-import torch
 
 logger = logging.getLogger('mlbench')
 
@@ -21,11 +20,12 @@ class CheckpointsEvaluationControlFlow(object):
         model (:obj:`torch.optim.Optimizer`): An optimizer for the given model.
         epochs (int): Number of epochs to traing.
         loss_function (:obj:`torch.nn.modules.loss._Loss`): loss function.
-        metrics (:obj:`list` of :obj:`mlbench_core.evaluation.pytorch.*`): metrics like TopKAccuracy.
+        metrics (:obj:`list` of :obj:`mlbench_core.evaluation.pytorch.*`):
+            metrics like TopKAccuracy.
         use_cuda (bool): Whether to train on GPU or not. Default: `False`
         dtype (str): The datatype to use for the dataloader data
-        max_batch_per_epoch (int): Maximum number of batches per epoch. Whole dataset
-        is used if not specified. Default: `None`
+        max_batch_per_epoch (int): Maximum number of batches per epoch.
+            Whole dataset is used if not specified. Default: `None`
     """
 
     def __init__(self,
@@ -73,11 +73,12 @@ class CheckpointsEvaluationControlFlow(object):
     def evaluate_by_epochs(self, dataloader):
         """Evaluate dataset using the averaged models.
 
-        In each epoch each process loads models and averages them. The averaged model is
-        used to evaluate train / validation dataset.
+        In each epoch each process loads models and averages them. The averaged
+        model is used to evaluate train / validation dataset.
 
         Args:
-            dataloader (:obj:`torch.utils.data.DataLoader`): The dataset to be evaluated.
+            dataloader (:obj:`torch.utils.data.DataLoader`): The dataset to be
+                evaluated.
 
         Returns:
             list: list of stats of models in each epoch.
@@ -108,14 +109,15 @@ class CheckpointsEvaluationControlFlow(object):
                     stats['total_loss'] += self.loss_function(
                         output, target) * count
                     for metric in self.metrics:
-                        stats['total_' +
-                              metric.name] += metric(output, target) * count
+                        stats['total_' + metric.name] += \
+                            metric(output, target) * count
 
                     logger.info("E{:4}B{:4}: total loss={:10.3e}"
                                 .format(
                                     epoch,
                                     i,
-                                    stats['total_loss'] / stats['count']))
+                                    stats['total_loss'] / stats['count'])
+                                )
 
             # Keep globally averaged loss / metrics, etc.
             stats["loss"] = global_average(

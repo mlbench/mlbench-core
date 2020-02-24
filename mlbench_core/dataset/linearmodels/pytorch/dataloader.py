@@ -1,31 +1,38 @@
-import lmdb
-import os
-import torch.utils.data
-import pickle
-import numpy as np
-import math
 import logging
+import os
+import pickle
 
+import cv2
+import lmdb
+import numpy as np
+import torch.utils.data
+from PIL import Image
+from scipy.sparse import coo_matrix, csr_matrix
 from tensorpack.utils.compatible_serialize import loads
-from tensorpack.dataflow.serialize import LMDBSerializer
 
 from .partition import DataPartitioner
 
 _logger = logging.getLogger('mlbench')
 
 _LIBSVM_DATASETS = [
-    {'name': 'webspam', 'n_samples': 350000, 'n_features': 16609143, 'sparse': True},
-    {'name': 'epsilon-train', 'n_samples': 400000, 'n_features': 2000, 'sparse': False},
-    {'name': 'duke-train', 'n_samples': 44, 'n_features': 7129, 'sparse': True},
-    {'name': 'australian-train', 'n_samples': 690, 'n_features': 14, 'sparse': False},
-    {'name': 'rcv1-train', 'n_samples': 677399, 'n_features': 47236, 'sparse': True},
-    {'name': 'synthetic-dense', 'n_samples': 10000, 'n_features': 100, 'sparse': False},
+    {'name': 'webspam', 'n_samples': 350000, 'n_features': 16609143,
+     'sparse': True},
+    {'name': 'epsilon-train', 'n_samples': 400000, 'n_features': 2000,
+     'sparse': False},
+    {'name': 'duke-train', 'n_samples': 44, 'n_features': 7129,
+     'sparse': True},
+    {'name': 'australian-train', 'n_samples': 690, 'n_features': 14,
+     'sparse': False},
+    {'name': 'rcv1-train', 'n_samples': 677399, 'n_features': 47236,
+     'sparse': True},
+    {'name': 'synthetic-dense', 'n_samples': 10000, 'n_features': 100,
+     'sparse': False},
 ]
 
 
 class IMDBPT(torch.utils.data.Dataset):
     """
-    LMDB Dataset loader
+    IMDB Dataset loader
 
     Args:
         root (string): Either root directory for the database files,
@@ -39,7 +46,8 @@ class IMDBPT(torch.utils.data.Dataset):
             A function/transform that takes in the target and transforms it.
     """
 
-    def __init__(self, root, transform=None, target_transform=None, is_image=True, n_features=None):
+    def __init__(self, root, transform=None, target_transform=None,
+                 is_image=True, n_features=None):
         self.n_features = n_features
         self.root = os.path.expanduser(root)
         self.transform = transform
@@ -76,7 +84,7 @@ class IMDBPT(torch.utils.data.Dataset):
                 return 0, x
 
             for ind, (from_index, to_index) in from_to_indices:
-                if from_index <= x and x < to_index:
+                if from_index <= x < to_index:
                     return ind, x - from_index
 
         return f
@@ -125,7 +133,9 @@ class LMDBPTClass(torch.utils.data.Dataset):
             A function/transform that takes in the target and transforms it.
         is_image (bool): Whether the dataset file is an image or not
     """
-    def __init__(self, root, transform=None, target_transform=None, is_image=True):
+
+    def __init__(self, root, transform=None, target_transform=None,
+                 is_image=True):
         self.root = os.path.expanduser(root)
         self.transform = transform
         self.target_transform = target_transform
@@ -193,7 +203,6 @@ class LMDBPTClass(torch.utils.data.Dataset):
 
 
 def construct_sparse_matrix(triplet, n_features):
-    from scipy.sparse import coo_matrix, csr_matrix
     data, row, col = triplet
     mat = coo_matrix((data, (row, col)), shape=(len(set(row)), n_features))
     return csr_matrix(mat)[list(set(row))]
@@ -217,15 +226,19 @@ def load_libsvm_lmdb(name, lmdb_path):
     return dataset
 
 
-def partition_dataset_by_rank(dataset, rank, world_size, distribution='uniform', shuffle=True):
-    r"""Given a dataset, partition it by a distribution and each rank takes part of data.
+def partition_dataset_by_rank(dataset, rank, world_size,
+                              distribution='uniform', shuffle=True):
+    """Given a dataset, partition it by a distribution and each rank takes
+     part of data.
 
     Args:
         dataset (:obj:`torch.utils.data.Dataset`): The dataset
         rank (int): The rank of the current worker
         world_size (int): The total number of workers
-        distribution (str): The sampling distribution to use. Default: `uniform`
-        shuffle (bool): Whether to shuffle the dataset before partitioning. Default: `True`
+        distribution (str): The sampling distribution to use.
+            Default: `uniform`
+        shuffle (bool): Whether to shuffle the dataset before partitioning.
+            Default: `True`
     """
     if distribution != 'uniform':
         raise NotImplementedError(
@@ -237,4 +250,3 @@ def partition_dataset_by_rank(dataset, rank, world_size, distribution='uniform',
     partitioned_data = partition.use(rank)
     _logger.debug("Partition dataset use {}-th.".format(rank))
     return partitioned_data
-
