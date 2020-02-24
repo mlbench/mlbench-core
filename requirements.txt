@@ -1,5 +1,5 @@
 kubernetes==7.0.0
-torch==0.4.1
+torch==1.0.0
 torchvision==0.2.1
 tensorflow==1.13.2
 dill==0.2.8.2

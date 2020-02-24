@@ -1,6 +1,6 @@
 """Utilities for measuring the performance of a model."""
 
-import math
+import torch
 
 from mlbench_core.utils import AverageMeter
 from mlbench_core.utils.pytorch.distributed import global_average
@@ -102,4 +102,4 @@ class Perplexity(object):
         Returns:
             float
         """
-        return math.exp(loss)
+        return torch.exp(loss)

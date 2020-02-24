@@ -1,10 +1,13 @@
 r"""Partition PyTorch datasets."""
 # -*- coding: utf-8 -*-
 import random
+import logging
 
 import numpy as np
 import torch
 import torch.distributed as dist
+
+_logger = logging.getLogger('mlbench')
 
 
 class Partition(object):

@@ -8,8 +8,6 @@ from spacy.symbols import ORTH
 import torchtext
 import torchtext.datasets as nlp_datasets
 
-_logger = logging.getLogger('mlbench')
-
 
 def _get_text():
     spacy_en = spacy.load("en")
@@ -24,7 +22,7 @@ def _get_text():
     return TEXT
 
 
-class Wikitext2(nlp_datasets.Wikitext2):
+class Wikitext2(nlp_datasets.WikiText2):
     """Wikitext2 Dataset.
 
     Loads Wikitext2 dataset.
@@ -35,15 +33,19 @@ class Wikitext2(nlp_datasets.Wikitext2):
         train (bool): Whether to get the train or validation set (default=True)
     """
 
-    def __init__(self, root, train=True):
+    def __init__(self, root, text_field=None, download=True, train=True):
         self.train = train
-        self.text_field = _get_text()
+
+        self.text_field = text_field
+        if not self.text_field:
+            self.text_field = _get_text()
+
         self.root = root
 
-        path = root
-
-        if not os.path.exists(root) or not os.listdir(root):
+        if download:
             path = self.download(root)
+        else:
+            path = os.path.join(root, 'wikitext-2/wikitext-2')
 
         if train:
             path = os.path.join(path, 'wiki.train.tokens')
