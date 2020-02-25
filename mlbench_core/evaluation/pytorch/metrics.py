@@ -1,5 +1,7 @@
 """Utilities for measuring the performance of a model."""
 
+import torch
+
 from mlbench_core.utils import AverageMeter
 from mlbench_core.utils.pytorch.distributed import global_average
 
@@ -21,10 +23,11 @@ class TopKAccuracy(object):
         self.topk = topk
         self.reset()
 
-    def __call__(self, output, target):
+    def __call__(self, loss, output, target):
         """Computes the precision@k for the specified values of k
 
         Args:
+            loss (:obj:`torch.Tensor`): Not used for accuracy
             output (:obj:`torch.Tensor`): Predictions of a model
             target (:obj:`torch.Tensor`): Target labels
 
@@ -63,3 +66,40 @@ class TopKAccuracy(object):
     def name(self):
         """str: Name of this metric."""
         return "Prec@{}".format(self.topk)
+
+
+class Perplexity(object):
+    """Language Model Perplexity score."""
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        """Reset metric tracking stats"""
+        self.ppl = AverageMeter()
+
+    def update(self, ppl, size):
+        """Add new measurement to running stats"""
+        self.ppl.update(ppl, size)
+
+    def average(self):
+        """Average stats."""
+        return global_average(self.ppl.sum, self.ppl.count)
+
+    @property
+    def name(self):
+        """str: Name of this metric."""
+        return "Perplexity"
+
+    def __call__(self, loss, output, target):
+        """Computes the perplexity
+
+        Args:
+            loss (:obj:`torch.Tensor`): The loss of a language model.
+            output (:obj:`torch.Tensor`): Not Used
+            target (:obj:`torch.Tensor`): Not Used
+
+        Returns:
+            float
+        """
+        return torch.exp(loss)
