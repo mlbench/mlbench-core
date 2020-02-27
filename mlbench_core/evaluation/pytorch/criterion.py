@@ -40,8 +40,9 @@ class BCELossRegularized(_WeightedLoss):
         self.model = model
 
     def forward(self, input_, target):
-        output = F.binary_cross_entropy(
-            input_, target, weight=self.weight, reduction=self.reduction)
+        output = F.binary_cross_entropy(input_, target.float(),
+                                        weight=self.weight,
+                                        reduction=self.reduction)
         l2_loss = sum(param.norm(2)**2 for param in self.model.parameters())
         output += self.l2 / 2 * l2_loss
         l1_loss = sum(param.norm(1) for param in self.model.parameters())
