@@ -7,8 +7,8 @@ import lmdb
 import numpy as np
 import torch.utils.data
 from PIL import Image
+from mlbench_core.dataset.util.tools import progress_download
 from tensorpack.utils.compatible_serialize import loads
-from mlbench_core.dataset.util.pytorch import libsvm
 
 _logger = logging.getLogger('mlbench')
 
@@ -16,12 +16,18 @@ _logger = logging.getLogger('mlbench')
 _LIBSVM_DATASETS = [
     {'name': 'australian_train', 'n_samples': 690, 'n_features': 14,
      'sparse': False},
-    {'name': 'duke_train', 'n_samples': 44, 'n_features': 7129,
+    {'name': 'duke_train', 'n_samples': 38, 'n_features': 7129,
+     'sparse': True},
+    {'name': 'duke_test', 'n_samples': 4, 'n_features': 7129,
      'sparse': True},
     {'name': 'epsilon_train', 'n_samples': 400000, 'n_features': 2000,
-     'sparse': False},
+     'sparse': False,
+     'url': 'https://storage.googleapis.com/mlbench-datasets/libsvm'
+            '/epsilon_train.lmdb'},
     {'name': 'epsilon_test', 'n_samples': 100000, 'n_features': 2000,
-     'sparse': False},
+     'sparse': False,
+     'url': 'https://storage.googleapis.com/mlbench-datasets/libsvm'
+            '/epsilon_test.lmdb'},
     {'name': 'rcv1_train', 'n_samples': 677399, 'n_features': 47236,
      'sparse': True},
     {'name': 'synthetic_dense', 'n_samples': 10000, 'n_features': 100,
@@ -235,11 +241,20 @@ def load_and_download_lmdb(name, data_type, dataset_dir):
     full_name = "{}_{}".format(name, data_type)
     stats = get_dataset_info(full_name)
     lmdb_path = os.path.join(dataset_dir, "{}_{}.lmdb".format(name, data_type))
+    # compressed_path = lmdb_path + ".bz2"
 
     if not (os.path.exists(lmdb_path) and os.path.isfile(lmdb_path)):
-        libsvm.generate_lmdb_from_libsvm(name, data_type,
-                                         dataset_dir,
-                                         stats['sparse'])
+        if 'url' not in stats:
+            raise FileNotFoundError(
+                "Could not download LIBSVM dataset {}".format(full_name))
+        _logger.info("Downloading dataset {}".format(full_name))
+
+        progress_download(stats['url'], dest=lmdb_path)
+
+        # _logger.info("Extracting {} to {}".format(compressed_path,
+        #                                           lmdb_path))
+        #
+        # extract_bz2_file(compressed_path, lmdb_path, delete=True)
     dataset = LMDBDataset(lmdb_path, transform=maybe_transform_sparse(stats),
                           target_transform=None, is_image=False)
     return dataset

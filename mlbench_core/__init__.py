@@ -2,7 +2,7 @@
 
 """Top-level package for mlbench_core."""
 
-__version__ = '2.3.0-dev24'
+__version__ = '2.3.0-dev33'
 
 from . import api
 from . import controlflow
