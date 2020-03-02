@@ -2,6 +2,7 @@ import torch
 from mlbench_core.evaluation.pytorch.metrics import *
 import numpy as np
 
+
 def test_f1_score():
     output = torch.tensor([1, 1, 1, 1, 1]).reshape(5, 1)
     target = torch.tensor([0, 0, 0, 0, 0]).reshape(5, 1)
@@ -20,3 +21,14 @@ def test_f1_score():
     score = f1(None, output, target)
     expected_score = 2 * (precision * recall) / (precision + recall)
     np.testing.assert_almost_equal(score.item(), expected_score)
+
+
+def test_accuracy():
+    output = torch.tensor([1, 1, 0, 1, 0]).reshape(5, 1)
+    target = torch.tensor([0, 1, 0, 0, 1]).reshape(5, 1)
+
+    acc = Accuracy()
+    expected_score = 2 / 5
+
+    actual_score = acc(None, output, target)
+    assert actual_score == expected_score
