@@ -161,3 +161,21 @@ class F1Score(MLBenchMetric):
     @property
     def name(self):
         return "F1-Score"
+
+
+class Accuracy(MLBenchMetric):
+
+    def __init__(self, threshold=0.5):
+        super(Accuracy, self).__init__()
+        self.threshold = threshold
+
+    def __call__(self, loss, output, target):
+        y_pred = torch.ge(output.float(), self.threshold).float()
+        y_true = target.float()
+
+        num_correct = (y_pred == y_true).sum().float()
+        return num_correct / y_true.shape[0]
+
+    @property
+    def name(self):
+        return "Accuracy"

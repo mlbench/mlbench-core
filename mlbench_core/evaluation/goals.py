@@ -13,14 +13,17 @@ def _add_detailed_times(result, tracker):
 
 
 def task1_time_to_accuracy_light_goal(metric_name, value, tracker):
-    """ Accuracy over Time target for benchmark task 1: Image classification (Light)
+    """ Accuracy over Time target for benchmark task 1: Image classification
+    (Light)
 
     Light target is 70% accuracy
 
     Args:
-        metric_name(str): Name of the metric to test the value for, only "val_Prec@1" is counted
+        metric_name(str): Name of the metric to test the value for,
+        only "val_Prec@1" is counted
         value (float): Metric value to check
-        tracker (`obj`:mlbench_core.utils.tracker.Tracker): Tracker object used for the current run
+        tracker (`obj`:mlbench_core.utils.tracker.Tracker): Tracker object
+        used for the current run
     Return:
         result (str) or `None` if target is not reached
     """
@@ -30,7 +33,7 @@ def task1_time_to_accuracy_light_goal(metric_name, value, tracker):
     if value >= 70:
         duration = tracker.get_total_train_time()
 
-        result = "70% Top 1 Validation Accuracy reached in {0:.3f} seconds"\
+        result = "70% Top 1 Validation Accuracy reached in {0:.3f} seconds" \
             .format(duration)
 
         result = _add_detailed_times(result, tracker)
@@ -46,9 +49,11 @@ def task1_time_to_accuracy_goal(metric_name, value, tracker):
     Target is 80% accuracy
 
     Args:
-        metric_name(str): Name of the metric to test the value for, only "val_Prec@1" is counted
+        metric_name(str): Name of the metric to test the value for,
+        only "val_Prec@1" is counted
         value (float): Metric value to check
-        tracker (`obj`:mlbench_core.utils.tracker.Tracker): Tracker object used for the current run
+        tracker (`obj`:mlbench_core.utils.tracker.Tracker): Tracker object
+        used for the current run
     Return:
         result (str) or `None` if target is not reached
     """
@@ -57,7 +62,7 @@ def task1_time_to_accuracy_goal(metric_name, value, tracker):
 
     if value >= 80:
         duration = tracker.get_total_train_time()
-        result = "80% Top 1 Validation Accuracy reached in {0:.3f} seconds"\
+        result = "80% Top 1 Validation Accuracy reached in {0:.3f} seconds" \
             .format(duration)
 
         result = _add_detailed_times(result, tracker)
@@ -73,9 +78,11 @@ def task3_time_to_preplexity_goal(metric_name, value, tracker):
     Target is a perplexity of 50
 
     Args:
-        metric_name(str): Name of the metric to test the value for, only "val_Prec@1" is counted
+        metric_name(str): Name of the metric to test the value for,
+        only "val_Prec@1" is counted
         value (float): Metric value to check
-        tracker (`obj`:mlbench_core.utils.tracker.Tracker): Tracker object used for the current run
+        tracker (`obj`:mlbench_core.utils.tracker.Tracker): Tracker object
+        used for the current run
     Return:
         result (str) or `None` if target is not reached
     """
@@ -85,7 +92,7 @@ def task3_time_to_preplexity_goal(metric_name, value, tracker):
 
     if value <= 50:
         duration = tracker.get_total_train_time()
-        result = "Validation perplexity of 50 reached in {0:.3f} seconds"\
+        result = "Validation perplexity of 50 reached in {0:.3f} seconds" \
             .format(duration)
 
         result = _add_detailed_times(result, tracker)
@@ -101,9 +108,11 @@ def task3_time_to_preplexity_light_goal(metric_name, value, tracker):
     Target is a perplexity of 50
 
     Args:
-        metric_name(str): Name of the metric to test the value for, only "val_Prec@1" is counted
+        metric_name(str): Name of the metric to test the value for,
+        only "val_Prec@1" is counted
         value (float): Metric value to check
-        tracker (`obj`:mlbench_core.utils.tracker.Tracker): Tracker object used for the current run
+        tracker (`obj`:mlbench_core.utils.tracker.Tracker): Tracker object
+        used for the current run
     Return:
         result (str) or `None` if target is not reached
     """
@@ -113,7 +122,67 @@ def task3_time_to_preplexity_light_goal(metric_name, value, tracker):
 
     if value <= 100:
         duration = tracker.get_total_train_time()
-        result = "Validation perplexity of 50 reached in {0:.3f} seconds"\
+        result = "Validation perplexity of 50 reached in {0:.3f} seconds" \
+            .format(duration)
+
+        result = _add_detailed_times(result, tracker)
+
+        return result
+
+    return None
+
+
+def task2_time_to_accuracy_goal(metric_name, value, tracker):
+    """Time to perplexity goal for benchmark task 2: Linear binary classifier
+
+    Target is an accuracy of 89%
+
+    Args:
+        metric_name(str): Name of the metric to test the value for, only
+            "val_global_Accuracy@0" is counted
+        value (float): Metric value to check
+        tracker (`obj`:mlbench_core.utils.tracker.Tracker): Tracker object
+            used for the current run
+    Return:
+        result (str) or `None` if target is not reached
+    """
+
+    if metric_name != "val_global_Accuracy":
+        return None
+
+    if value * 100 >= 0.89:
+        duration = tracker.get_total_train_time()
+        result = "Validation perplexity of 50 reached in {0:.3f} seconds" \
+            .format(duration)
+
+        result = _add_detailed_times(result, tracker)
+
+        return result
+
+    return None
+
+
+def task2_time_to_accuracy_light_goal(metric_name, value, tracker):
+    """Time to perplexity goal for benchmark task 2: Linear binary classifier
+
+    Target is an accuracy of 80%
+
+    Args:
+        metric_name(str): Name of the metric to test the value for, only
+            "val_global_Accuracy@0" is counted
+        value (float): Metric value to check
+        tracker (`obj`:mlbench_core.utils.tracker.Tracker): Tracker object
+            used for the current run
+    Return:
+        result (str) or `None` if target is not reached
+    """
+
+    if metric_name != "val_global_Accuracy":
+        return None
+
+    if value * 100 >= 0.80:
+        duration = tracker.get_total_train_time()
+        result = "Validation perplexity of 50 reached in {0:.3f} seconds" \
             .format(duration)
 
         result = _add_detailed_times(result, tracker)
