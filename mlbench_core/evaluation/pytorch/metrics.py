@@ -67,8 +67,8 @@ class TopKAccuracy(MLBenchMetric):
         output = self._preprocess_output(output)
 
         _, pred = output.topk(self.topk, 1, True, True)
-        pred = pred.t()
-        correct = pred.eq(target.view(1, -1).expand_as(pred))
+        pred = pred.t().float()
+        correct = pred.eq(target.view(1, -1).expand_as(pred).float())
         correct_k = correct[:self.topk].view(-1).float().sum(0, keepdim=True)
         return correct_k.mul_(100.0 / batch_size)
 
