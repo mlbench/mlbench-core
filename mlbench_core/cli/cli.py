@@ -659,7 +659,7 @@ def write_config(config):
 def setup_client_from_config():
     config = get_config()
 
-    provider = config.get('general', 'provider', fallback=None)
+    provider = config.get("general", "provider", fallback=None)
 
     if not provider:
         return False

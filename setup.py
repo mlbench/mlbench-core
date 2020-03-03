@@ -12,23 +12,24 @@ with open("CHANGELOG.md") as history_file:
     history = history_file.read()
 
 requirements = [
-    'kubernetes>=9.0.0',
-    'dill>=0.2.8.2',
-    'deprecation>=2.0.6',
-    'Click>=6.0',
-    'tabulate>=0.8.5',
-    'dill==0.2.8.2',
-    'grpcio==1.26.0',
-    'pyhelm==2.14.4',
-    'appdirs==1.4.3',
-    'google-api-python-client==1.7.11',
-    'google-auth==1.5.1',
-    'google-cloud==0.34.0',
-    'google-cloud-container==0.3.0',
-    'oauth2client==4.1.2',
-    'torchtext==0.5.0',
-    'spacy==2.2.3',
-    'sklearn==0.0']
+    "kubernetes>=9.0.0",
+    "dill>=0.2.8.2",
+    "deprecation>=2.0.6",
+    "Click>=6.0",
+    "tabulate>=0.8.5",
+    "dill==0.2.8.2",
+    "grpcio==1.26.0",
+    "pyhelm==2.14.4",
+    "appdirs==1.4.3",
+    "google-api-python-client==1.7.11",
+    "google-auth==1.5.1",
+    "google-cloud==0.34.0",
+    "google-cloud-container==0.3.0",
+    "oauth2client==4.1.2",
+    "torchtext==0.5.0",
+    "spacy==2.2.3",
+    "sklearn==0.0",
+]
 
 setup_requirements = [
     "pytest-runner",
@@ -71,7 +72,7 @@ setup(
     setup_requires=setup_requirements,
     test_suite="tests",
     tests_require=test_requirements,
-    url='https://github.com/mlbench/mlbench_core',
-    version='2.3.0-dev44',
+    url="https://github.com/mlbench/mlbench_core",
+    version="2.3.0-dev44",
     zip_safe=False,
 )

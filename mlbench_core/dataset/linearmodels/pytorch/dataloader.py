@@ -14,26 +14,33 @@ _logger = logging.getLogger("mlbench")
 
 # All available datasets
 _LIBSVM_DATASETS = [
-    {'name': 'australian_train', 'n_samples': 690, 'n_features': 14,
-     'sparse': False},
-    {'name': 'duke_train', 'n_samples': 38, 'n_features': 7129,
-     'sparse': True},
-    {'name': 'duke_test', 'n_samples': 4, 'n_features': 7129,
-     'sparse': True},
-    {'name': 'epsilon_train', 'n_samples': 400000, 'n_features': 2000,
-     'sparse': False,
-     'url': 'https://storage.googleapis.com/mlbench-datasets/libsvm'
-            '/epsilon_train.lmdb'},
-    {'name': 'epsilon_test', 'n_samples': 100000, 'n_features': 2000,
-     'sparse': False,
-     'url': 'https://storage.googleapis.com/mlbench-datasets/libsvm'
-            '/epsilon_test.lmdb'},
-    {'name': 'rcv1_train', 'n_samples': 677399, 'n_features': 47236,
-     'sparse': True},
-    {'name': 'synthetic_dense', 'n_samples': 10000, 'n_features': 100,
-     'sparse': False},
-    {'name': 'webspam_train', 'n_samples': 350000, 'n_features': 16609143,
-     'sparse': True}
+    {"name": "australian_train", "n_samples": 690, "n_features": 14, "sparse": False},
+    {"name": "duke_train", "n_samples": 38, "n_features": 7129, "sparse": True},
+    {"name": "duke_test", "n_samples": 4, "n_features": 7129, "sparse": True},
+    {
+        "name": "epsilon_train",
+        "n_samples": 400000,
+        "n_features": 2000,
+        "sparse": False,
+        "url": "https://storage.googleapis.com/mlbench-datasets/libsvm"
+        "/epsilon_train.lmdb",
+    },
+    {
+        "name": "epsilon_test",
+        "n_samples": 100000,
+        "n_features": 2000,
+        "sparse": False,
+        "url": "https://storage.googleapis.com/mlbench-datasets/libsvm"
+        "/epsilon_test.lmdb",
+    },
+    {"name": "rcv1_train", "n_samples": 677399, "n_features": 47236, "sparse": True},
+    {"name": "synthetic_dense", "n_samples": 10000, "n_features": 100, "sparse": False},
+    {
+        "name": "webspam_train",
+        "n_samples": 350000,
+        "n_features": 16609143,
+        "sparse": True,
+    },
 ]
 
 
@@ -48,8 +55,15 @@ class LMDBDataset(torch.utils.data.Dataset):
             A function/transform that takes in the target and transforms it.
     """
 
-    def __init__(self, name, data_type, root,
-                 is_image=False, target_transform=None, download=True):
+    def __init__(
+        self,
+        name,
+        data_type,
+        root,
+        is_image=False,
+        target_transform=None,
+        download=True,
+    ):
 
         root, self.transform = maybe_download_lmdb(name, data_type, root)
         self.root = os.path.expanduser(root)
@@ -59,9 +73,14 @@ class LMDBDataset(torch.utils.data.Dataset):
         # for each class, create an LSUNClassDataset
         self.dbs = []
         for lmdb_file in self.lmdb_files:
-            self.dbs.append(LMDBPTClass(
-                root=lmdb_file, transform=self.transform,
-                target_transform=target_transform, is_image=is_image))
+            self.dbs.append(
+                LMDBPTClass(
+                    root=lmdb_file,
+                    transform=self.transform,
+                    target_transform=target_transform,
+                    is_image=is_image,
+                )
+            )
 
         # build up indices.
         self.indices = np.cumsum([len(db) for db in self.dbs])
@@ -136,8 +155,7 @@ class LMDBPTClass(torch.utils.data.Dataset):
         is_image (bool): Whether the dataset file is an image or not
     """
 
-    def __init__(self, root, transform=None, target_transform=None,
-                 is_image=True):
+    def __init__(self, root, transform=None, target_transform=None, is_image=True):
         self.root = os.path.expanduser(root)
         self.transform = transform
         self.target_transform = target_transform
@@ -247,11 +265,12 @@ def maybe_download_lmdb(name, data_type, dataset_dir):
     lmdb_path = os.path.join(dataset_dir, "{}_{}.lmdb".format(name, data_type))
 
     if not (os.path.exists(lmdb_path) and os.path.isfile(lmdb_path)):
-        if 'url' not in stats:
+        if "url" not in stats:
             raise FileNotFoundError(
-                "Could not download LIBSVM dataset {}".format(full_name))
+                "Could not download LIBSVM dataset {}".format(full_name)
+            )
         _logger.info("Downloading dataset {}".format(full_name))
 
-        progress_download(stats['url'], dest=lmdb_path)
+        progress_download(stats["url"], dest=lmdb_path)
 
     return lmdb_path, maybe_transform_sparse(stats)

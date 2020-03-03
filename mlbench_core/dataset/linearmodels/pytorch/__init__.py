@@ -1,3 +1,3 @@
 from .dataloader import LMDBDataset
 
-__all__ = ['LMDBDataset']
+__all__ = ["LMDBDataset"]

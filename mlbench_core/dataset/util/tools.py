@@ -16,9 +16,9 @@ def progress_download(url, dest):
     def _progress(count, block_size, total_size):
         percentage = float(count * block_size) / float(total_size) * 100.0
         if 0 <= math.floor(percentage % 10) <= 0.2:
-            sys.stdout.write('\r>> Downloading %s %.1f%%' % (
-                os.path.basename(dest), percentage
-            ))
+            sys.stdout.write(
+                "\r>> Downloading %s %.1f%%" % (os.path.basename(dest), percentage)
+            )
             sys.stdout.flush()
 
     urlretrieve(url, dest, _progress)
@@ -36,9 +36,9 @@ def extract_bz2_file(source, dest, delete=True):
     """
     assert source.endswith(".bz2"), "Extracting non bz2 archive"
 
-    with open(dest, 'wb') as d, open(source, 'rb') as s:
+    with open(dest, "wb") as d, open(source, "rb") as s:
         decompressor = bz2.BZ2Decompressor()
-        for data in iter(lambda: s.read(1000 * 1024), b''):
+        for data in iter(lambda: s.read(1000 * 1024), b""):
             d.write(decompressor.decompress(data))
 
     if delete:
@@ -54,9 +54,9 @@ def compress_to_bz2_file(source, delete=True):
     """
 
     dest = source + ".bz2"
-    with open(source, 'rb') as s, open(dest, 'wb') as d:
+    with open(source, "rb") as s, open(dest, "wb") as d:
         compressor = bz2.BZ2Compressor()
-        for data in iter(lambda: s.read(1000 * 1024), b''):
+        for data in iter(lambda: s.read(1000 * 1024), b""):
             d.write(compressor.compress(data))
 
     if delete:

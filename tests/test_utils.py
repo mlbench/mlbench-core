@@ -102,5 +102,4 @@ def test_tracker_goal_times(mocker):
         tracker.record_stat("global_Prec@1", 70, log_to_api=True)
 
         assert tracker.goal_reached
-        assert any(filter(lambda c: c[1][3] == 'TaskResult',
-                          patched.method_calls))
+        assert any(filter(lambda c: c[1][3] == "TaskResult", patched.method_calls))

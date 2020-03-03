@@ -24,8 +24,7 @@ def test_f1_score():
 
 
 def test_top1_accuracy():
-    output_1 = torch.tensor([[0, 1], [0, 1], [1, 0], [0, 1], [1, 0]]) \
-        .reshape(5, 2)
+    output_1 = torch.tensor([[0, 1], [0, 1], [1, 0], [0, 1], [1, 0]]).reshape(5, 2)
     output_2 = torch.tensor([1, 1, 0, 1, 0]).reshape(5, 1)
     target = torch.tensor([0, 1, 0, 0, 1]).reshape(5, 1)
 
