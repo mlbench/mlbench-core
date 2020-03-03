@@ -1,5 +1,5 @@
 import torch
-from mlbench_core.evaluation.pytorch.metrics import *
+from mlbench_core.evaluation.pytorch.metrics import F1Score, TopKAccuracy
 import numpy as np
 
 
@@ -23,12 +23,17 @@ def test_f1_score():
     np.testing.assert_almost_equal(score.item(), expected_score)
 
 
-def test_accuracy():
-    output = torch.tensor([1, 1, 0, 1, 0]).reshape(5, 1)
+def test_top1_accuracy():
+    output_1 = torch.tensor([[0, 1], [0, 1], [1, 0], [0, 1], [1, 0]]) \
+        .reshape(5, 2)
+    output_2 = torch.tensor([1, 1, 0, 1, 0]).reshape(5, 1)
     target = torch.tensor([0, 1, 0, 0, 1]).reshape(5, 1)
 
-    acc = Accuracy()
+    acc = TopKAccuracy()
     expected_score = (2 / 5) * 100
 
-    actual_score = acc(None, output, target)
-    assert actual_score == expected_score
+    actual_score_1 = acc(None, output_1, target)
+    actual_score_2 = acc(None, output_2, target)
+
+    assert actual_score_1 == expected_score
+    assert actual_score_2 == expected_score
