@@ -6,7 +6,7 @@
 import datetime
 
 from freezegun import freeze_time
-from mlbench_core.evaluation.goals import time_to_accuracy_goal
+from mlbench_core.evaluation.goals import task1_time_to_accuracy_light_goal
 from mlbench_core.evaluation.pytorch.metrics import TopKAccuracy
 from mlbench_core.utils import Tracker
 
@@ -21,7 +21,7 @@ def test_tracker_goal(mocker):
     patched = mocker.patch('mlbench_core.utils.tracker.LogMetrics')
 
     metric = TopKAccuracy(1)
-    tracker = Tracker([metric], 1, 0, time_to_accuracy_goal(70))
+    tracker = Tracker([metric], 1, 0, task1_time_to_accuracy_light_goal())
 
     tracker.start()
 
@@ -55,7 +55,7 @@ def test_tracker_goal_times(mocker):
     patched = mocker.patch('mlbench_core.utils.tracker.LogMetrics')
 
     metric = TopKAccuracy(1)
-    tracker = Tracker([metric], 1, 0, time_to_accuracy_goal(70))
+    tracker = Tracker([metric], 1, 0, task1_time_to_accuracy_light_goal())
 
     tracker.start()
 

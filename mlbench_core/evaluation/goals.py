@@ -31,19 +31,35 @@ def time_to_accuracy_goal(threshold):
     return _time_to_accuracy_goal
 
 
+def task1_time_to_accuracy_goal():
+    """ Accuracy over Time target for benchmark task 1: Image classification
+
+    Target is 80% accuracy
+
+    Return:
+        func: time_time_to_accuracy_goal with threshold = 80
+    """
+    return time_to_accuracy_goal(80)
+
+
+def task1_time_to_accuracy_light_goal():
+    """ Accuracy over Time target for benchmark task 1: Image classification
+    (Light)
+
+    Light target is 70% accuracy
+
+    Return:
+        func: time_time_to_accuracy_goal with threshold = 70
+    """
+    return time_to_accuracy_goal(70)
+
 def task2_time_to_accuracy_goal():
     """Time to accuracy goal for benchmark task 2: Linear binary classifier
 
     Target is an accuracy of 89%
 
-    Args:
-        metric_name(str): Name of the metric to test the value for, only
-            "val_global_Accuracy@0" is counted
-        value (float): Metric value to check
-        tracker (`obj`:mlbench_core.utils.tracker.Tracker): Tracker object
-            used for the current run
     Return:
-        result (str) or `None` if target is not reached
+        func: time_time_to_accuracy_goal with threshold = 89
     """
     return time_to_accuracy_goal(89)
 
@@ -53,14 +69,8 @@ def task2_time_to_accuracy_light_goal():
 
     Target is an accuracy of 80%
 
-    Args:
-        metric_name(str): Name of the metric to test the value for, only
-            "val_global_Accuracy@0" is counted
-        value (float): Metric value to check
-        tracker (`obj`:mlbench_core.utils.tracker.Tracker): Tracker object
-            used for the current run
     Return:
-        result (str) or `None` if target is not reached
+        func: time_time_to_accuracy_goal with threshold = 80
     """
     return time_to_accuracy_goal(80)
 
