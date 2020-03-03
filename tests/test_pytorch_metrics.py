@@ -28,7 +28,7 @@ def test_accuracy():
     target = torch.tensor([0, 1, 0, 0, 1]).reshape(5, 1)
 
     acc = Accuracy()
-    expected_score = 2 / 5
+    expected_score = (2 / 5) * 100
 
     actual_score = acc(None, output, target)
     assert actual_score == expected_score

@@ -150,9 +150,9 @@ def task2_time_to_accuracy_goal(metric_name, value, tracker):
     if metric_name != "val_global_Accuracy":
         return None
 
-    if value * 100 >= 0.89:
+    if value >= 89:
         duration = tracker.get_total_train_time()
-        result = "Validation perplexity of 50 reached in {0:.3f} seconds" \
+        result = "Validation accuracy of 89% reached in {0:.3f} seconds" \
             .format(duration)
 
         result = _add_detailed_times(result, tracker)
@@ -180,9 +180,9 @@ def task2_time_to_accuracy_light_goal(metric_name, value, tracker):
     if metric_name != "val_global_Accuracy":
         return None
 
-    if value * 100 >= 0.80:
+    if value >= 80:
         duration = tracker.get_total_train_time()
-        result = "Validation perplexity of 50 reached in {0:.3f} seconds" \
+        result = "Validation accuracy of 80% reached in {0:.3f} seconds" \
             .format(duration)
 
         result = _add_detailed_times(result, tracker)

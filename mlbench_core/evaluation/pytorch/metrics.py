@@ -174,7 +174,7 @@ class Accuracy(MLBenchMetric):
         y_true = target.float()
 
         num_correct = (y_pred == y_true).sum().float()
-        return num_correct / y_true.shape[0]
+        return (num_correct / y_true.shape[0]) * 100
 
     @property
     def name(self):
