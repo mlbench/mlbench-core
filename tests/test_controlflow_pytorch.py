@@ -47,41 +47,70 @@ def scheduler(optimizer):
         [5, 10],
         warmup_duration=2,
         warmup_linear_scaling=False,
-        warmup_lr=0.2)
+        warmup_lr=0.2,
+    )
 
 
 def test_instantiation(mocker, model, optimizer, loss_function, metrics, scheduler):
-    mocker.patch('mlbench_core.controlflow.pytorch.controlflow.dist')
+    mocker.patch("mlbench_core.controlflow.pytorch.controlflow.dist")
 
     batch_size = 2
 
-    tv = TrainValidation(model, optimizer, loss_function,
-                         metrics, scheduler, batch_size, 10, 0, 1, 1, 'fp32')
+    tv = TrainValidation(
+        model,
+        optimizer,
+        loss_function,
+        metrics,
+        scheduler,
+        batch_size,
+        10,
+        0,
+        1,
+        1,
+        "fp32",
+    )
 
     assert tv is not None
 
 
 def test_training(mocker, model, optimizer, loss_function, metrics, scheduler):
-    mocker.patch('mlbench_core.controlflow.pytorch.controlflow.dist')
-    mocker.patch('mlbench_core.utils.pytorch.distributed.dist')
-    mocker.patch('mlbench_core.utils.tracker.LogMetrics')
+    mocker.patch("mlbench_core.controlflow.pytorch.controlflow.dist")
+    mocker.patch("mlbench_core.utils.pytorch.distributed.dist")
+    mocker.patch("mlbench_core.utils.tracker.LogMetrics")
 
     batch_size = 2
 
-    tv = TrainValidation(model, optimizer, loss_function,
-                         metrics, scheduler, batch_size, 10, 0, 1, 1, 'fp32')
+    tv = TrainValidation(
+        model,
+        optimizer,
+        loss_function,
+        metrics,
+        scheduler,
+        batch_size,
+        10,
+        0,
+        1,
+        1,
+        "fp32",
+    )
 
     train_set = [random.random() for _ in range(100)]
     train_set = [
-        (torch.FloatTensor([n * 50 - 25]),
-         1 if (n > 0.5) != (random.random() < 0.1) else 0)
-        for n in train_set]
+        (
+            torch.FloatTensor([n * 50 - 25]),
+            1 if (n > 0.5) != (random.random() < 0.1) else 0,
+        )
+        for n in train_set
+    ]
 
     test_set = [random.random() for _ in range(10)]
     test_set = [
-        (torch.FloatTensor([n * 50 - 25]),
-         1 if (n > 0.5) != (random.random() < 0.1) else 0)
-        for n in test_set]
+        (
+            torch.FloatTensor([n * 50 - 25]),
+            1 if (n > 0.5) != (random.random() < 0.1) else 0,
+        )
+        for n in test_set
+    ]
 
     train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=False)
@@ -89,7 +118,8 @@ def test_training(mocker, model, optimizer, loss_function, metrics, scheduler):
     tv.run(
         dataloader_train_fn=lambda: train_loader,
         dataloader_val_fn=lambda: test_loader,
-        repartition_per_epoch=True)
+        repartition_per_epoch=True,
+    )
 
     assert tv.tracker.current_epoch == 10
     assert tv.tracker.best_epoch > -1

@@ -36,9 +36,15 @@ class Tracker(object):
         rank (int): The rank of this worker node
         goal(func): A task goal to check for when logging metrics"""
 
-    def __init__(self, metrics, run_id, rank, goal=None,
-                 communication_steps=['opt_step'],
-                 compute_steps=['fwd_pass', 'comp_loss', 'backprop']):
+    def __init__(
+        self,
+        metrics,
+        run_id,
+        rank,
+        goal=None,
+        communication_steps=["opt_step"],
+        compute_steps=["fwd_pass", "comp_loss", "backprop"],
+    ):
         self.batch_times = []
         self.validation_times = []
         self.epoch_stats = {}
@@ -57,8 +63,8 @@ class Tracker(object):
         self.communication_steps = []
         self.compute_steps = []
 
-        self.train_prefix = 'train_'
-        self.val_prefix = 'val_'
+        self.train_prefix = "train_"
+        self.val_prefix = "val_"
 
         self.start_time = None
         self.metrics = metrics
@@ -97,14 +103,14 @@ class Tracker(object):
 
     def validation_start(self):
         """Start validation step & timer"""
-        self.validation_times = [('start', time.time())]
+        self.validation_times = [("start", time.time())]
 
     def validation_end(self):
         """End Validation step"""
-        self.validation_times = [('end', time.time())]
+        self.validation_times = [("end", time.time())]
         self.cumulative_val_time.append(
-            self.validation_times[-1][1]
-            - self.validation_times[0][1])
+            self.validation_times[-1][1] - self.validation_times[0][1]
+        )
 
     def batch_start(self):
         """Start a training batch"""
@@ -116,33 +122,33 @@ class Tracker(object):
         self.record_batch_step("end")
 
         if len(self.batch_times) > 1:
-            metric = 'CumulativeTrainTimeEpoch'
+            metric = "CumulativeTrainTimeEpoch"
 
             self.cumulative_train_time.append(
-                self.batch_times[-1][1]
-                - self.batch_times[0][1])
+                self.batch_times[-1][1] - self.batch_times[0][1]
+            )
             time_diff = self.cumulative_train_time[-1]
 
             # batch times
             self.batch_times.sort(key=lambda x: x[1])
 
-            tracker_stats = list(zip(
-                self.batch_times[:-1],
-                self.batch_times[1:]))
+            tracker_stats = list(zip(self.batch_times[:-1], self.batch_times[1:]))
 
             if self.compute_steps:
-                compute_times = [t[1][1] - t[0][1] for t in tracker_stats
-                                 if t[1][0] in self.compute_steps]
-                self.cumulative_compute_time.append(
-                    sum(compute_times)
-                )
+                compute_times = [
+                    t[1][1] - t[0][1]
+                    for t in tracker_stats
+                    if t[1][0] in self.compute_steps
+                ]
+                self.cumulative_compute_time.append(sum(compute_times))
 
             if self.communication_steps:
-                communication_times = [t[1][1] - t[0][1] for t in tracker_stats
-                                       if t[1][0] in self.communication_steps]
-                self.cumulative_communication_time.append(
-                    sum(communication_times)
-                )
+                communication_times = [
+                    t[1][1] - t[0][1]
+                    for t in tracker_stats
+                    if t[1][0] in self.communication_steps
+                ]
+                self.cumulative_communication_time.append(sum(communication_times))
 
             if len(self.epoch_metrics[metric]) < self.current_epoch + 1:
                 self.epoch_metrics[metric].append(0.0)
@@ -160,13 +166,7 @@ class Tracker(object):
     def epoch_end(self):
         """Ends a training epoch and logs epoch metrics"""
         for k, v in dict(self.epoch_metrics).items():
-            LogMetrics.log(
-                self.run_id,
-                self.rank,
-                self.current_epoch,
-                k,
-                v[-1]
-            )
+            LogMetrics.log(self.run_id, self.rank, self.current_epoch, k, v[-1])
 
         self.current_epoch += 1
 
@@ -176,12 +176,11 @@ class Tracker(object):
         """ Resets all epoch stats"""
         stat_names = [k for k in ["loss"] + [m.name for m in self.metrics]]
 
-        stat_names = [self.train_prefix + k for k in stat_names] \
-            + [self.val_prefix + k for k in stat_names]
+        stat_names = [self.train_prefix + k for k in stat_names] + [
+            self.val_prefix + k for k in stat_names
+        ]
 
-        self.epoch_stats = {
-            k: AverageMeter()
-            for k in stat_names}
+        self.epoch_stats = {k: AverageMeter() for k in stat_names}
 
     def record_batch_step(self, name):
         """Records a specific batch step for timing (e.g. "backpropagation" or "model_forward
@@ -215,20 +214,14 @@ class Tracker(object):
         self.history.append((self.run_id, self.rank, name, value, time.time()))
 
         if log_to_api:
-            LogMetrics.log(
-                self.run_id,
-                self.rank,
-                self.current_epoch,
-                name,
-                value
-            )
+            LogMetrics.log(self.run_id, self.rank, self.current_epoch, name, value)
 
         if self.goal and self.rank == 0:
             goal_result = self.goal(name, value, self)
 
             if goal_result is not None and not self.goal_reached:
                 self.goal_reached = True
-                print('goal reached1')
+                print("goal reached1")
                 print(log_to_api)
                 print(goal_result)
 
@@ -238,7 +231,7 @@ class Tracker(object):
                         self.rank,
                         self.current_epoch,
                         "TaskResult",
-                        goal_result
+                        goal_result,
                     )
 
                     LogMetrics.log(
@@ -246,7 +239,7 @@ class Tracker(object):
                         self.rank,
                         self.current_epoch,
                         "TotalCumulativeTrainTime",
-                        self.get_total_train_time()
+                        self.get_total_train_time(),
                     )
 
                     metrics = dict(self.epoch_metrics).items()
@@ -257,8 +250,8 @@ class Tracker(object):
                             self.run_id,
                             self.rank,
                             self.current_epoch,
-                            'global_cum_{}'.format(k),
-                            sum(v)
+                            "global_cum_{}".format(k),
+                            sum(v),
                         )
 
     def record_loss(self, value, n=1, log_to_api=False):
@@ -322,26 +315,26 @@ class Tracker(object):
             prefix = self.val_prefix
 
         # loss
-        str_builder = [
-            'loss={:6.2e}'.format(self.epoch_stats[prefix + 'loss'].avg)]
+        str_builder = ["loss={:6.2e}".format(self.epoch_stats[prefix + "loss"].avg)]
 
         # metrics
         for metric in self.metrics:
-            str_builder.append("{} {:.2e}".format(
-                metric.name, self.epoch_stats[prefix + metric.name].avg))
+            str_builder.append(
+                "{} {:.2e}".format(
+                    metric.name, self.epoch_stats[prefix + metric.name].avg
+                )
+            )
 
         # batch times
         self.batch_times.sort(key=lambda x: x[1])
 
-        tracker_stats = zip(
-            self.batch_times[:-1],
-            self.batch_times[1:])
+        tracker_stats = zip(self.batch_times[:-1], self.batch_times[1:])
 
         str_builder.append(
-            ' | '.join(
-                '{} {:.1e}'.format(name, t2 - t1)
-                for (_, t1), (name, t2) in tracker_stats))
+            " | ".join(
+                "{} {:.1e}".format(name, t2 - t1)
+                for (_, t1), (name, t2) in tracker_stats
+            )
+        )
 
-        return ' | '.join(str_builder)
-
-
+        return " | ".join(str_builder)

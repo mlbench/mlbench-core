@@ -18,7 +18,7 @@ def test_tracker():
 
 
 def test_tracker_goal(mocker):
-    patched = mocker.patch('mlbench_core.utils.tracker.LogMetrics')
+    patched = mocker.patch("mlbench_core.utils.tracker.LogMetrics")
 
     metric = TopKAccuracy(1)
     tracker = Tracker([metric], 1, 0, task1_time_to_accuracy_light_goal())
@@ -29,30 +29,30 @@ def test_tracker_goal(mocker):
 
     tracker.train()
 
-    tracker.record_stat('global_Prec@1', 69, log_to_api=True)
+    tracker.record_stat("global_Prec@1", 69, log_to_api=True)
     tracker.batch_end()
 
     assert not tracker.goal_reached
 
-    tracker.record_stat('global_Prec@1', 70, log_to_api=True)
+    tracker.record_stat("global_Prec@1", 70, log_to_api=True)
     tracker.batch_end()
 
     assert not tracker.goal_reached
 
     tracker.validation()
 
-    tracker.record_stat('global_Prec@1', 69, log_to_api=True)
+    tracker.record_stat("global_Prec@1", 69, log_to_api=True)
     tracker.batch_end()
 
     assert not tracker.goal_reached
 
-    tracker.record_stat('global_Prec@1', 70, log_to_api=True)
+    tracker.record_stat("global_Prec@1", 70, log_to_api=True)
 
     assert tracker.goal_reached
 
 
 def test_tracker_goal_times(mocker):
-    patched = mocker.patch('mlbench_core.utils.tracker.LogMetrics')
+    patched = mocker.patch("mlbench_core.utils.tracker.LogMetrics")
 
     metric = TopKAccuracy(1)
     tracker = Tracker([metric], 1, 0, task1_time_to_accuracy_light_goal())
@@ -66,15 +66,15 @@ def test_tracker_goal_times(mocker):
     with freeze_time(datetime.datetime.now()) as frozen:
         tracker.batch_start()
         frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.record_batch_step('init')
+        tracker.record_batch_step("init")
         frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.record_batch_step('fwd_pass')
+        tracker.record_batch_step("fwd_pass")
         frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.record_batch_step('comp_loss')
+        tracker.record_batch_step("comp_loss")
         frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.record_batch_step('backprop')
+        tracker.record_batch_step("backprop")
         frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.record_batch_step('opt_step')
+        tracker.record_batch_step("opt_step")
         frozen.tick(delta=datetime.timedelta(seconds=0.5))
         tracker.batch_end()
 
@@ -83,15 +83,15 @@ def test_tracker_goal_times(mocker):
 
         tracker.batch_start()
         frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.record_batch_step('init')
+        tracker.record_batch_step("init")
         frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.record_batch_step('fwd_pass')
+        tracker.record_batch_step("fwd_pass")
         frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.record_batch_step('comp_loss')
+        tracker.record_batch_step("comp_loss")
         frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.record_batch_step('backprop')
+        tracker.record_batch_step("backprop")
         frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.record_batch_step('opt_step')
+        tracker.record_batch_step("opt_step")
         frozen.tick(delta=datetime.timedelta(seconds=0.5))
         tracker.batch_end()
 
@@ -99,7 +99,7 @@ def test_tracker_goal_times(mocker):
         assert abs(tracker.get_total_compute_time() - 3.0) < 0.01
 
         tracker.validation()
-        tracker.record_stat('global_Prec@1', 70, log_to_api=True)
+        tracker.record_stat("global_Prec@1", 70, log_to_api=True)
 
         assert tracker.goal_reached
         assert any(filter(lambda c: c[1][3] == 'TaskResult',

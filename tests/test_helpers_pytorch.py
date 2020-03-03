@@ -8,7 +8,16 @@ import time
 import itertools
 import torch
 
-from mlbench_core.utils.pytorch.helpers import Timeit, maybe_range, update_best_runtime_metric, convert_dtype, config_pytorch, config_path, iterate_dataloader, log_metrics
+from mlbench_core.utils.pytorch.helpers import (
+    Timeit,
+    maybe_range,
+    update_best_runtime_metric,
+    convert_dtype,
+    config_pytorch,
+    config_path,
+    iterate_dataloader,
+    log_metrics,
+)
 from mlbench_core.utils import Tracker, LogMetrics
 from mlbench_core.evaluation.pytorch.metrics import TopKAccuracy
 
@@ -56,20 +65,17 @@ def test_update_best_runtime_metric(mocker):
     tracker = Tracker([TopKAccuracy(5)], 1, 0)
     # tracker = mocker.patch('mlbench_core.utils.pytorch.helpers.Tracker')
 
-    is_best, best_metric_name = update_best_runtime_metric(
-        tracker, 10.0, 'prec')
+    is_best, best_metric_name = update_best_runtime_metric(tracker, 10.0, "prec")
 
     assert is_best
     assert best_metric_name == "best_prec"
 
-    is_best, best_metric_name = update_best_runtime_metric(
-        tracker, 11.0, 'prec')
+    is_best, best_metric_name = update_best_runtime_metric(tracker, 11.0, "prec")
 
     assert is_best
     assert best_metric_name == "best_prec"
 
-    is_best, best_metric_name = update_best_runtime_metric(
-        tracker, 9.0, 'prec')
+    is_best, best_metric_name = update_best_runtime_metric(tracker, 9.0, "prec")
 
     assert not is_best
     assert best_metric_name == "best_prec"
@@ -78,25 +84,26 @@ def test_update_best_runtime_metric(mocker):
 def test_convert_dtype():
     t = torch.IntTensor([0])
 
-    tt = convert_dtype('fp32', t)
+    tt = convert_dtype("fp32", t)
 
     assert tt.dtype == torch.float32
 
-    tt2 = convert_dtype('fp64', t)
+    tt2 = convert_dtype("fp64", t)
 
     assert tt2.dtype == torch.float64
 
     with pytest.raises(NotImplementedError):
-        tt3 = convert_dtype('int', t)
+        tt3 = convert_dtype("int", t)
 
 
 def test_config_pytorch(mocker):
-    mocker.patch('torch.distributed.get_rank', return_value=1)
-    mocker.patch('torch.distributed.get_world_size', return_value=1)
-    mocker.patch('mlbench_core.utils.pytorch.helpers.FCGraph')
+    mocker.patch("torch.distributed.get_rank", return_value=1)
+    mocker.patch("torch.distributed.get_world_size", return_value=1)
+    mocker.patch("mlbench_core.utils.pytorch.helpers.FCGraph")
 
     rank, world_size, graph = config_pytorch(
-        use_cuda=False, seed=42, cudnn_deterministic=True)
+        use_cuda=False, seed=42, cudnn_deterministic=True
+    )
 
     assert rank == 1
     assert world_size == 1
@@ -104,35 +111,35 @@ def test_config_pytorch(mocker):
 
 
 def test_LogMetrics(mocker):
-    mocker.patch('mlbench_core.utils.pytorch.helpers.ApiClient')
+    mocker.patch("mlbench_core.utils.pytorch.helpers.ApiClient")
 
     LogMetrics.log("1", 1, 1, "loss", 123)
 
-    mocker.patch.dict('os.environ', {'MLBENCH_IN_DOCKER': 'True'})
+    mocker.patch.dict("os.environ", {"MLBENCH_IN_DOCKER": "True"})
 
     LogMetrics.log("1", 1, 1, "loss", 123)
 
 
 def test_log_metrics(mocker):
-    mocker.patch('mlbench_core.utils.pytorch.helpers.ApiClient')
+    mocker.patch("mlbench_core.utils.pytorch.helpers.ApiClient")
 
     log_metrics("1", 1, 1, "loss", 123)
 
-    mocker.patch.dict('os.environ', {'MLBENCH_IN_DOCKER': 'True'})
+    mocker.patch.dict("os.environ", {"MLBENCH_IN_DOCKER": "True"})
 
     log_metrics("1", 1, 1, "loss", 123)
 
 
 def test_config_path(mocker):
-    sh = mocker.patch('shutil.rmtree')
-    osmk = mocker.patch('os.makedirs')
+    sh = mocker.patch("shutil.rmtree")
+    osmk = mocker.patch("os.makedirs")
 
-    config_path('/tmp/checkpoints', delete_existing_ckpts=False)
+    config_path("/tmp/checkpoints", delete_existing_ckpts=False)
 
-    osmk.assert_called_once_with('/tmp/checkpoints', exist_ok=True)
+    osmk.assert_called_once_with("/tmp/checkpoints", exist_ok=True)
     assert sh.call_count == 0
 
-    config_path('/tmp/checkpoints', delete_existing_ckpts=True)
+    config_path("/tmp/checkpoints", delete_existing_ckpts=True)
 
     assert sh.call_count == 1
     assert osmk.call_count == 2
@@ -141,10 +148,12 @@ def test_config_path(mocker):
 def test_iterate_dataloader(mocker):
     dataloader = [
         (torch.IntTensor([0]), torch.IntTensor([1])),
-        (torch.IntTensor([2]), torch.IntTensor([3]))]
+        (torch.IntTensor([2]), torch.IntTensor([3])),
+    ]
 
     it = iterate_dataloader(
-        dataloader, 'fp32', max_batch_per_epoch=2, transform_target_type=True)
+        dataloader, "fp32", max_batch_per_epoch=2, transform_target_type=True
+    )
 
     first = next(it)
 

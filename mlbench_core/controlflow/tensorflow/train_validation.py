@@ -4,9 +4,18 @@ import logging
 from mlbench_core.utils import AverageMeter, Tracker
 
 
-def train_round(session, train_set_init_op, train_op, loss_op, metrics,
-                batch_size, num_batches_per_epoch_for_train, tracker,
-                lr_scheduler_level=None, lr_tensor=None):
+def train_round(
+    session,
+    train_set_init_op,
+    train_op,
+    loss_op,
+    metrics,
+    batch_size,
+    num_batches_per_epoch_for_train,
+    tracker,
+    lr_scheduler_level=None,
+    lr_tensor=None,
+):
     """ Performs num_batches_per_epoch_for_train batches of training (or full trainset if
     not specified)
 
@@ -32,8 +41,9 @@ def train_round(session, train_set_init_op, train_op, loss_op, metrics,
 
     if lr_scheduler_level == "epoch" and lr_tensor is not None:
         lr = session.run(lr_tensor)
-        logging.debug("Epoch {} Learning Rate : {:10.3e}".format(
-            tracker.current_epoch, lr))
+        logging.debug(
+            "Epoch {} Learning Rate : {:10.3e}".format(tracker.current_epoch, lr)
+        )
 
     for i_batch in range(num_batches_per_epoch_for_train):
         # for i_batch in range(1):
@@ -41,14 +51,17 @@ def train_round(session, train_set_init_op, train_op, loss_op, metrics,
 
         if lr_scheduler_level == "batch" and lr_tensor is not None:
             lr = session.run(lr_tensor)
-            logging.debug("Epoch {} Learning Rate : {:10.3e}".format(
-                tracker.current_epoch, lr))
+            logging.debug(
+                "Epoch {} Learning Rate : {:10.3e}".format(tracker.current_epoch, lr)
+            )
 
-        out = session.run({
-            "metrics": [m.metric_op for m in metrics],
-            "loss": loss_op,
-            "train_op": train_op,
-        })
+        out = session.run(
+            {
+                "metrics": [m.metric_op for m in metrics],
+                "loss": loss_op,
+                "train_op": train_op,
+            }
+        )
 
         tracker.batch_end()
 
@@ -56,12 +69,9 @@ def train_round(session, train_set_init_op, train_op, loss_op, metrics,
         loss_meter.update(out["loss"], n=batch_size)
         tracker.record_loss(loss_meter.avg, log_to_api=True)
 
-        for metric, meter, o in zip(metrics, metrics_meter, out['metrics']):
+        for metric, meter, o in zip(metrics, metrics_meter, out["metrics"]):
             meter.update(o, n=batch_size)
-            tracker.record_metric(
-                metric,
-                meter.avg,
-                log_to_api=True)
+            tracker.record_metric(metric, meter.avg, log_to_api=True)
 
         # Print logging information.
         progress = i_batch / num_batches_per_epoch_for_train
@@ -75,17 +85,20 @@ def train_round(session, train_set_init_op, train_op, loss_op, metrics,
     tracker.record_loss(loss_meter.avg, log_to_api=True)
 
     for metric, meter in zip(metrics, metrics_meter):
-        tracker.record_metric(
-            metric,
-            meter.avg,
-            log_to_api=True)
+        tracker.record_metric(metric, meter.avg, log_to_api=True)
 
     logging.info("Finish training for one epoch.")
 
 
-def validation_round(session, validation_set_init_op, loss_op, metrics,
-                     batch_size, num_batches_per_epoch_for_validation,
-                     tracker):
+def validation_round(
+    session,
+    validation_set_init_op,
+    loss_op,
+    metrics,
+    batch_size,
+    num_batches_per_epoch_for_validation,
+    tracker,
+):
     """ Handles one full iteration of validation on the whole validation set.
 
     Args:
@@ -105,58 +118,57 @@ def validation_round(session, validation_set_init_op, loss_op, metrics,
     metrics_meter = [AverageMeter() for _ in metrics]
 
     for i_batch in range(num_batches_per_epoch_for_validation):
-        out = session.run({
-            "metrics": [m.metric_op for m in metrics],
-            "loss": loss_op})
+        out = session.run({"metrics": [m.metric_op for m in metrics], "loss": loss_op})
 
         # Update tracker
         loss_meter.update(out["loss"], n=batch_size)
-        for meter, o in zip(metrics_meter, out['metrics']):
+        for meter, o in zip(metrics_meter, out["metrics"]):
             meter.update(o, n=batch_size)
 
         logging.debug(
-            "{}/{} Validation loss={:10.3e} | metrics: [{}]"
-            .format(tracker.current_epoch, i_batch, loss_meter.avg,
-                    ",".join([format(m.avg, "10.3e")
-                              for m in metrics_meter])))
+            "{}/{} Validation loss={:10.3e} | metrics: [{}]".format(
+                tracker.current_epoch,
+                i_batch,
+                loss_meter.avg,
+                ",".join([format(m.avg, "10.3e") for m in metrics_meter]),
+            )
+        )
 
     tracker.record_loss(loss_meter.avg, log_to_api=True)
 
     if tracker.rank == 0:
-        tracker.record_stat(
-            "global_loss",
-            loss_meter.avg,
-            log_to_api=True)
+        tracker.record_stat("global_loss", loss_meter.avg, log_to_api=True)
 
     for i, metric, meter in zip(range(len(metrics)), metrics, metrics_meter):
         tracker.record_metric(metric, meter.avg, log_to_api=True)
 
         if tracker.rank == 0:
             tracker.record_stat(
-                "global_{}".format(metric.name),
-                meter.avg,
-                log_to_api=True)
+                "global_{}".format(metric.name), meter.avg, log_to_api=True
+            )
 
 
 class TrainValidation(object):
     """A control flow to train and evaluate a model."""
 
-    def __init__(self,
-                 train_op,
-                 sess,
-                 loss,
-                 metrics,
-                 max_train_steps,
-                 train_epochs,
-                 batch_size,
-                 num_batches_per_epoch_for_train,
-                 num_batches_per_epoch_for_validation,
-                 train_set_init_op,
-                 validation_set_init_op,
-                 run_id,
-                 rank,
-                 lr_scheduler_level='epoch',
-                 tracker=None):
+    def __init__(
+        self,
+        train_op,
+        sess,
+        loss,
+        metrics,
+        max_train_steps,
+        train_epochs,
+        batch_size,
+        num_batches_per_epoch_for_train,
+        num_batches_per_epoch_for_validation,
+        train_set_init_op,
+        validation_set_init_op,
+        run_id,
+        rank,
+        lr_scheduler_level="epoch",
+        tracker=None,
+    ):
         """
         Args:
             train_op (:obj:`tf.Operation`): An operation for training models.
@@ -198,18 +210,30 @@ class TrainValidation(object):
 
         Args:
             lr_tensor (obj): The learningrate schedule tensorflow operation"""
-        train_round(self.sess, self.train_set_init_op, self.train_op,
-                    self.loss, self.metrics, self.batch_size,
-                    self.num_batches_per_epoch_for_train, self.tracker,
-                    lr_tensor=lr_tensor_name,
-                    lr_scheduler_level=self.lr_scheduler_level)
+        train_round(
+            self.sess,
+            self.train_set_init_op,
+            self.train_op,
+            self.loss,
+            self.metrics,
+            self.batch_size,
+            self.num_batches_per_epoch_for_train,
+            self.tracker,
+            lr_tensor=lr_tensor_name,
+            lr_scheduler_level=self.lr_scheduler_level,
+        )
 
     def valid_one_epoch(self):
         """Validate a model for an epoch and use tracker to log stats."""
-        validation_round(self.sess, self.validation_set_init_op, self.loss,
-                         self.metrics, self.batch_size,
-                         self.num_batches_per_epoch_for_validation,
-                         self.tracker)
+        validation_round(
+            self.sess,
+            self.validation_set_init_op,
+            self.loss,
+            self.metrics,
+            self.batch_size,
+            self.num_batches_per_epoch_for_validation,
+            self.tracker,
+        )
 
     def train_and_eval(self, initial_epoch=0, lr_tensor_name=None):
         """Train and evaluate one epoch.
@@ -219,8 +243,7 @@ class TrainValidation(object):
             lr_tensor_name (:obj:`tf.Tensor`, optional): Defaults to None.
                 A (scalar) float tensor representing name of learning rate
         """
-        final_epoch = min(self.max_train_steps,
-                          self.train_epochs)
+        final_epoch = min(self.max_train_steps, self.train_epochs)
         for i_epoch in range(initial_epoch, final_epoch):
             logging.debug("=> Epoch {}".format(i_epoch))
 
@@ -229,4 +252,3 @@ class TrainValidation(object):
             self.tracker.epoch_end()
 
         return self.tracker
-

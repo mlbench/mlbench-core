@@ -5,7 +5,7 @@ import os
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 
-_logger = logging.getLogger('mlbench')
+_logger = logging.getLogger("mlbench")
 
 
 class CIFAR10V1(datasets.CIFAR10):
@@ -32,21 +32,24 @@ class CIFAR10V1(datasets.CIFAR10):
         }
 
         if train:
-            transform = transforms.Compose([
-                transforms.RandomHorizontalFlip(),
-                transforms.RandomCrop(32, padding=4),
-                transforms.ToTensor(),
-                transforms.Normalize(
-                    cifar10_stats['mean'], cifar10_stats['std']),
-            ])
+            transform = transforms.Compose(
+                [
+                    transforms.RandomHorizontalFlip(),
+                    transforms.RandomCrop(32, padding=4),
+                    transforms.ToTensor(),
+                    transforms.Normalize(cifar10_stats["mean"], cifar10_stats["std"]),
+                ]
+            )
         else:
-            transform = transforms.Compose([
-                transforms.ToTensor(),
-                transforms.Normalize(
-                    cifar10_stats['mean'], cifar10_stats['std']),
-            ])
-        super(CIFAR10V1, self).__init__(root=root, train=train,
-                                        transform=transform, download=download)
+            transform = transforms.Compose(
+                [
+                    transforms.ToTensor(),
+                    transforms.Normalize(cifar10_stats["mean"], cifar10_stats["std"]),
+                ]
+            )
+        super(CIFAR10V1, self).__init__(
+            root=root, train=train, transform=transform, download=download
+        )
 
 
 class Imagenet(datasets.ImageFolder):
@@ -65,28 +68,27 @@ class Imagenet(datasets.ImageFolder):
     def __init__(self, root, train=True):
         self.train = train
 
-        imagenet_stats = {
-            "mean": [0.485, 0.456, 0.406],
-            "std": [0.229, 0.224, 0.225]
-        }
+        imagenet_stats = {"mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225]}
 
         if train:
-            transform = transforms.Compose([
-                transforms.RandomResizedCrop(224),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                transforms.Normalize(
-                    imagenet_stats['mean'], imagenet_stats['std']),
-            ])
-            self.root = os.path.join(self.root, 'train')
+            transform = transforms.Compose(
+                [
+                    transforms.RandomResizedCrop(224),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.ToTensor(),
+                    transforms.Normalize(imagenet_stats["mean"], imagenet_stats["std"]),
+                ]
+            )
+            self.root = os.path.join(self.root, "train")
         else:
-            transform = transforms.Compose([
-                transforms.Resize(256),
-                transforms.CenterCrop(224),
-                transforms.ToTensor(),
-                transforms.Normalize(
-                    imagenet_stats['mean'], imagenet_stats['std'])
-            ])
-            self.root = os.path.join(self.root, 'val')
+            transform = transforms.Compose(
+                [
+                    transforms.Resize(256),
+                    transforms.CenterCrop(224),
+                    transforms.ToTensor(),
+                    transforms.Normalize(imagenet_stats["mean"], imagenet_stats["std"]),
+                ]
+            )
+            self.root = os.path.join(self.root, "val")
 
         super().__init__(self.root, transform)

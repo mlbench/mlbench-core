@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import torch.distributed as dist
 
-_logger = logging.getLogger('mlbench')
+_logger = logging.getLogger("mlbench")
 
 
 class Partition(object):
@@ -75,7 +75,7 @@ class DataPartitioner(Partitioner):
         from_index = 0
         for ind, _ in enumerate(sizes):
             to_index = int(sizes[ind] * self.data_size)
-            self.partitions.append(indices[from_index: to_index])
+            self.partitions.append(indices[from_index:to_index])
             from_index = to_index
 
     def use(self, partition_ind):
@@ -87,8 +87,9 @@ class DataPartitioner(Partitioner):
         return Partition(self.data, self.partitions[partition_ind])
 
 
-
-def partition_dataset_by_rank(dataset, rank, world_size, distribution='uniform', shuffle=True):
+def partition_dataset_by_rank(
+    dataset, rank, world_size, distribution="uniform", shuffle=True
+):
     r"""Given a dataset, partition it by a distribution and each rank takes part of data.
 
     Args:
@@ -98,13 +99,13 @@ def partition_dataset_by_rank(dataset, rank, world_size, distribution='uniform',
         distribution (str): The sampling distribution to use. Default: `uniform`
         shuffle (bool): Whether to shuffle the dataset before partitioning. Default: `True`
     """
-    if distribution != 'uniform':
+    if distribution != "uniform":
         raise NotImplementedError(
-            "Distribution {} not implemented.".format(distribution))
+            "Distribution {} not implemented.".format(distribution)
+        )
 
     partition_sizes = [1.0 / world_size for _ in range(world_size)]
-    partition = DataPartitioner(
-        dataset, rank, shuffle, partition_sizes)
+    partition = DataPartitioner(dataset, rank, shuffle, partition_sizes)
     partitioned_data = partition.use(rank)
     _logger.debug("Partition dataset use {}-th.".format(rank))
     return partitioned_data

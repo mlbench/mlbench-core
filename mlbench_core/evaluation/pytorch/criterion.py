@@ -31,10 +31,19 @@ class BCELossRegularized(_WeightedLoss):
             specifying either of those two args will override :attr:`reduction`. Default: 'elementwise_mean'
     """
 
-    def __init__(self, weight=None, size_average=None, reduce=None, l1=0.0, l2=0.0, model=None,
-                 reduction='elementwise_mean'):
+    def __init__(
+        self,
+        weight=None,
+        size_average=None,
+        reduce=None,
+        l1=0.0,
+        l2=0.0,
+        model=None,
+        reduction="elementwise_mean",
+    ):
         super(BCELossRegularized, self).__init__(
-            weight, size_average, reduce, reduction)
+            weight, size_average, reduce, reduction
+        )
         self.l2 = l2
         self.l1 = l1
         self.model = model
@@ -77,17 +86,26 @@ class MSELossRegularized(_WeightedLoss):
             specifying either of those two args will override :attr:`reduction`. Default: 'elementwise_mean'
     """
 
-    def __init__(self, weight=None, size_average=None, reduce=None, l1=0.0, l2=0.0, model=None,
-                 reduction='elementwise_mean'):
+    def __init__(
+        self,
+        weight=None,
+        size_average=None,
+        reduce=None,
+        l1=0.0,
+        l2=0.0,
+        model=None,
+        reduction="elementwise_mean",
+    ):
         super(MSELossRegularized, self).__init__(
-            weight, size_average, reduce, reduction)
+            weight, size_average, reduce, reduction
+        )
         self.l2 = l2
         self.l1 = l1
         self.model = model
 
     def forward(self, input_, target):
         output = F.mse_loss(input_, target, reduction=self.reduction)
-        l2_loss = sum(param.norm(2)**2 for param in self.model.parameters())
+        l2_loss = sum(param.norm(2) ** 2 for param in self.model.parameters())
         output += self.l2 / 2 * l2_loss
         l1_loss = sum(param.norm(1) for param in self.model.parameters())
         output += self.l1 * l1_loss

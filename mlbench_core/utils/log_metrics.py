@@ -10,7 +10,7 @@ class LogMetrics(object):
     Caches API client for performance reasons
     """
 
-    in_cluster = os.getenv('KUBERNETES_SERVICE_HOST') is not None
+    in_cluster = os.getenv("KUBERNETES_SERVICE_HOST") is not None
 
     if in_cluster:
         api = ApiClient()
@@ -41,4 +41,5 @@ class LogMetrics(object):
             run_id,
             metric_name,
             value,
-            metadata="{{rank: {}, epoch:{}}}".format(rank, epoch))
+            metadata="{{rank: {}, epoch:{}}}".format(rank, epoch),
+        )

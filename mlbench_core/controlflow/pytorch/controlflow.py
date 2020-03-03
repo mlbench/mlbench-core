@@ -8,13 +8,14 @@ from mlbench_core.utils.pytorch.helpers import iterate_dataloader
 import torch
 import torch.distributed as dist
 
-logger = logging.getLogger('mlbench')
+logger = logging.getLogger("mlbench")
 
-LOG_EVERY_N_BATCHES=25
+LOG_EVERY_N_BATCHES = 25
 
 
-def _record_train_batch_stats(batch_idx, loss, output, target, metrics,
-                              tracker, num_batches_per_device_train):
+def _record_train_batch_stats(
+    batch_idx, loss, output, target, metrics, tracker, num_batches_per_device_train
+):
     r"""Record the stats in a training batch.
 
     Args:
@@ -29,8 +30,10 @@ def _record_train_batch_stats(batch_idx, loss, output, target, metrics,
     progress = batch_idx / num_batches_per_device_train
     progress += tracker.current_epoch
 
-    log_to_api = (batch_idx % LOG_EVERY_N_BATCHES == 0
-                  or batch_idx == num_batches_per_device_train)
+    log_to_api = (
+        batch_idx % LOG_EVERY_N_BATCHES == 0
+        or batch_idx == num_batches_per_device_train
+    )
 
     if tracker:
         tracker.record_loss(loss, output.size()[0], log_to_api=log_to_api)
@@ -41,20 +44,28 @@ def _record_train_batch_stats(batch_idx, loss, output, target, metrics,
 
         if tracker:
             tracker.record_metric(
-                metric,
-                metric_value,
-                output.size()[0],
-                log_to_api=log_to_api)
+                metric, metric_value, output.size()[0], log_to_api=log_to_api
+            )
 
     status = "Epoch {:5.2f} Batch {:4}: ".format(progress, batch_idx)
 
     logger.info(status + str(tracker))
 
 
-def train_round(dataloader, model, optimizer, loss_function, metrics,
-                scheduler, dtype, schedule_per='epoch',
-                transform_target_type=None, use_cuda=False,
-                max_batch_per_epoch=None, tracker=None):
+def train_round(
+    dataloader,
+    model,
+    optimizer,
+    loss_function,
+    metrics,
+    scheduler,
+    dtype,
+    schedule_per="epoch",
+    transform_target_type=None,
+    use_cuda=False,
+    max_batch_per_epoch=None,
+    tracker=None,
+):
     """ Performs max_batch_per_epoch batches of training (or full trainset if
     not specified)
 
@@ -79,48 +90,45 @@ def train_round(dataloader, model, optimizer, loss_function, metrics,
         tracker.train()
 
     data_iter = iterate_dataloader(
-        dataloader,
-        dtype,
-        max_batch_per_epoch,
-        use_cuda,
-        transform_target_type)
+        dataloader, dtype, max_batch_per_epoch, use_cuda, transform_target_type
+    )
 
     num_batches_per_device_train = len(dataloader)
 
-    if schedule_per == 'epoch':
+    if schedule_per == "epoch":
         scheduler.step()
 
     for batch_idx, (data, target) in enumerate(data_iter):
         if tracker:
             tracker.batch_start()
 
-        if schedule_per == 'batch':
+        if schedule_per == "batch":
             scheduler.step()
 
         # Clear gradients in the optimizer.
         optimizer.zero_grad()
         if tracker:
-            tracker.record_batch_step('init')
+            tracker.record_batch_step("init")
 
         # Compute the output
         output = model(data)
         if tracker:
-            tracker.record_batch_step('fwd_pass')
+            tracker.record_batch_step("fwd_pass")
 
         # Compute the loss
         loss = loss_function(output, target)
         if tracker:
-            tracker.record_batch_step('comp_loss')
+            tracker.record_batch_step("comp_loss")
 
         # Backprop
         loss.backward()
         if tracker:
-            tracker.record_batch_step('backprop')
+            tracker.record_batch_step("backprop")
 
         # Aggregate gradients/parameters from all workers and apply updates to model
         optimizer.step()
         if tracker:
-            tracker.record_batch_step('opt_step')
+            tracker.record_batch_step("opt_step")
 
             tracker.batch_end()
 
@@ -131,12 +139,20 @@ def train_round(dataloader, model, optimizer, loss_function, metrics,
             target,
             metrics,
             tracker,
-            num_batches_per_device_train)
+            num_batches_per_device_train,
+        )
 
 
-def _validate(dataloader, model, loss_function, metrics,
-              dtype, transform_target_type=None, use_cuda=False,
-              max_batch_per_epoch=None):
+def _validate(
+    dataloader,
+    model,
+    loss_function,
+    metrics,
+    dtype,
+    transform_target_type=None,
+    use_cuda=False,
+    max_batch_per_epoch=None,
+):
     """Evaluate the model on the test dataset.
 
     Args:
@@ -158,11 +174,8 @@ def _validate(dataloader, model, loss_function, metrics,
     # Each worker computer their own losses and metrics
     with torch.no_grad():
         data_iter = iterate_dataloader(
-            dataloader,
-            dtype,
-            max_batch_per_epoch,
-            use_cuda,
-            transform_target_type)
+            dataloader, dtype, max_batch_per_epoch, use_cuda, transform_target_type
+        )
 
         for data, target in data_iter:
             # Inference
@@ -180,15 +193,24 @@ def _validate(dataloader, model, loss_function, metrics,
                 metric.update(metric_value, data.size(0))
 
     # Aggregate metrics and loss for all workers
-    metrics_averages = {metric: metric.average().item()
-                        for metric in metrics}
+    metrics_averages = {metric: metric.average().item() for metric in metrics}
     loss_average = global_average(losses.sum, losses.count).item()
     return metrics_averages, loss_average
 
 
-def validation_round(dataloader, model,  loss_function, metrics,
-                     run_id, rank, dtype, transform_target_type=None,
-                     use_cuda=False, max_batch_per_epoch=None, tracker=None):
+def validation_round(
+    dataloader,
+    model,
+    loss_function,
+    metrics,
+    run_id,
+    rank,
+    dtype,
+    transform_target_type=None,
+    use_cuda=False,
+    max_batch_per_epoch=None,
+    tracker=None,
+):
     """ Handles one full iteration of validation on the whole validation set.
 
     Args:
@@ -213,9 +235,16 @@ def validation_round(dataloader, model,  loss_function, metrics,
 
         tracker.validation_start()
 
-    metrics_values, loss = _validate(dataloader, model, loss_function, metrics,
-                                     dtype, transform_target_type, use_cuda,
-                                     max_batch_per_epoch)
+    metrics_values, loss = _validate(
+        dataloader,
+        model,
+        loss_function,
+        metrics,
+        dtype,
+        transform_target_type,
+        use_cuda,
+        max_batch_per_epoch,
+    )
     if tracker:
         tracker.validation_end()
 
@@ -231,16 +260,19 @@ def validation_round(dataloader, model,  loss_function, metrics,
                     tracker.record_stat(
                         "global_{}".format(metric.name),
                         global_metric_value,
-                        log_to_api=True)
+                        log_to_api=True,
+                    )
 
         if rank == 0 and tracker:
             logger.info(
-                '{} for rank {}:(best epoch {}, current epoch {}): {:.3f}'.format(
+                "{} for rank {}:(best epoch {}, current epoch {}): {:.3f}".format(
                     tracker.primary_metric.name,
                     tracker.rank,
                     tracker.best_epoch,
                     tracker.current_epoch,
-                    tracker.best_metric_value))
+                    tracker.best_metric_value,
+                )
+            )
     else:
         if rank == 0:
             logger.info("Validation loss={:.3f}".format(loss))
@@ -251,10 +283,7 @@ def validation_round(dataloader, model,  loss_function, metrics,
         global_loss = global_average(loss, 1).item()
 
         if rank == 0:
-            tracker.record_stat(
-                "global_loss",
-                global_loss,
-                log_to_api=True)
+            tracker.record_stat("global_loss", global_loss, log_to_api=True)
 
     return tracker.is_best() if tracker else False
 
@@ -286,11 +315,28 @@ class TrainValidation(object):
         tracker (:obj:`mlbench_core.utils.Tracker`): Tracker for the controlflow. Default: `None`
     """
 
-    def __init__(self, model, optimizer, loss_function, metrics, scheduler,
-                 batch_size, train_epochs, rank, world_size, run_id, dtype,
-                 validate=True, schedule_per='epoch', checkpoint=None,
-                 transform_target_type=None, average_models=False,
-                 use_cuda=False, max_batch_per_epoch=None, tracker=None):
+    def __init__(
+        self,
+        model,
+        optimizer,
+        loss_function,
+        metrics,
+        scheduler,
+        batch_size,
+        train_epochs,
+        rank,
+        world_size,
+        run_id,
+        dtype,
+        validate=True,
+        schedule_per="epoch",
+        checkpoint=None,
+        transform_target_type=None,
+        average_models=False,
+        use_cuda=False,
+        max_batch_per_epoch=None,
+        tracker=None,
+    ):
         self.batch_size = batch_size
         self.train_epochs = train_epochs
         self.model = model
@@ -327,9 +373,15 @@ class TrainValidation(object):
         self.num_batches_per_device_train = len(dataloader_train)
         self.num_batches_per_device_val = len(dataloader_val)
 
-    def run(self, dataloader_train=None, dataloader_val=None,
-            dataloader_train_fn=None, dataloader_val_fn=None, resume=False,
-            repartition_per_epoch=False):
+    def run(
+        self,
+        dataloader_train=None,
+        dataloader_val=None,
+        dataloader_train_fn=None,
+        dataloader_val_fn=None,
+        resume=False,
+        repartition_per_epoch=False,
+    ):
         """Execute training and (possibly) validation
 
         `dataloader_train` and `dataloader_train_fn` are mutually exclusive.
@@ -351,11 +403,11 @@ class TrainValidation(object):
 
         if not dataloader_train_fn and not dataloader_train:
             raise ValueError(
-                "One of dataloader_train_fn or dataloader_train must be set")
+                "One of dataloader_train_fn or dataloader_train must be set"
+            )
 
         if not dataloader_val_fn and not dataloader_val:
-            raise ValueError(
-                "One of dataloader_val_fn or dataloader_val must be set")
+            raise ValueError("One of dataloader_val_fn or dataloader_val must be set")
 
         if dataloader_train_fn:
             dataloader_train = dataloader_train_fn()
@@ -366,12 +418,14 @@ class TrainValidation(object):
         self._get_dataloader_stats(dataloader_train, dataloader_val)
 
         # define some parameters for training.
-        logger.info("There are {train_epochs} epochs, {num_batches} "
-                    "mini-batches per epoch (batch size: {batch_size})."
-                    .format(
-                        train_epochs=self.train_epochs,
-                        num_batches=self.num_batches_per_device_train,
-                        batch_size=self.batch_size))
+        logger.info(
+            "There are {train_epochs} epochs, {num_batches} "
+            "mini-batches per epoch (batch size: {batch_size}).".format(
+                train_epochs=self.train_epochs,
+                num_batches=self.num_batches_per_device_train,
+                batch_size=self.batch_size,
+            )
+        )
 
         # Initialize Tracker or resume from checkpoint
         if resume:
@@ -382,29 +436,50 @@ class TrainValidation(object):
         dist.barrier()
         for epoch in range(start_epoch, self.train_epochs):
             # Per epoch information.
-            logger.info("Current epoch : {} : lr={}"
-                        .format(epoch, self.scheduler.get_lr()))
+            logger.info(
+                "Current epoch : {} : lr={}".format(epoch, self.scheduler.get_lr())
+            )
 
-            train_round(dataloader_train, self.model, self.optimizer,
-                        self.loss_function, self.metrics, self.scheduler,
-                        self.dtype, self.schedule_per,
-                        self.transform_target_type, self.use_cuda,
-                        self.max_batch_per_epoch, self.tracker)
+            train_round(
+                dataloader_train,
+                self.model,
+                self.optimizer,
+                self.loss_function,
+                self.metrics,
+                self.scheduler,
+                self.dtype,
+                self.schedule_per,
+                self.transform_target_type,
+                self.use_cuda,
+                self.max_batch_per_epoch,
+                self.tracker,
+            )
 
             is_best = False
             if self.perform_validation:
-                is_best = validation_round(dataloader_val, self.model,
-                                           self.loss_function, self.metrics,
-                                           self.run_id, self.rank, self.dtype,
-                                           self.transform_target_type,
-                                           self.use_cuda,
-                                           self.max_batch_per_epoch,
-                                           self.tracker)
+                is_best = validation_round(
+                    dataloader_val,
+                    self.model,
+                    self.loss_function,
+                    self.metrics,
+                    self.run_id,
+                    self.rank,
+                    self.dtype,
+                    self.transform_target_type,
+                    self.use_cuda,
+                    self.max_batch_per_epoch,
+                    self.tracker,
+                )
 
             if self.checkpoint:
-                self.checkpoint.save(self.tracker, self.model,
-                                     self.optimizer, self.scheduler,
-                                     self.tracker.current_epoch, is_best)
+                self.checkpoint.save(
+                    self.tracker,
+                    self.model,
+                    self.optimizer,
+                    self.scheduler,
+                    self.tracker.current_epoch,
+                    is_best,
+                )
 
             # Shuffle the dataset across nodes
             if repartition_per_epoch:

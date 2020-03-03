@@ -44,12 +44,16 @@ def batch_norm(inputs, training, data_format):
     # We set fused=True for a significant performance boost. See
     # https://www.tensorflow.org/performance/performance_guide#common_fused_ops
     return tf.layers.batch_normalization(
-        inputs=inputs, axis=1 if data_format == 'channels_first' else 3,
-        momentum=_BATCH_NORM_DECAY, epsilon=_BATCH_NORM_EPSILON, center=True,
+        inputs=inputs,
+        axis=1 if data_format == "channels_first" else 3,
+        momentum=_BATCH_NORM_DECAY,
+        epsilon=_BATCH_NORM_EPSILON,
+        center=True,
         scale=True,
         trainable=True,
         training=training,
-        fused=True)
+        fused=True,
+    )
 
 
 def fixed_padding(inputs, kernel_size, data_format):
@@ -70,12 +74,14 @@ def fixed_padding(inputs, kernel_size, data_format):
     pad_beg = pad_total // 2
     pad_end = pad_total - pad_beg
 
-    if data_format == 'channels_first':
-        padded_inputs = tf.pad(inputs, [[0, 0], [0, 0],
-                                        [pad_beg, pad_end], [pad_beg, pad_end]])
+    if data_format == "channels_first":
+        padded_inputs = tf.pad(
+            inputs, [[0, 0], [0, 0], [pad_beg, pad_end], [pad_beg, pad_end]]
+        )
     else:
-        padded_inputs = tf.pad(inputs, [[0, 0], [pad_beg, pad_end],
-                                        [pad_beg, pad_end], [0, 0]])
+        padded_inputs = tf.pad(
+            inputs, [[0, 0], [pad_beg, pad_end], [pad_beg, pad_end], [0, 0]]
+        )
     return padded_inputs
 
 
@@ -90,8 +96,12 @@ def conv2d_fixed_padding(inputs, filters, kernel_size, strides, data_format):
         tf.identity(inputs, name="inputs")
 
         layer = tf.layers.conv2d(
-            inputs=inputs, filters=filters, kernel_size=kernel_size, strides=strides,
-            padding=('SAME' if strides == 1 else 'VALID'), use_bias=False,
+            inputs=inputs,
+            filters=filters,
+            kernel_size=kernel_size,
+            strides=strides,
+            padding=("SAME" if strides == 1 else "VALID"),
+            use_bias=False,
             kernel_initializer=tf.variance_scaling_initializer(),
             data_format=data_format,  # name="conv2d"
         )
@@ -102,8 +112,9 @@ def conv2d_fixed_padding(inputs, filters, kernel_size, strides, data_format):
 ################################################################################
 # ResNet block definitions.
 ################################################################################
-def _building_block_v1(inputs, filters, training, projection_shortcut, strides,
-                       data_format):
+def _building_block_v1(
+    inputs, filters, training, projection_shortcut, strides, data_format
+):
     """A single block for ResNet v1, without a bottleneck.
 
     Convolution then batch normalization then ReLU as described by:
@@ -130,18 +141,27 @@ def _building_block_v1(inputs, filters, training, projection_shortcut, strides,
 
     if projection_shortcut is not None:
         shortcut = projection_shortcut(inputs)
-        shortcut = batch_norm(inputs=shortcut, training=training,
-                              data_format=data_format)
+        shortcut = batch_norm(
+            inputs=shortcut, training=training, data_format=data_format
+        )
 
     inputs = conv2d_fixed_padding(
-        inputs=inputs, filters=filters, kernel_size=3, strides=strides,
-        data_format=data_format)
+        inputs=inputs,
+        filters=filters,
+        kernel_size=3,
+        strides=strides,
+        data_format=data_format,
+    )
     inputs = batch_norm(inputs, training, data_format)
     inputs = tf.nn.relu(inputs)
 
     inputs = conv2d_fixed_padding(
-        inputs=inputs, filters=filters, kernel_size=3, strides=1,
-        data_format=data_format)
+        inputs=inputs,
+        filters=filters,
+        kernel_size=3,
+        strides=1,
+        data_format=data_format,
+    )
     inputs = batch_norm(inputs, training, data_format)
     inputs += shortcut
     inputs = tf.nn.relu(inputs)
@@ -149,8 +169,9 @@ def _building_block_v1(inputs, filters, training, projection_shortcut, strides,
     return inputs
 
 
-def _building_block_v2(inputs, filters, training, projection_shortcut, strides,
-                       data_format):
+def _building_block_v2(
+    inputs, filters, training, projection_shortcut, strides, data_format
+):
     """A single block for ResNet v2, without a bottleneck.
 
     Batch normalization then ReLu then convolution as described by:
@@ -190,20 +211,29 @@ def _building_block_v2(inputs, filters, training, projection_shortcut, strides,
         tf.identity(shortcut, name="projected_shortcut")
 
     inputs = conv2d_fixed_padding(
-        inputs=inputs, filters=filters, kernel_size=3, strides=strides,
-        data_format=data_format)
+        inputs=inputs,
+        filters=filters,
+        kernel_size=3,
+        strides=strides,
+        data_format=data_format,
+    )
 
     inputs = batch_norm(inputs, training, data_format)
     inputs = tf.nn.relu(inputs)
     inputs = conv2d_fixed_padding(
-        inputs=inputs, filters=filters, kernel_size=3, strides=1,
-        data_format=data_format)
+        inputs=inputs,
+        filters=filters,
+        kernel_size=3,
+        strides=1,
+        data_format=data_format,
+    )
 
     return inputs + shortcut
 
 
-def _bottleneck_block_v1(inputs, filters, training, projection_shortcut,
-                         strides, data_format):
+def _bottleneck_block_v1(
+    inputs, filters, training, projection_shortcut, strides, data_format
+):
     """A single block for ResNet v1, with a bottleneck.
 
     Similar to _building_block_v1(), except using the "bottleneck" blocks
@@ -232,24 +262,37 @@ def _bottleneck_block_v1(inputs, filters, training, projection_shortcut,
 
     if projection_shortcut is not None:
         shortcut = projection_shortcut(inputs)
-        shortcut = batch_norm(inputs=shortcut, training=training,
-                              data_format=data_format)
+        shortcut = batch_norm(
+            inputs=shortcut, training=training, data_format=data_format
+        )
 
     inputs = conv2d_fixed_padding(
-        inputs=inputs, filters=filters, kernel_size=1, strides=1,
-        data_format=data_format)
+        inputs=inputs,
+        filters=filters,
+        kernel_size=1,
+        strides=1,
+        data_format=data_format,
+    )
     inputs = batch_norm(inputs, training, data_format)
     inputs = tf.nn.relu(inputs)
 
     inputs = conv2d_fixed_padding(
-        inputs=inputs, filters=filters, kernel_size=3, strides=strides,
-        data_format=data_format)
+        inputs=inputs,
+        filters=filters,
+        kernel_size=3,
+        strides=strides,
+        data_format=data_format,
+    )
     inputs = batch_norm(inputs, training, data_format)
     inputs = tf.nn.relu(inputs)
 
     inputs = conv2d_fixed_padding(
-        inputs=inputs, filters=4 * filters, kernel_size=1, strides=1,
-        data_format=data_format)
+        inputs=inputs,
+        filters=4 * filters,
+        kernel_size=1,
+        strides=1,
+        data_format=data_format,
+    )
     inputs = batch_norm(inputs, training, data_format)
     inputs += shortcut
     inputs = tf.nn.relu(inputs)
@@ -257,8 +300,9 @@ def _bottleneck_block_v1(inputs, filters, training, projection_shortcut,
     return inputs
 
 
-def _bottleneck_block_v2(inputs, filters, training, projection_shortcut,
-                         strides, data_format):
+def _bottleneck_block_v2(
+    inputs, filters, training, projection_shortcut, strides, data_format
+):
     """A single block for ResNet v2, with a bottleneck.
 
     Similar to _building_block_v2(), except using the "bottleneck" blocks
@@ -298,26 +342,39 @@ def _bottleneck_block_v2(inputs, filters, training, projection_shortcut,
         shortcut = projection_shortcut(inputs)
 
     inputs = conv2d_fixed_padding(
-        inputs=inputs, filters=filters, kernel_size=1, strides=1,
-        data_format=data_format)
+        inputs=inputs,
+        filters=filters,
+        kernel_size=1,
+        strides=1,
+        data_format=data_format,
+    )
 
     inputs = batch_norm(inputs, training, data_format)
     inputs = tf.nn.relu(inputs)
     inputs = conv2d_fixed_padding(
-        inputs=inputs, filters=filters, kernel_size=3, strides=strides,
-        data_format=data_format)
+        inputs=inputs,
+        filters=filters,
+        kernel_size=3,
+        strides=strides,
+        data_format=data_format,
+    )
 
     inputs = batch_norm(inputs, training, data_format)
     inputs = tf.nn.relu(inputs)
     inputs = conv2d_fixed_padding(
-        inputs=inputs, filters=4 * filters, kernel_size=1, strides=1,
-        data_format=data_format)
+        inputs=inputs,
+        filters=4 * filters,
+        kernel_size=1,
+        strides=1,
+        data_format=data_format,
+    )
 
     return inputs + shortcut
 
 
-def block_layer(inputs, filters, bottleneck, block_fn, blocks, strides,
-                training, name, data_format):
+def block_layer(
+    inputs, filters, bottleneck, block_fn, blocks, strides, training, name, data_format
+):
     """Creates one layer of blocks for the ResNet model.
 
     Args:
@@ -345,17 +402,22 @@ def block_layer(inputs, filters, bottleneck, block_fn, blocks, strides,
     def projection_shortcut(inputs):
         with tf.name_scope("projection_shortcut"):
             layer = conv2d_fixed_padding(
-                inputs=inputs, filters=filters_out, kernel_size=1, strides=strides,
-                data_format=data_format)
+                inputs=inputs,
+                filters=filters_out,
+                kernel_size=1,
+                strides=strides,
+                data_format=data_format,
+            )
         return layer
 
     # Only the first block per block_layer uses projection_shortcut and strides
-    with tf.name_scope('block0'):
-        inputs = block_fn(inputs, filters, training, projection_shortcut, strides,
-                          data_format)
+    with tf.name_scope("block0"):
+        inputs = block_fn(
+            inputs, filters, training, projection_shortcut, strides, data_format
+        )
 
     for i in range(1, blocks):
-        with tf.name_scope('block{}'.format(i)):
+        with tf.name_scope("block{}".format(i)):
             inputs = block_fn(inputs, filters, training, None, 1, data_format)
 
     return tf.identity(inputs, name)
@@ -364,12 +426,22 @@ def block_layer(inputs, filters, bottleneck, block_fn, blocks, strides,
 class Model(object):
     """Base class for building the Resnet Model."""
 
-    def __init__(self, resnet_size, bottleneck, num_classes, num_filters,
-                 kernel_size,
-                 conv_stride, first_pool_size, first_pool_stride,
-                 block_sizes, block_strides,
-                 resnet_version=DEFAULT_VERSION, data_format=None,
-                 dtype=DEFAULT_DTYPE):
+    def __init__(
+        self,
+        resnet_size,
+        bottleneck,
+        num_classes,
+        num_filters,
+        kernel_size,
+        conv_stride,
+        first_pool_size,
+        first_pool_stride,
+        block_sizes,
+        block_strides,
+        resnet_version=DEFAULT_VERSION,
+        data_format=None,
+        dtype=DEFAULT_DTYPE,
+    ):
         """Creates a model for classifying an image.
 
         Args:
@@ -404,12 +476,14 @@ class Model(object):
 
         if not data_format:
             data_format = (
-                'channels_first' if tf.test.is_built_with_cuda() else 'channels_last')
+                "channels_first" if tf.test.is_built_with_cuda() else "channels_last"
+            )
 
         self.resnet_version = resnet_version
         if resnet_version not in (1, 2):
             raise ValueError(
-                'Resnet version should be 1 or 2. See README for citations.')
+                "Resnet version should be 1 or 2. See README for citations."
+            )
 
         self.bottleneck = bottleneck
         if bottleneck:
@@ -424,7 +498,7 @@ class Model(object):
                 self.block_fn = _building_block_v2
 
         if dtype not in ALLOWED_TYPES:
-            raise ValueError('dtype must be one of: {}'.format(ALLOWED_TYPES))
+            raise ValueError("dtype must be one of: {}".format(ALLOWED_TYPES))
 
         self.data_format = data_format
         self.num_classes = num_classes
@@ -438,8 +512,9 @@ class Model(object):
         self.dtype = dtype
         self.pre_activation = resnet_version == 2
 
-    def _custom_dtype_getter(self, getter, name, shape=None, dtype=DEFAULT_DTYPE,
-                             *args, **kwargs):
+    def _custom_dtype_getter(
+        self, getter, name, shape=None, dtype=DEFAULT_DTYPE, *args, **kwargs
+    ):
         """Creates variables in fp32, then casts to fp16 if necessary.
 
         This function is a custom getter. A custom getter is a function with the
@@ -474,7 +549,7 @@ class Model(object):
 
         if dtype in CASTABLE_TYPES:
             var = getter(name, shape, tf.float32, *args, **kwargs)
-            return tf.cast(var, dtype=dtype, name=name + '_cast')
+            return tf.cast(var, dtype=dtype, name=name + "_cast")
         else:
             return getter(name, shape, dtype, *args, **kwargs)
 
@@ -487,8 +562,9 @@ class Model(object):
         Returns:
           A variable scope for the model.
         """
-        return tf.variable_scope('resnet_model',
-                                 custom_getter=self._custom_dtype_getter)
+        return tf.variable_scope(
+            "resnet_model", custom_getter=self._custom_dtype_getter
+        )
 
     def __call__(self, inputs, training):
         """Add operations to classify a batch of input images.
@@ -503,16 +579,20 @@ class Model(object):
         """
 
         with self._model_variable_scope():
-            if self.data_format == 'channels_first':
+            if self.data_format == "channels_first":
                 # Convert the inputs from channels_last (NHWC) to channels_first (NCHW).
                 # This provides a large performance boost on GPU. See
                 # https://www.tensorflow.org/performance/performance_guide#data_formats
                 inputs = tf.transpose(inputs, [0, 3, 1, 2])
 
             inputs = conv2d_fixed_padding(
-                inputs=inputs, filters=self.num_filters, kernel_size=self.kernel_size,
-                strides=self.conv_stride, data_format=self.data_format)
-            inputs = tf.identity(inputs, 'initial_conv')
+                inputs=inputs,
+                filters=self.num_filters,
+                kernel_size=self.kernel_size,
+                strides=self.conv_stride,
+                data_format=self.data_format,
+            )
+            inputs = tf.identity(inputs, "initial_conv")
 
             # We do not include batch normalization or activation functions in V2
             # for the initial conv1 because the first ResNet unit will perform these
@@ -524,19 +604,28 @@ class Model(object):
 
             if self.first_pool_size:
                 inputs = tf.layers.max_pooling2d(
-                    inputs=inputs, pool_size=self.first_pool_size,
-                    strides=self.first_pool_stride, padding='SAME',
-                    data_format=self.data_format)
-                inputs = tf.identity(inputs, 'initial_max_pool')
+                    inputs=inputs,
+                    pool_size=self.first_pool_size,
+                    strides=self.first_pool_stride,
+                    padding="SAME",
+                    data_format=self.data_format,
+                )
+                inputs = tf.identity(inputs, "initial_max_pool")
 
             for i, num_blocks in enumerate(self.block_sizes):
-                num_filters = self.num_filters * (2**i)
+                num_filters = self.num_filters * (2 ** i)
                 with tf.name_scope("block_layer_{}".format(i + 1)):
                     inputs = block_layer(
-                        inputs=inputs, filters=num_filters, bottleneck=self.bottleneck,
-                        block_fn=self.block_fn, blocks=num_blocks,
-                        strides=self.block_strides[i], training=training,
-                        name='block_layer{}'.format(i + 1), data_format=self.data_format)
+                        inputs=inputs,
+                        filters=num_filters,
+                        bottleneck=self.bottleneck,
+                        block_fn=self.block_fn,
+                        blocks=num_blocks,
+                        strides=self.block_strides[i],
+                        training=training,
+                        name="block_layer{}".format(i + 1),
+                        data_format=self.data_format,
+                    )
 
             # Only apply the BN and ReLU for model that does pre_activation in each
             # building/bottleneck block, eg resnet V2.
@@ -549,23 +638,27 @@ class Model(object):
             # ResNet does an Average Pooling layer over pool_size,
             # but that is the same as doing a reduce_mean. We do a reduce_mean
             # here because it performs better than AveragePooling2D.
-            axes = [2, 3] if self.data_format == 'channels_first' else [1, 2]
+            axes = [2, 3] if self.data_format == "channels_first" else [1, 2]
             inputs = tf.reduce_mean(inputs, axes, keepdims=True)
-            inputs = tf.identity(inputs, 'final_reduce_mean')
+            inputs = tf.identity(inputs, "final_reduce_mean")
 
             inputs = tf.squeeze(inputs, axes)
             inputs = tf.layers.dense(inputs=inputs, units=self.num_classes)
-            inputs = tf.identity(inputs, 'final_dense')
+            inputs = tf.identity(inputs, "final_dense")
             return inputs
 
 
 class Cifar10Model(Model):
     """Model class with appropriate defaults for CIFAR-10 data."""
 
-    def __init__(self, resnet_size, data_format=None,
-                 num_classes=10,
-                 resnet_version=2,
-                 dtype=tf.float32):
+    def __init__(
+        self,
+        resnet_size,
+        data_format=None,
+        num_classes=10,
+        resnet_version=2,
+        dtype=tf.float32,
+    ):
         """These are the parameters that work for CIFAR-10 data.
 
         Args:
@@ -582,7 +675,7 @@ class Cifar10Model(Model):
           ValueError: if invalid resnet_size is chosen
         """
         if resnet_size % 6 != 2:
-            raise ValueError('resnet_size must be 6n + 2:', resnet_size)
+            raise ValueError("resnet_size must be 6n + 2:", resnet_size)
 
         num_blocks = (resnet_size - 2) // 6
 
@@ -599,5 +692,5 @@ class Cifar10Model(Model):
             block_strides=[1, 2, 2],
             resnet_version=resnet_version,
             data_format=data_format,
-            dtype=dtype
+            dtype=dtype,
         )
