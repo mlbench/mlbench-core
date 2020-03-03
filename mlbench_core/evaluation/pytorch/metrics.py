@@ -64,11 +64,26 @@ class TopKAccuracy(MLBenchMetric):
         """
         batch_size = target.size(0)
 
+        output = self._preprocess_output(output)
+
         _, pred = output.topk(self.topk, 1, True, True)
         pred = pred.t()
         correct = pred.eq(target.view(1, -1).expand_as(pred))
         correct_k = correct[:self.topk].view(-1).float().sum(0, keepdim=True)
         return correct_k.mul_(100.0 / batch_size)
+
+    def _preprocess_output(self, output):
+        dim = output.size(1)
+        if dim == 1:
+            output = torch.cat((1 - output, output), 1)  # Increase dimension
+            dim = output.size(1)
+        if self.topk >= dim:
+            raise ValueError(
+                "Cannot compute top {} accuracy with "
+                "input dimension {}".format(self.topk, dim))
+        if dim > 2:
+            raise ValueError("Cannot compute top 1 accuracy with more than 2 ")
+        return output
 
     @property
     def name(self):
@@ -161,21 +176,3 @@ class F1Score(MLBenchMetric):
     @property
     def name(self):
         return "F1-Score"
-
-
-class Accuracy(MLBenchMetric):
-
-    def __init__(self, threshold=0.5):
-        super(Accuracy, self).__init__()
-        self.threshold = threshold
-
-    def __call__(self, loss, output, target):
-        y_pred = torch.ge(output.float(), self.threshold).float()
-        y_true = target.float()
-
-        num_correct = (y_pred == y_true).sum().float()
-        return (num_correct / y_true.shape[0]) * 100
-
-    @property
-    def name(self):
-        return "Accuracy"
