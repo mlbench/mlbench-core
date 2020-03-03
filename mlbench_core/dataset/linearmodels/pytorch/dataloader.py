@@ -44,18 +44,15 @@ class LMDBDataset(torch.utils.data.Dataset):
     Args:
         root (string): Either root directory for the database files,
             or a absolute path pointing to the file.
-        transform (callable, optional): A function/transform that
-            takes in an PIL image and returns a transformed version.
-            E.g, ``transforms.RandomCrop``
         target_transform (callable, optional):
             A function/transform that takes in the target and transforms it.
     """
 
-    def __init__(self, root, n_features=None, transform=None,
-                 target_transform=None, is_image=False):
-        self.n_features = n_features
+    def __init__(self, name, data_type, root,
+                 is_image=False, target_transform=None, download=True):
+
+        root, self.transform = maybe_download_lmdb(name, data_type, root)
         self.root = os.path.expanduser(root)
-        self.transform = transform
         self.target_transform = target_transform
         self.lmdb_files = self._get_valid_lmdb_files()
 
@@ -63,7 +60,7 @@ class LMDBDataset(torch.utils.data.Dataset):
         self.dbs = []
         for lmdb_file in self.lmdb_files:
             self.dbs.append(LMDBPTClass(
-                root=lmdb_file, transform=transform,
+                root=lmdb_file, transform=self.transform,
                 target_transform=target_transform, is_image=is_image))
 
         # build up indices.
@@ -226,8 +223,8 @@ def get_dataset_info(name):
     return stats[0]
 
 
-def load_and_download_lmdb(name, data_type, dataset_dir):
-    """ Downloads the give dataset
+def maybe_download_lmdb(name, data_type, dataset_dir):
+    """ Downloads the given dataset
 
     Args:
         name (str): Name of the dataset, one of
@@ -236,12 +233,12 @@ def load_and_download_lmdb(name, data_type, dataset_dir):
         dataset_dir (str): Directory where to store the dataset
 
     Returns:
-        LMDBDataset
+        (str, bool): path of lmdb file and flag for sparse transform
     """
+
     full_name = "{}_{}".format(name, data_type)
     stats = get_dataset_info(full_name)
     lmdb_path = os.path.join(dataset_dir, "{}_{}.lmdb".format(name, data_type))
-    # compressed_path = lmdb_path + ".bz2"
 
     if not (os.path.exists(lmdb_path) and os.path.isfile(lmdb_path)):
         if 'url' not in stats:
@@ -251,10 +248,4 @@ def load_and_download_lmdb(name, data_type, dataset_dir):
 
         progress_download(stats['url'], dest=lmdb_path)
 
-        # _logger.info("Extracting {} to {}".format(compressed_path,
-        #                                           lmdb_path))
-        #
-        # extract_bz2_file(compressed_path, lmdb_path, delete=True)
-    dataset = LMDBDataset(lmdb_path, transform=maybe_transform_sparse(stats),
-                          target_transform=None, is_image=False)
-    return dataset
+    return lmdb_path, maybe_transform_sparse(stats)
