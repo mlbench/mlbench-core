@@ -84,15 +84,15 @@ def update_best_runtime_metric(tracker, metric_value, metric_name):
 
 def convert_dtype(dtype, obj):
     # The object should be a ``module`` or a ``tensor``
-    if dtype == 'fp32':
+    if dtype == "fp32":
         return obj.float()
-    elif dtype == 'fp64':
+    elif dtype == "fp64":
         return obj.double()
     else:
-        raise NotImplementedError('dtype {} not supported.'.format(dtype))
+        raise NotImplementedError("dtype {} not supported.".format(dtype))
 
 
-def config_logging(logging_level='INFO', logging_file='/mlbench.log'):
+def config_logging(logging_level="INFO", logging_file="/mlbench.log"):
     """Setup logging modules.
 
     A stream handler and file handler are added to default logger `mlbench`.
@@ -103,7 +103,7 @@ def config_logging(logging_level='INFO', logging_file='/mlbench.log'):
             record.rank = dist.get_rank()
             return True
 
-    logger = logging.getLogger('mlbench')
+    logger = logging.getLogger("mlbench")
     if len(logger.handlers) >= 2:
         return
 
@@ -111,8 +111,8 @@ def config_logging(logging_level='INFO', logging_file='/mlbench.log'):
     logger.addFilter(RankFilter())
 
     formatter = logging.Formatter(
-        '%(asctime)s %(name)s %(rank)2s %(levelname)s: %(message)s',
-        "%Y-%m-%d %H:%M:%S")
+        "%(asctime)s %(name)s %(rank)2s %(levelname)s: %(message)s", "%Y-%m-%d %H:%M:%S"
+    )
 
     ch = logging.StreamHandler()
     ch.setLevel(logging_level)
@@ -140,11 +140,13 @@ def config_pytorch(use_cuda=False, seed=None, cudnn_deterministic=False):
     # See: https: // github.com/pytorch/examples/blob/master/imagenet/main.py
     if cudnn_deterministic:
         # cudnn.deterministic = True
-        print('You have chosen to seed training. '
-              'This will turn on the CUDNN deterministic setting, '
-              'which can slow down your training considerably! '
-              'You may see unexpected behavior when restarting '
-              'from checkpoints.')
+        print(
+            "You have chosen to seed training. "
+            "This will turn on the CUDNN deterministic setting, "
+            "which can slow down your training considerably! "
+            "You may see unexpected behavior when restarting "
+            "from checkpoints."
+        )
 
     if seed:
         random.seed(seed)
@@ -167,18 +169,25 @@ def config_pytorch(use_cuda=False, seed=None, cudnn_deterministic=False):
         if torch.backends.cudnn.version() is None:
             print("CUDNN not found on device.")
 
-        print("World size={}, Rank={}, hostname={}, cuda_available={}, cuda_device={}".format(
-            world_size, rank, socket.gethostname(), torch.cuda.is_available(),
-            torch.cuda.current_device()))
+        print(
+            "World size={}, Rank={}, hostname={}, cuda_available={}, cuda_device={}".format(
+                world_size,
+                rank,
+                socket.gethostname(),
+                torch.cuda.is_available(),
+                torch.cuda.current_device(),
+            )
+        )
 
     return rank, world_size, graph
 
 
 @deprecation.deprecated(
     deprecated_in="1.3.1",
-    details="This method was moved to mlbench_core.utils.log_metrics")
+    details="This method was moved to mlbench_core.utils.log_metrics",
+)
 class LogMetrics(object):
-    in_cluster = os.getenv('KUBERNETES_SERVICE_HOST') is not None
+    in_cluster = os.getenv("KUBERNETES_SERVICE_HOST") is not None
 
     if in_cluster:
         api = ApiClient()
@@ -194,23 +203,28 @@ class LogMetrics(object):
             run_id,
             metric_name,
             value,
-            metadata="{{rank: {}, epoch:{}}}".format(rank, epoch))
+            metadata="{{rank: {}, epoch:{}}}".format(rank, epoch),
+        )
 
         if tracker and time:
-            tracker.records.append({
-                "run_id": run_id,
-                "name": metric_name,
-                "cumulative": True,
-                "date": str(datetime.datetime.now()),
-                "time": str(time),
-                "value": str(value),
-                "metadata": "{{rank: {}, epoch:{}}}".format(rank, epoch)})
+            tracker.records.append(
+                {
+                    "run_id": run_id,
+                    "name": metric_name,
+                    "cumulative": True,
+                    "date": str(datetime.datetime.now()),
+                    "time": str(time),
+                    "value": str(value),
+                    "metadata": "{{rank: {}, epoch:{}}}".format(rank, epoch),
+                }
+            )
 
 
 @deprecation.deprecated(
     deprecated_in="1.1.1",
     details="This method has performance implications, use"
-    " mlbench_core.utils.pytorch.helpers.LogMetrics instead")
+    " mlbench_core.utils.pytorch.helpers.LogMetrics instead",
+)
 def log_metrics(run_id, rank, epoch, metric_name, value, tracker=None, time=None):
     """ Log metrics to mlbench master/dashboard
 
@@ -221,7 +235,7 @@ def log_metrics(run_id, rank, epoch, metric_name, value, tracker=None, time=None
         metric_name (str): The name of the metric to save
         value (Any): The metric value
     """
-    in_cluster = os.getenv('MLBENCH_IN_DOCKER') is None
+    in_cluster = os.getenv("MLBENCH_IN_DOCKER") is None
 
     metric_name = "{} @ {}".format(metric_name, rank)
 
@@ -231,32 +245,39 @@ def log_metrics(run_id, rank, epoch, metric_name, value, tracker=None, time=None
             run_id,
             metric_name,
             value,
-            metadata="{{rank: {}, epoch:{}}}".format(rank, epoch))
+            metadata="{{rank: {}, epoch:{}}}".format(rank, epoch),
+        )
 
     if tracker and time:
-        tracker.records.append({
-            "run_id": run_id,
-            "name": metric_name,
-            "cumulative": True,
-            "date": str(datetime.datetime.now()),
-            "time": str(time),
-            "value": str(value),
-            "metadata": "{{rank: {}, epoch:{}}}".format(rank, epoch)})
+        tracker.records.append(
+            {
+                "run_id": run_id,
+                "name": metric_name,
+                "cumulative": True,
+                "date": str(datetime.datetime.now()),
+                "time": str(time),
+                "value": str(value),
+                "metadata": "{{rank: {}, epoch:{}}}".format(rank, epoch),
+            }
+        )
 
 
 def config_path(ckpt_run_dir, delete_existing_ckpts=False):
     """Config the path used during the experiments."""
     if delete_existing_ckpts:
-        print("Remove previous checkpoint directory : {}".format(
-            ckpt_run_dir))
+        print("Remove previous checkpoint directory : {}".format(ckpt_run_dir))
         shutil.rmtree(ckpt_run_dir, ignore_errors=True)
     os.makedirs(ckpt_run_dir, exist_ok=True)
 
 
-def iterate_dataloader(dataloader, dtype, max_batch_per_epoch=None, use_cuda=False,
-                       transform_target_type=None):
-    for _, (data, target) in zip(maybe_range(max_batch_per_epoch),
-                                 dataloader):
+def iterate_dataloader(
+    dataloader,
+    dtype,
+    max_batch_per_epoch=None,
+    use_cuda=False,
+    transform_target_type=None,
+):
+    for _, (data, target) in zip(maybe_range(max_batch_per_epoch), dataloader):
 
         data = convert_dtype(dtype, data)
         if transform_target_type:

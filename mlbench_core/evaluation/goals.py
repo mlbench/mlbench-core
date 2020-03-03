@@ -19,8 +19,10 @@ def time_to_accuracy_goal(threshold):
         if value >= threshold:
             duration = tracker.get_total_train_time()
 
-            result = "{0:02d}% Top 1 Validation Accuracy reached in {1:.3f} " \
-                     "seconds".format(threshold, duration)
+            result = (
+                "{0:02d}% Top 1 Validation Accuracy reached in {1:.3f} "
+                "seconds".format(threshold, duration)
+            )
 
             result = _add_detailed_times(result, tracker)
 
@@ -52,6 +54,7 @@ def task1_time_to_accuracy_light_goal():
         func: time_time_to_accuracy_goal with threshold = 70
     """
     return time_to_accuracy_goal(70)
+
 
 def task2_time_to_accuracy_goal():
     """Time to accuracy goal for benchmark task 2: Linear binary classifier
@@ -95,8 +98,9 @@ def task3_time_to_preplexity_goal(metric_name, value, tracker):
 
     if value <= 50:
         duration = tracker.get_total_train_time()
-        result = "Validation perplexity of 50 reached in {0:.3f} seconds" \
-            .format(duration)
+        result = "Validation perplexity of 50 reached in {0:.3f} seconds".format(
+            duration
+        )
 
         result = _add_detailed_times(result, tracker)
 
@@ -125,8 +129,9 @@ def task3_time_to_preplexity_light_goal(metric_name, value, tracker):
 
     if value <= 100:
         duration = tracker.get_total_train_time()
-        result = "Validation perplexity of 50 reached in {0:.3f} seconds" \
-            .format(duration)
+        result = "Validation perplexity of 50 reached in {0:.3f} seconds".format(
+            duration
+        )
 
         result = _add_detailed_times(result, tracker)
 

@@ -14,47 +14,53 @@ from sklearn.datasets import make_classification
 from tensorpack.dataflow import PrefetchDataZMQ, LMDBSerializer
 
 _DATASET_MAP = {
-    'australian_train': {
-        'url': 'https://www.csie.ntu.edu.tw/~cjlin/libsvmtools'
-               '/datasets/binary/australian',
-        'sparse': False},
-    'duke_train': {
-        'url': 'https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets'
-               '/binary/duke.tr.bz2',
-        'sparse': True},
-    'duke_test': {
-        'url': 'https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets'
-               '/binary/duke.val.bz2',
-        'sparse': True},
-    'epsilon_train': {
-        'url': 'https://www.csie.ntu.edu.tw/~cjlin/libsvmtools'
-               '/datasets/binary/epsilon_normalized.bz2',
-        'sparse': False},
-    'epsilon_test': {
-        'url': 'https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets'
-               '/binary/epsilon_normalized.t.bz2',
-        'sparse': False},
-    'rcv1_train': {
-        'url': 'https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets'
-               '/binary/rcv1_train.binary.bz2',
-        'sparse': True},
-    'rcv1_test': {
-        'url': 'https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets'
-               '/binary/rcv1_test.binary.bz2',
-        'sparse': True},
-    'webspam_train': {
-        'url': 'https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary'
-               '/webspam_wc_normalized_trigram.svm.bz2',
-        'sparse': True
-    }
-
+    "australian_train": {
+        "url": "https://www.csie.ntu.edu.tw/~cjlin/libsvmtools"
+        "/datasets/binary/australian",
+        "sparse": False,
+    },
+    "duke_train": {
+        "url": "https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets"
+        "/binary/duke.tr.bz2",
+        "sparse": True,
+    },
+    "duke_test": {
+        "url": "https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets"
+        "/binary/duke.val.bz2",
+        "sparse": True,
+    },
+    "epsilon_train": {
+        "url": "https://www.csie.ntu.edu.tw/~cjlin/libsvmtools"
+        "/datasets/binary/epsilon_normalized.bz2",
+        "sparse": False,
+    },
+    "epsilon_test": {
+        "url": "https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets"
+        "/binary/epsilon_normalized.t.bz2",
+        "sparse": False,
+    },
+    "rcv1_train": {
+        "url": "https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets"
+        "/binary/rcv1_train.binary.bz2",
+        "sparse": True,
+    },
+    "rcv1_test": {
+        "url": "https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets"
+        "/binary/rcv1_test.binary.bz2",
+        "sparse": True,
+    },
+    "webspam_train": {
+        "url": "https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary"
+        "/webspam_wc_normalized_trigram.svm.bz2",
+        "sparse": True,
+    },
 }
 
 
 def _get_dense_tensor(tensor):
-    if 'sparse' in str(type(tensor)):
+    if "sparse" in str(type(tensor)):
         return tensor.toarray()
-    elif 'numpy' in str(type(tensor)):
+    elif "numpy" in str(type(tensor)):
         return tensor
 
 
@@ -69,22 +75,20 @@ def _correct_binary_labels(labels, is_01_classes=True):
 def _get_features_and_labels(data, is_sparse):
     features, labels = data
 
-    features = _get_dense_tensor(features) if not is_sparse else \
-        features
+    features = _get_dense_tensor(features) if not is_sparse else features
     labels = _get_dense_tensor(labels)
     labels = _correct_binary_labels(labels)
     return features, labels
 
 
 def _load_libsvm_data(root_path, name, data_type):
-    data = _DATASET_MAP['{}_{}'.format(name, data_type)]
-    data_url = data['url']
-    is_sparse = data['sparse']
+    data = _DATASET_MAP["{}_{}".format(name, data_type)]
+    data_url = data["url"]
+    is_sparse = data["sparse"]
 
-    file_name = data_url.split('/')[-1]
+    file_name = data_url.split("/")[-1]
     # Downloads and extracts the data (deletes downloaded file after)
-    file_path = maybe_download_and_extract_bz2(root_path, file_name,
-                                               data_url)
+    file_path = maybe_download_and_extract_bz2(root_path, file_name, data_url)
 
     print("Loading SVM file {}".format(file_path))
     data = load_svmlight_file(file_path)
@@ -138,36 +142,38 @@ class LIBSVMDataset(object):
 def sequential_epsilon_or_rcv1(root_path, name, data_type):
     features, labels, is_sparse = _load_libsvm_data(root_path, name, data_type)
     data = LIBSVMDataset(features, labels, is_sparse)
-    lmdb_file_path = os.path.join(root_path, '{}_{}.lmdb'.format(name,
-                                                                 data_type))
+    lmdb_file_path = os.path.join(root_path, "{}_{}.lmdb".format(name, data_type))
 
     ds1 = PrefetchDataZMQ(data, nr_proc=1)
     LMDBSerializer.save(ds1, lmdb_file_path)
 
-    print('Dumped dataflow to {} for {}'.format(lmdb_file_path, name))
+    print("Dumped dataflow to {} for {}".format(lmdb_file_path, name))
 
 
 def sequential_synthetic_dataset(root_path, dataset_name, data_type):
     """Generate a synthetic dataset for regression."""
-    if data_type == 'dense':
-        X, y = make_classification(n_samples=10000,
-                                   n_features=100,
-                                   n_informative=90,
-                                   n_classes=2,
-                                   random_state=42)
+    if data_type == "dense":
+        X, y = make_classification(
+            n_samples=10000,
+            n_features=100,
+            n_informative=90,
+            n_classes=2,
+            random_state=42,
+        )
     else:
-        raise NotImplementedError("{} synthetic dataset is "
-                                  "not supported.".format(data_type))
+        raise NotImplementedError(
+            "{} synthetic dataset is " "not supported.".format(data_type)
+        )
 
     data = LIBSVMDataset(X, y, False)
-    lmdb_file_path = os.path.join(root_path, '{}_{}.lmdb'.format(dataset_name,
-                                                                 data_type))
+    lmdb_file_path = os.path.join(
+        root_path, "{}_{}.lmdb".format(dataset_name, data_type)
+    )
 
     ds1 = PrefetchDataZMQ(data, nr_proc=1)
     LMDBSerializer.save(ds1, lmdb_file_path)
 
-    print('Dumped dataflow to {} for {}'.format(lmdb_file_path,
-                                                dataset_name))
+    print("Dumped dataflow to {} for {}".format(lmdb_file_path, dataset_name))
 
 
 @click.command()
@@ -183,17 +189,16 @@ def generate_lmdb_from_libsvm(data, data_type, data_dir):
         data_type (str): One of `train` `test`
         data_dir (str): Directory where to download, extract and transform
     """
-    if 'epsilon' in data or 'rcv1' in data or 'webspam' in data:
+    if "epsilon" in data or "rcv1" in data or "webspam" in data:
         sequential_epsilon_or_rcv1(data_dir, data, data_type)
-    elif 'australian' in data or 'duke' in data:
+    elif "australian" in data or "duke" in data:
         # These two are small datasets for testing purpose.
         sequential_epsilon_or_rcv1(data_dir, data, data_type)
-    elif 'synthetic' in data:
+    elif "synthetic" in data:
         sequential_synthetic_dataset(data_dir, data, data_type)
     else:
-        raise NotImplementedError(
-            "Dataset {} not supported.".format(data))
+        raise NotImplementedError("Dataset {} not supported.".format(data))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     generate_lmdb_from_libsvm()

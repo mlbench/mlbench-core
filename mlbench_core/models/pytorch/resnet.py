@@ -44,12 +44,20 @@ def batch_norm(num_features):
     :param num_features: number of features passed to batch normalization
     :type num_features: int
     """
-    return nn.BatchNorm2d(num_features=num_features, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    return nn.BatchNorm2d(
+        num_features=num_features,
+        eps=1e-05,
+        momentum=0.1,
+        affine=True,
+        track_running_stats=True,
+    )
 
 
 def conv3x3(in_channels, out_channels, stride=1):
     """3x3 convolution with padding."""
-    return nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
+    return nn.Conv2d(
+        in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False
+    )
 
 
 class BasicBlockV1(nn.Module):
@@ -161,18 +169,22 @@ class ResNetCIFAR(nn.Module):
         version (int): Resnet version (1 or 2). Default: ``1``
     """
 
-    def __init__(self, resnet_size, bottleneck, num_classes, version=_DEFAULT_RESNETCIFAR_VERSION):
+    def __init__(
+        self, resnet_size, bottleneck, num_classes, version=_DEFAULT_RESNETCIFAR_VERSION
+    ):
         super(ResNetCIFAR, self).__init__()
 
         if resnet_size % 6 != 2:
-            raise ValueError("The resnet_size should be (6 * num_blocks + 2). Got {}."
-                             .format(resnet_size))
+            raise ValueError(
+                "The resnet_size should be (6 * num_blocks + 2). Got {}.".format(
+                    resnet_size
+                )
+            )
 
         num_blocks = (resnet_size - 2) // 6
 
         if version not in (1, 2):
-            raise ValueError(
-                "Resnet version should be 1 or 2, got {}.".format(version))
+            raise ValueError("Resnet version should be 1 or 2, got {}.".format(version))
 
         if bottleneck:
             raise NotImplementedError
@@ -189,30 +201,32 @@ class ResNetCIFAR(nn.Module):
             self.prep = nn.Sequential(
                 conv3x3(in_channels=3, out_channels=16, stride=1),
                 batch_norm(num_features=16),
-                nn.ReLU())
+                nn.ReLU(),
+            )
         else:
             raise NotImplementedError
 
         # 6n layers
-        self.conv_1 = self._make_layer(block, in_channels=16, out_channels=16,
-                                       num_blocks=num_blocks, init_stride=1)
-        self.conv_2 = self._make_layer(block, in_channels=16, out_channels=32,
-                                       num_blocks=num_blocks, init_stride=2)
-        self.conv_3 = self._make_layer(block, in_channels=32, out_channels=64,
-                                       num_blocks=num_blocks, init_stride=2)
+        self.conv_1 = self._make_layer(
+            block, in_channels=16, out_channels=16, num_blocks=num_blocks, init_stride=1
+        )
+        self.conv_2 = self._make_layer(
+            block, in_channels=16, out_channels=32, num_blocks=num_blocks, init_stride=2
+        )
+        self.conv_3 = self._make_layer(
+            block, in_channels=32, out_channels=64, num_blocks=num_blocks, init_stride=2
+        )
 
         # Add an average pooling layer:
         # the output of conv_3 has shape H=W=8
         # the output average pooling will be (batch_size, channels, 1, 1)
         self.avgpool = nn.AvgPool2d(8, stride=8)
 
-        self.classifier = nn.Linear(
-            in_features=64, out_features=num_classes, bias=True)
+        self.classifier = nn.Linear(in_features=64, out_features=num_classes, bias=True)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(
-                    m.weight, mode='fan_out', nonlinearity='relu')
+                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
             elif isinstance(m, nn.BatchNorm2d):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
@@ -234,13 +248,20 @@ class ResNetCIFAR(nn.Module):
         else:
             # Use projection when the dimension of channel increases.
             downsample = nn.Sequential(
-                nn.Conv2d(in_channels, out_channels, kernel_size=1,
-                          stride=init_stride, bias=False),
-                batch_norm(num_features=out_channels))
+                nn.Conv2d(
+                    in_channels,
+                    out_channels,
+                    kernel_size=1,
+                    stride=init_stride,
+                    bias=False,
+                ),
+                batch_norm(num_features=out_channels),
+            )
 
         # Maybe use downsample in the first block.
-        layers = [block(in_channels, out_channels,
-                        stride=init_stride, downsample=downsample)]
+        layers = [
+            block(in_channels, out_channels, stride=init_stride, downsample=downsample)
+        ]
         for _ in range(1, num_blocks):
             layers.append(block(out_channels, out_channels))
 
@@ -270,20 +291,28 @@ class PreActBlock(nn.Module):
 
         self.bn1 = nn.BatchNorm2d(in_channels)
         self.conv1 = nn.Conv2d(
-            in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
+            in_channels,
+            out_channels,
+            kernel_size=3,
+            stride=stride,
+            padding=1,
+            bias=False,
+        )
         self.bn2 = nn.BatchNorm2d(out_channels)
-        self.conv2 = nn.Conv2d(out_channels, out_channels,
-                               kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv2 = nn.Conv2d(
+            out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False
+        )
 
         if stride != 1 or in_channels != out_channels:
             self.shortcut = nn.Sequential(
-                nn.Conv2d(in_channels, out_channels,
-                          kernel_size=1, stride=stride, bias=False)
+                nn.Conv2d(
+                    in_channels, out_channels, kernel_size=1, stride=stride, bias=False
+                )
             )
 
     def forward(self, x):
         out = F.relu(self.bn1(x))
-        shortcut = self.shortcut(out) if hasattr(self, 'shortcut') else x
+        shortcut = self.shortcut(out) if hasattr(self, "shortcut") else x
         out = self.conv1(out)
         out = self.conv2(F.relu(self.bn2(out)))
         return out + shortcut
@@ -307,7 +336,7 @@ class ResNet18CIFAR10(nn.Module):
         self.prep = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False),
             nn.BatchNorm2d(64),
-            nn.ReLU()
+            nn.ReLU(),
         )
 
         self.layers = nn.Sequential(
@@ -324,8 +353,11 @@ class ResNet18CIFAR10(nn.Module):
         strides = [stride] + [1] * (num_blocks - 1)
         layers = []
         for stride in strides:
-            layers.append(PreActBlock(in_channels=in_channels,
-                                      out_channels=out_channels, stride=stride))
+            layers.append(
+                PreActBlock(
+                    in_channels=in_channels, out_channels=out_channels, stride=stride
+                )
+            )
             in_channels = out_channels
 
         return nn.Sequential(*layers)
@@ -375,14 +407,13 @@ def get_resnet_model(model, version, dtype, num_classes=1000, use_cuda=False):
     Returns:
         A `torch.nn.Module` Resnet Model
     """
-    if model == 'resnet18':
+    if model == "resnet18":
         model = resnet18_bkj(num_classes)
-    elif model in ['resnet20', 'resnet32', 'resnet44', 'resnet56', 'resnet110']:
-        resnet_size = int(model[len('resnet'):])
+    elif model in ["resnet20", "resnet32", "resnet44", "resnet56", "resnet110"]:
+        resnet_size = int(model[len("resnet") :])
         model = ResNetCIFAR(resnet_size, False, 10, version=version)
     else:
-        raise NotImplementedError("{}_{} is not implemented.".format(
-            model, version))
+        raise NotImplementedError("{}_{} is not implemented.".format(model, version))
 
     model = convert_dtype(dtype, model)
     if use_cuda:

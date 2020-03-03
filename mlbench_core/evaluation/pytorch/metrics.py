@@ -8,7 +8,6 @@ from abc import abstractmethod
 
 
 class MLBenchMetric(object):
-
     def __init__(self):
         self.average_meter = AverageMeter()
 
@@ -69,7 +68,7 @@ class TopKAccuracy(MLBenchMetric):
         _, pred = output.topk(self.topk, 1, True, True)
         pred = pred.t().float()
         correct = pred.eq(target.view(1, -1).expand_as(pred).float())
-        correct_k = correct[:self.topk].view(-1).float().sum(0, keepdim=True)
+        correct_k = correct[: self.topk].view(-1).float().sum(0, keepdim=True)
         return correct_k.mul_(100.0 / batch_size)
 
     def _preprocess_output(self, output):
@@ -80,7 +79,8 @@ class TopKAccuracy(MLBenchMetric):
         if self.topk >= dim:
             raise ValueError(
                 "Cannot compute top {} accuracy with "
-                "input dimension {}".format(self.topk, dim))
+                "input dimension {}".format(self.topk, dim)
+            )
         if dim > 2:
             raise ValueError("Cannot compute top 1 accuracy with more than 2 ")
         return output
@@ -114,7 +114,6 @@ class Perplexity(MLBenchMetric):
 
 
 class DiceCoefficient(MLBenchMetric):
-
     def __call__(self, loss, output, target):
         """ Computes the Dice Coefficient of a Binary classification problem
 
@@ -171,7 +170,8 @@ class F1Score(MLBenchMetric):
         recall = true_positive.div(y_true.sum(dim=0).add(self.eps))
 
         return torch.mean(
-            (precision * recall).div(precision + recall + self.eps).mul(2))
+            (precision * recall).div(precision + recall + self.eps).mul(2)
+        )
 
     @property
     def name(self):

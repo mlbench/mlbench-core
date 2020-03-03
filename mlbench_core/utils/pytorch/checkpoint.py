@@ -44,17 +44,18 @@ class Checkpointer(object):
             is_best (bool): Whether the current model is a new best scoring one
         """
         state = {
-            'tracker': tracker,
-            'model': model.state_dict(),
-            'optimizer': optimizer.state_dict(),
-            'scheduler': scheduler.state_dict(),
-            'freq': self.freq
+            "tracker": tracker,
+            "model": model.state_dict(),
+            "optimizer": optimizer.state_dict(),
+            "scheduler": scheduler.state_dict(),
+            "freq": self.freq,
         }
 
         filename = "{epoch}_{rank}.pth.tar".format(
-            epoch=tracker.current_epoch, rank=self.rank)
+            epoch=tracker.current_epoch, rank=self.rank
+        )
         checkpoint_path = os.path.join(self.dirname, filename)
-        best_model_path = os.path.join(self.dirname, 'model_best.pth.tar')
+        best_model_path = os.path.join(self.dirname, "model_best.pth.tar")
 
         if self.freq == CheckpointFreq.ALL:
             torch.save(state, checkpoint_path, pickle_module=dill)
@@ -65,15 +66,13 @@ class Checkpointer(object):
         elif self.freq != CheckpointFreq.NONE:
             raise NotImplementedError
 
-        self._maybe_save_stats(
-            tracker.records, tracker.current_epoch, self.rank)
+        self._maybe_save_stats(tracker.records, tracker.current_epoch, self.rank)
 
     def _maybe_save_stats(self, records, epoch, rank):
         """Save the records in the tracker."""
         if self.save_stats:
-            filename = os.path.join(self.dirname,
-                                    "{}_{}.json".format(epoch, rank))
-            with open(filename, 'w') as f:
+            filename = os.path.join(self.dirname, "{}_{}.json".format(epoch, rank))
+            with open(filename, "w") as f:
                 json.dump(records, f)
 
     @staticmethod
@@ -96,17 +95,18 @@ class Checkpointer(object):
 
         if not os.path.isfile(checkpoint_path):
             raise FileNotFoundError(
-                "No checkpoint found at '{}' for rank '{}'".format(ckpt_run_dir, rank))
+                "No checkpoint found at '{}' for rank '{}'".format(ckpt_run_dir, rank)
+            )
 
         checkpoint = torch.load(checkpoint_path, pickle_module=dill)
 
-        model.load_state_dict(checkpoint['model'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
-        scheduler.load_state_dict(checkpoint['scheduler'])
+        model.load_state_dict(checkpoint["model"])
+        optimizer.load_state_dict(checkpoint["optimizer"])
+        scheduler.load_state_dict(checkpoint["scheduler"])
 
-        tracker = checkpoint['tracker']
+        tracker = checkpoint["tracker"]
 
-        freq = checkpoint['freq']
+        freq = checkpoint["freq"]
 
         checkpointer = Checkpointer(ckpt_run_dir, rank, freq)
         # checkpointer.runtime['cumu_time_val'] = checkpoint['tracker']['cumu_time_val']
@@ -127,15 +127,17 @@ class Checkpointer(object):
             `model`
         """
         checkpoint_path = os.path.join(
-            ckpt_run_dir, '{}_{}.pth.tar'.format(epoch, rank))
+            ckpt_run_dir, "{}_{}.pth.tar".format(epoch, rank)
+        )
 
         if not os.path.isfile(checkpoint_path):
             raise FileNotFoundError(
-                "No checkpoint found at '{}' for rank '{}'".format(ckpt_run_dir, rank))
+                "No checkpoint found at '{}' for rank '{}'".format(ckpt_run_dir, rank)
+            )
 
         checkpoint = torch.load(checkpoint_path)
 
-        model.load_state_dict(checkpoint['model'])
+        model.load_state_dict(checkpoint["model"])
         return model
 
     @staticmethod
@@ -151,10 +153,12 @@ class Checkpointer(object):
             `model`
         """
         checkpoint_path = os.path.join(
-            ckpt_run_dir, '{}_{}.pth.tar'.format(epoch, rank))
+            ckpt_run_dir, "{}_{}.pth.tar".format(epoch, rank)
+        )
         if not os.path.isfile(checkpoint_path):
             raise FileNotFoundError(
-                "No checkpoint found at '{}' for rank '{}'".format(ckpt_run_dir, rank))
+                "No checkpoint found at '{}' for rank '{}'".format(ckpt_run_dir, rank)
+            )
 
 
 def determine_restore_ckpt_path(rank, checkpoint_root):
@@ -168,13 +172,14 @@ def determine_restore_ckpt_path(rank, checkpoint_root):
         The path of the newest checkpoint for this worker
     """
     ckpt_ids = os.listdir(checkpoint_root)
-    ckpt_ids = list(filter(lambda x: x.endswith('.pth.tar'), ckpt_ids))
-    ckpt_ids = list(set(ckpt_ids) - set(['model_best.pth.tar']))
+    ckpt_ids = list(filter(lambda x: x.endswith(".pth.tar"), ckpt_ids))
+    ckpt_ids = list(set(ckpt_ids) - set(["model_best.pth.tar"]))
 
-    ckpt_ids = filter(lambda x: x.split(
-        "_")[1][:-len('.pth.tar')] == str(rank), ckpt_ids)
+    ckpt_ids = filter(
+        lambda x: x.split("_")[1][: -len(".pth.tar")] == str(rank), ckpt_ids
+    )
 
-    latest = sorted(ckpt_ids, reverse=True, key=lambda x: int(x.split('_')[0]))
+    latest = sorted(ckpt_ids, reverse=True, key=lambda x: int(x.split("_")[0]))
 
     path = os.path.join(checkpoint_root, latest[0])
     return path

@@ -45,11 +45,11 @@ class Wikitext2(nlp_datasets.WikiText2):
         if download:
             path = self.download(root)
         else:
-            path = os.path.join(root, 'wikitext-2/wikitext-2')
+            path = os.path.join(root, "wikitext-2/wikitext-2")
 
         if train:
-            path = os.path.join(path, 'wiki.train.tokens')
+            path = os.path.join(path, "wiki.train.tokens")
         else:
-            path = os.path.join(path, 'wiki.valid.tokens')
+            path = os.path.join(path, "wiki.valid.tokens")
 
         super(Wikitext2, self).__init__(path, self.text_field)

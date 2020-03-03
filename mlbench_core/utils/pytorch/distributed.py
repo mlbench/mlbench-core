@@ -27,11 +27,13 @@ def global_average(sum, count):
         array = torch.Tensor(array)
         dist.all_reduce(array, op=dist.reduce_op.SUM)
         return array[0] / array[1]
+
     avg = helper([sum, count])
     return avg
 
 
 ##########################################################################################
+
 
 class Aggregation(object):
     """Aggregate udpates / models from different processes."""
@@ -89,7 +91,7 @@ class AllReduceAggregation(Aggregation):
         Returns:
             :obj:`torch.Tensor`: An aggregated tensor.
         """
-        if op == 'avg':
+        if op == "avg":
             dist.all_reduce(data, op=dist.reduce_op.SUM)
             data /= self.world_size
         else:
@@ -133,7 +135,7 @@ class DecentralizedAggregation(Aggregation):
             req.wait()
 
         # Aggregate local_data
-        if op == 'avg':
+        if op == "avg":
             output = sum(local_data.values()) / (len(self.neighbors) + 1)
         else:
             raise NotImplementedError("op {} is not supported yet.".format(op))

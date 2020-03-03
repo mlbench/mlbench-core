@@ -19,10 +19,12 @@ from pyhelm.chartbuilder import ChartBuilder
 from pyhelm.tiller import Tiller
 from tabulate import tabulate
 
-GCLOUD_NVIDIA_DAEMONSET = ('https://raw.githubusercontent.com/'
-                           'GoogleCloudPlatform/container-engine-accelerators/'
-                           'stable/nvidia-driver-installer/cos/'
-                           'daemonset-preloaded.yaml')
+GCLOUD_NVIDIA_DAEMONSET = (
+    "https://raw.githubusercontent.com/"
+    "GoogleCloudPlatform/container-engine-accelerators/"
+    "stable/nvidia-driver-installer/cos/"
+    "daemonset-preloaded.yaml"
+)
 
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -104,56 +106,52 @@ def cli(args=None):
 
 
 @cli.command()
-@click.argument('name', type=str)
-@click.argument('num_workers', nargs=-1, type=int, metavar='num-workers')
-@click.option('--gpu', '-g', default=False, type=bool, is_flag=True)
-@click.option('--light', '-l', default=False, type=bool, is_flag=True)
-@click.option('--dashboard-url', '-u', default=None, type=str)
+@click.argument("name", type=str)
+@click.argument("num_workers", nargs=-1, type=int, metavar="num-workers")
+@click.option("--gpu", "-g", default=False, type=bool, is_flag=True)
+@click.option("--light", "-l", default=False, type=bool, is_flag=True)
+@click.option("--dashboard-url", "-u", default=None, type=str)
 def run(name, num_workers, gpu, light, dashboard_url):
     """Start a new run for a benchmark image"""
     images = list(MLBENCH_IMAGES.keys())
 
-    text_prompt = 'Benchmark: \n\n'
+    text_prompt = "Benchmark: \n\n"
 
-    text_prompt += '\n'.join(
-        '[{}]\t{}'.format(i, t) for i, t in enumerate(images)
-    )
-    text_prompt += '\n[{}]\tCustom Image'.format(len(images))
+    text_prompt += "\n".join("[{}]\t{}".format(i, t) for i, t in enumerate(images))
+    text_prompt += "\n[{}]\tCustom Image".format(len(images))
 
-    text_prompt += '\n\nSelection'
+    text_prompt += "\n\nSelection"
 
     selection = click.prompt(
-        text_prompt,
-        type=click.IntRange(0, len(images)),
-        default=0
+        text_prompt, type=click.IntRange(0, len(images)), default=0
     )
 
     if selection == len(images):
         # run custom image
-        image = click.prompt('Image', type=str)
-        image_command = click.prompt('Command', type=str)
+        image = click.prompt("Image", type=str)
+        image_command = click.prompt("Command", type=str)
         run_on_all = click.confirm(
-            'Run command on all nodes (otherwise just first node)')
+            "Run command on all nodes (otherwise just first node)"
+        )
         benchmark = {
-            'custom_image_name': image,
-            'custom_image_command': image_command,
-            'custom_image_all_nodes': run_on_all
+            "custom_image_name": image,
+            "custom_image_command": image_command,
+            "custom_image_all_nodes": run_on_all,
         }
     else:
-        benchmark = {'image': images[selection]}
+        benchmark = {"image": images[selection]}
 
-    benchmark['gpu_enabled'] = gpu
-    benchmark['light_target'] = light
+    benchmark["gpu_enabled"] = gpu
+    benchmark["light_target"] = light
 
     loaded = setup_client_from_config()
 
-    client = ApiClient(in_cluster=False, url=dashboard_url,
-                       load_config=not loaded)
+    client = ApiClient(in_cluster=False, url=dashboard_url, load_config=not loaded)
 
     results = []
 
     for num_w in num_workers:
-        current_name = '{}-{}'.format(name, num_w)
+        current_name = "{}-{}".format(name, num_w)
 
         res = client.create_run(current_name, num_w, **benchmark)
         results.append(res)
@@ -162,57 +160,70 @@ def run(name, num_workers, gpu, light, dashboard_url):
         act_result = res.result()
         if act_result.status_code > 201:
             try:
-                click.echo('Couldn\'t start run: {}'.format(
-                    act_result.json()['message']))
+                click.echo(
+                    "Couldn't start run: {}".format(act_result.json()["message"])
+                )
             except json.JSONDecodeError:
                 print(str(act_result.text))
                 click.echo(
-                    'Couldn\'t start run: Status {} for request'.format(
-                        act_result.status_code))
+                    "Couldn't start run: Status {} for request".format(
+                        act_result.status_code
+                    )
+                )
             return
 
-        click.echo('Run started with name {}'.format(
-            act_result.json()['name']))
+        click.echo("Run started with name {}".format(act_result.json()["name"]))
 
 
 @cli.command()
-@click.argument('name', type=str)
-@click.option('--dashboard-url', '--u', default=None, type=str)
+@click.argument("name", type=str)
+@click.option("--dashboard-url", "--u", default=None, type=str)
 def status(name, dashboard_url):
     """Get the status of a benchmark run"""
     loaded = setup_client_from_config()
 
-    client = ApiClient(in_cluster=False, url=dashboard_url,
-                       load_config=not loaded)
+    client = ApiClient(in_cluster=False, url=dashboard_url, load_config=not loaded)
 
     ret = client.get_runs()
     runs = ret.result().json()
 
     try:
-        run = next(r for r in runs if r['name'] == name)
+        run = next(r for r in runs if r["name"] == name)
     except StopIteration:
-        click.echo('Run not found')
+        click.echo("Run not found")
         return
 
-    del run['job_id']
-    del run['job_metadata']
+    del run["job_id"]
+    del run["job_metadata"]
 
-    click.echo(tabulate([run], headers='keys'))
+    click.echo(tabulate([run], headers="keys"))
 
-    loss = client.get_run_metrics(run['id'], metric_filter='val_global_loss @ 0', last_n=1)
-    prec = client.get_run_metrics(run['id'], metric_filter='val_global_Prec@1 @ 0', last_n=1)
+    loss = client.get_run_metrics(
+        run["id"], metric_filter="val_global_loss @ 0", last_n=1
+    )
+    prec = client.get_run_metrics(
+        run["id"], metric_filter="val_global_Prec@1 @ 0", last_n=1
+    )
 
     loss = loss.result()
     prec = prec.result()
 
-    if loss.status_code < 300 and 'val_global_loss @ 0' in loss.json():
-        val = loss.json()['val_global_loss @ 0'][0]
-        click.echo("Current Global Loss: {0:.2f} ({1})".format(float(val['value']), val['date']))
+    if loss.status_code < 300 and "val_global_loss @ 0" in loss.json():
+        val = loss.json()["val_global_loss @ 0"][0]
+        click.echo(
+            "Current Global Loss: {0:.2f} ({1})".format(
+                float(val["value"]), val["date"]
+            )
+        )
     else:
         click.echo("No Validation Loss Data yet")
-    if prec.status_code < 300 and 'val_global_Prec@1 @ 0' in prec.json():
-        val = prec.json()['val_global_Prec@1 @ 0'][0]
-        click.echo("Current Global Precision: {0:.2f} ({1})".format(float(val['value']), val['date']))
+    if prec.status_code < 300 and "val_global_Prec@1 @ 0" in prec.json():
+        val = prec.json()["val_global_Prec@1 @ 0"][0]
+        click.echo(
+            "Current Global Precision: {0:.2f} ({1})".format(
+                float(val["value"]), val["date"]
+            )
+        )
     else:
         click.echo("No Validation Precision Data yet")
 
@@ -228,65 +239,63 @@ def get_dashboard_url():
 
     client = ApiClient(in_cluster=False, load_config=False)
 
-    click.echo(client.endpoint.replace('api/', ''))
+    click.echo(client.endpoint.replace("api/", ""))
 
 
 @cli.command()
-@click.argument('name', type=str)
-@click.option('--dashboard-url', '--u', default=None, type=str)
+@click.argument("name", type=str)
+@click.option("--dashboard-url", "--u", default=None, type=str)
 def delete(name, dashboard_url):
     """Delete a benchmark run"""
     loaded = setup_client_from_config()
 
-    client = ApiClient(in_cluster=False, url=dashboard_url,
-                       load_config=not loaded)
+    client = ApiClient(in_cluster=False, url=dashboard_url, load_config=not loaded)
 
     ret = client.get_runs()
     runs = ret.result().json()
 
     try:
-        run = next(r for r in runs if r['name'] == name)
+        run = next(r for r in runs if r["name"] == name)
     except StopIteration:
-        click.echo('Run not found')
+        click.echo("Run not found")
         return
 
-    del run['job_id']
-    del run['job_metadata']
+    del run["job_id"]
+    del run["job_metadata"]
 
-    client.delete_run(run['id'])
+    client.delete_run(run["id"])
 
 
 @cli.command()
-@click.argument('name', type=str)
-@click.option('--output', '-o', type=str)
-@click.option('--dashboard-url', '-u', default=None, type=str)
+@click.argument("name", type=str)
+@click.option("--output", "-o", type=str)
+@click.option("--dashboard-url", "-u", default=None, type=str)
 def download(name, output, dashboard_url):
     """Download the results of a benchmark run"""
     loaded = setup_client_from_config()
 
-    client = ApiClient(in_cluster=False, url=dashboard_url,
-                       load_config=not loaded)
+    client = ApiClient(in_cluster=False, url=dashboard_url, load_config=not loaded)
 
     ret = client.get_runs()
     runs = ret.result().json()
 
-    run = next(r for r in runs if r['name'] == name)
+    run = next(r for r in runs if r["name"] == name)
 
-    ret = client.download_run_metrics(run['id'])
+    ret = client.download_run_metrics(run["id"])
 
-    with open(output, 'wb') as f:
+    with open(output, "wb") as f:
         f.write(ret.result().content)
 
 
-@cli.group('delete-cluster')
+@cli.group("delete-cluster")
 def delete_cluster():
     pass
 
 
-@delete_cluster.command('gcloud')
-@click.argument('name', type=str)
-@click.option('--project', '-p', default=None, type=str)
-@click.option('--zone', '-z', default='europe-west1-b', type=str)
+@delete_cluster.command("gcloud")
+@click.argument("name", type=str)
+@click.option("--project", "-p", default=None, type=str)
+@click.option("--zone", "-z", default="europe-west1-b", type=str)
 def delete_gcloud(name, zone, project):
     from google.cloud import container_v1
     import google.auth
@@ -299,7 +308,8 @@ def delete_gcloud(name, zone, project):
             "Couldn't find gcloud credentials. Install the gcloud"
             " sdk ( https://cloud.google.com/sdk/docs/quickstart-linux ) and "
             "run 'gcloud auth application-default login' to login and create "
-            "your credentials.")
+            "your credentials."
+        )
 
     if not project:
         project = default_project
@@ -307,46 +317,57 @@ def delete_gcloud(name, zone, project):
     # create cluster
     gclient = container_v1.ClusterManagerClient()
 
-    name_path = 'projects/{}/locations/{}/'.format(
-        project, zone)
+    name_path = "projects/{}/locations/{}/".format(project, zone)
 
-    cluster_path = '{}clusters/{}'.format(name_path, name)
+    cluster_path = "{}clusters/{}".format(name_path, name)
 
     response = gclient.delete_cluster(None, None, None, name=cluster_path)
 
     # wait for cluster to load
     while response.status < response.DONE:
         response = gclient.get_operation(
-            None, None, None, name=name_path + '/' + response.name)
+            None, None, None, name=name_path + "/" + response.name
+        )
         sleep(1)
 
     if response.status != response.DONE:
-        raise ValueError('Cluster deletion failed!')
+        raise ValueError("Cluster deletion failed!")
 
     click.echo("Cluster deleted.")
 
 
-@cli.group('create-cluster')
+@cli.group("create-cluster")
 def create_cluster():
     pass
 
 
-@create_cluster.command('gcloud')
-@click.argument('num_workers', type=int, metavar='num-workers')
-@click.argument('release', type=str)
-@click.option('--kubernetes-version', '-k', type=str, default='1.13')
-@click.option('--machine-type', '-t', default='n1-standard-4', type=str)
-@click.option('--disk-size', '-d', default=50, type=int)
-@click.option('--num-cpus', '-c', default=1, type=int)
-@click.option('--num-gpus', '-g', default=0, type=int)
-@click.option('--gpu-type', default='nvidia-tesla-p100', type=str)
-@click.option('--zone', '-z', default='europe-west1-b', type=str)
-@click.option('--project', '-p', default=None, type=str)
-@click.option('--preemptible', '-e', is_flag=True)
-@click.option('--custom-value', '-v', multiple=True)
-def create_gcloud(num_workers, release, kubernetes_version, machine_type,
-                  disk_size, num_cpus, num_gpus, gpu_type, zone, project,
-                  preemptible, custom_value):
+@create_cluster.command("gcloud")
+@click.argument("num_workers", type=int, metavar="num-workers")
+@click.argument("release", type=str)
+@click.option("--kubernetes-version", "-k", type=str, default="1.13")
+@click.option("--machine-type", "-t", default="n1-standard-4", type=str)
+@click.option("--disk-size", "-d", default=50, type=int)
+@click.option("--num-cpus", "-c", default=1, type=int)
+@click.option("--num-gpus", "-g", default=0, type=int)
+@click.option("--gpu-type", default="nvidia-tesla-p100", type=str)
+@click.option("--zone", "-z", default="europe-west1-b", type=str)
+@click.option("--project", "-p", default=None, type=str)
+@click.option("--preemptible", "-e", is_flag=True)
+@click.option("--custom-value", "-v", multiple=True)
+def create_gcloud(
+    num_workers,
+    release,
+    kubernetes_version,
+    machine_type,
+    disk_size,
+    num_cpus,
+    num_gpus,
+    gpu_type,
+    zone,
+    project,
+    preemptible,
+    custom_value,
+):
     from google.cloud import container_v1
     import google.auth
     from google.auth.exceptions import DefaultCredentialsError
@@ -359,7 +380,8 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type,
             "Couldn't find gcloud credentials. Install the gcloud"
             " sdk ( https://cloud.google.com/sdk/docs/quickstart-linux ) and "
             "run 'gcloud auth application-default login' to login and create "
-            "your credentials.")
+            "your credentials."
+        )
 
     if not project:
         project = default_project
@@ -367,28 +389,29 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type,
     # create cluster
     gclient = container_v1.ClusterManagerClient()
 
-    name = '{}-{}'.format(release, num_workers)
-    name_path = 'projects/{}/locations/{}/'.format(project, zone)
+    name = "{}-{}".format(release, num_workers)
+    name_path = "projects/{}/locations/{}/".format(project, zone)
 
     extraargs = {}
 
     if num_gpus > 0:
-        extraargs['accelerators'] = [container_v1.types.AcceleratorConfig(
-            accelerator_count=num_gpus, accelerator_type=gpu_type)]
+        extraargs["accelerators"] = [
+            container_v1.types.AcceleratorConfig(
+                accelerator_count=num_gpus, accelerator_type=gpu_type
+            )
+        ]
 
     # delete existing firewall, if any
-    firewalls = discovery.build(
-        'compute', 'v1', cache_discovery=False).firewalls()
+    firewalls = discovery.build("compute", "v1", cache_discovery=False).firewalls()
 
     existing_firewalls = firewalls.list(project=project).execute()
-    fw_name = '{}-firewall'.format(name)
+    fw_name = "{}-firewall".format(name)
 
-    if any(f['name'] == fw_name for f in existing_firewalls['items']):
+    if any(f["name"] == fw_name for f in existing_firewalls["items"]):
         response = {}
-        while not hasattr(response, 'status'):
+        while not hasattr(response, "status"):
             try:
-                response = firewalls.delete(
-                    project=project, firewall=fw_name).execute()
+                response = firewalls.delete(project=project, firewall=fw_name).execute()
             except http.HttpError as e:
                 if e.resp.status == 404:
                     response = {}
@@ -396,123 +419,108 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type,
                 click.echo("Wait for firewall to be available for deletion")
                 sleep(5)
                 response = {}
-        while hasattr(response, 'status') and response.status < response.DONE:
-            response = gclient.get_operation(
-                None, None, None, name=response.selfLink)
+        while hasattr(response, "status") and response.status < response.DONE:
+            response = gclient.get_operation(None, None, None, name=response.selfLink)
             sleep(1)
 
     # create cluster
     cluster = container_v1.types.Cluster(
-            name=name,
-            initial_node_count=num_workers,
-            node_config=container_v1.types.NodeConfig(
-                machine_type=machine_type,
-                disk_size_gb=disk_size,
-                preemptible=preemptible,
-                oauth_scopes=[
-                    'https://www.googleapis.com/auth/devstorage.full_control',
-                ],
-                **extraargs
+        name=name,
+        initial_node_count=num_workers,
+        node_config=container_v1.types.NodeConfig(
+            machine_type=machine_type,
+            disk_size_gb=disk_size,
+            preemptible=preemptible,
+            oauth_scopes=["https://www.googleapis.com/auth/devstorage.full_control",],
+            **extraargs,
+        ),
+        addons_config=container_v1.types.AddonsConfig(
+            http_load_balancing=container_v1.types.HttpLoadBalancing(disabled=True,),
+            horizontal_pod_autoscaling=container_v1.types.HorizontalPodAutoscaling(
+                disabled=True,
             ),
-            addons_config=container_v1.types.AddonsConfig(
-                http_load_balancing=container_v1.types.HttpLoadBalancing(
-                    disabled=True,
-                ),
-                horizontal_pod_autoscaling=
-                    container_v1.types.HorizontalPodAutoscaling(
-                        disabled=True,
-                    ),
-                kubernetes_dashboard=container_v1.types.KubernetesDashboard(
-                    disabled=True,
-                ),
-                network_policy_config=container_v1.types.NetworkPolicyConfig(
-                    disabled=False,
-                ),
+            kubernetes_dashboard=container_v1.types.KubernetesDashboard(disabled=True,),
+            network_policy_config=container_v1.types.NetworkPolicyConfig(
+                disabled=False,
             ),
-            logging_service=None,
-            monitoring_service=None
-        )
+        ),
+        logging_service=None,
+        monitoring_service=None,
+    )
     response = gclient.create_cluster(None, None, cluster, parent=name_path)
 
     # wait for cluster to load
     while response.status < response.DONE:
         response = gclient.get_operation(
-            None, None, None, name=name_path + '/' + response.name)
+            None, None, None, name=name_path + "/" + response.name
+        )
         sleep(1)
 
     if response.status != response.DONE:
-        raise ValueError('Cluster creation failed!')
+        raise ValueError("Cluster creation failed!")
 
-    cluster = gclient.get_cluster(
-        None, None, None, name=name_path + '/' + name)
+    cluster = gclient.get_cluster(None, None, None, name=name_path + "/" + name)
 
     auth_req = google.auth.transport.requests.Request()
     credentials.refresh(auth_req)
     configuration = client.Configuration()
-    configuration.host = f'https://{cluster.endpoint}:443'
+    configuration.host = f"https://{cluster.endpoint}:443"
     configuration.verify_ssl = False
-    configuration.api_key = {'authorization': 'Bearer ' + credentials.token}
+    configuration.api_key = {"authorization": "Bearer " + credentials.token}
     client.Configuration.set_default(configuration)
 
     if num_gpus > 0:
         with request.urlopen(GCLOUD_NVIDIA_DAEMONSET) as r:
             dep = yaml.safe_load(r)
-            dep['spec']['selector'] = {
-                'matchLabels': dep['spec']['template']['metadata']['labels']
-                }
-            dep = client.ApiClient()._ApiClient__deserialize(dep, 'V1DaemonSet')
+            dep["spec"]["selector"] = {
+                "matchLabels": dep["spec"]["template"]["metadata"]["labels"]
+            }
+            dep = client.ApiClient()._ApiClient__deserialize(dep, "V1DaemonSet")
             k8s_client = client.AppsV1Api()
-            k8s_client.create_namespaced_daemon_set('kube-system', body=dep)
+            k8s_client.create_namespaced_daemon_set("kube-system", body=dep)
 
     # create tiller service account
     client.CoreV1Api().create_namespaced_service_account(
-        'kube-system',
+        "kube-system",
         {
-            'apiVersion': 'v1',
-            'kind': 'ServiceAccount',
-            'metadata': {
-                'name': 'tiller',
-                'generateName': 'tiller',
-                'namespace': 'kube-system',
+            "apiVersion": "v1",
+            "kind": "ServiceAccount",
+            "metadata": {
+                "name": "tiller",
+                "generateName": "tiller",
+                "namespace": "kube-system",
             },
-        })
+        },
+    )
 
     client.RbacAuthorizationV1beta1Api().create_cluster_role_binding(
         {
-            'apiVersion': 'rbac.authorization.k8s.io/v1beta1',
-            'kind': 'ClusterRoleBinding',
-            'metadata': {
-                'name': 'tiller'
+            "apiVersion": "rbac.authorization.k8s.io/v1beta1",
+            "kind": "ClusterRoleBinding",
+            "metadata": {"name": "tiller"},
+            "roleRef": {
+                "apiGroup": "rbac.authorization.k8s.io",
+                "kind": "ClusterRole",
+                "name": "cluster-admin",
             },
-            'roleRef': {
-                'apiGroup': 'rbac.authorization.k8s.io',
-                'kind': 'ClusterRole',
-                'name': 'cluster-admin'
-            },
-            'subjects': [
-                {
-                    'kind': 'ServiceAccount',
-                    'name': 'tiller',
-                    'namespace': 'kube-system'
-                }
-            ]
-        })
+            "subjects": [
+                {"kind": "ServiceAccount", "name": "tiller", "namespace": "kube-system"}
+            ],
+        }
+    )
 
     # deploy tiller
     tiller_service = yaml.safe_load(TILLER_MANIFEST_SERVICE)
     tiller_dep = yaml.safe_load(TILLER_MANIFEST_DEPLOYMENT)
-    client.CoreV1Api().create_namespaced_service(
-        'kube-system',
-        tiller_service)
+    client.CoreV1Api().create_namespaced_service("kube-system", tiller_service)
     client.ExtensionsV1beta1Api().create_namespaced_deployment(
-        'kube-system',
-        tiller_dep)
+        "kube-system", tiller_dep
+    )
 
     sleep(1)
 
     pods = client.CoreV1Api().list_namespaced_pod(
-        namespace='kube-system',
-        label_selector='app=helm'
+        namespace="kube-system", label_selector="app=helm"
     )
 
     tiller_pod = pods.items[0]
@@ -520,10 +528,9 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type,
     while True:
         # Wait for tiller
         resp = client.CoreV1Api().read_namespaced_pod(
-            namespace='kube-system',
-            name=tiller_pod.metadata.name
+            namespace="kube-system", name=tiller_pod.metadata.name
         )
-        if resp.status.phase != 'Pending':
+        if resp.status.phase != "Pending":
             break
         sleep(5)
 
@@ -538,32 +545,34 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type,
     #     ports=ports
     #     )
 
-    with subprocess.Popen([
-            'kubectl',
-            'port-forward',
-            '--namespace={}'.format(tiller_pod.metadata.namespace),
-            tiller_pod.metadata.name, '{0}:{0}'.format(ports),
-            '--server={}'.format(configuration.host),
-            '--token={}'.format(credentials.token),
-            '--insecure-skip-tls-verify=true']) as portforward:
+    with subprocess.Popen(
+        [
+            "kubectl",
+            "port-forward",
+            "--namespace={}".format(tiller_pod.metadata.namespace),
+            tiller_pod.metadata.name,
+            "{0}:{0}".format(ports),
+            "--server={}".format(configuration.host),
+            "--token={}".format(credentials.token),
+            "--insecure-skip-tls-verify=true",
+        ]
+    ) as portforward:
 
         sleep(5)
         # install chart
-        tiller = Tiller('localhost')
+        tiller = Tiller("localhost")
         chart = ChartBuilder(
             {
-                'name': 'mlbench-helm',
-                'source': {
-                    'type': 'git',
-                    'location': 'https://github.com/mlbench/mlbench-helm'
-                }})
+                "name": "mlbench-helm",
+                "source": {
+                    "type": "git",
+                    "location": "https://github.com/mlbench/mlbench-helm",
+                },
+            }
+        )
 
         values = {
-            'limits': {
-                'workers': num_workers - 1,
-                'gpu': num_gpus,
-                'cpu': num_cpus
-            }
+            "limits": {"workers": num_workers - 1, "gpu": num_gpus, "cpu": num_cpus}
         }
 
         if custom_value:
@@ -587,8 +596,9 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type,
             name=name,
             wait=True,
             dry_run=False,
-            namespace='default',
-            values=values)
+            namespace="default",
+            values=values,
+        )
 
         portforward.terminate()
 
@@ -598,18 +608,16 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type,
         "name": fw_name,
         "direction": "INGRESS",
         "sourceRanges": "0.0.0.0/0",
-        "allowed": [
-            {"IPProtocol": "tcp", "ports": [mlbench_client.port]}
-        ]
+        "allowed": [{"IPProtocol": "tcp", "ports": [mlbench_client.port]}],
     }
 
     firewalls.insert(project=project, body=firewall_body).execute()
 
     config = get_config()
 
-    config.set('general', 'provider', 'gke')
+    config.set("general", "provider", "gke")
 
-    config.set('gke', 'cluster', cluster.endpoint)
+    config.set("gke", "cluster", cluster.endpoint)
 
     write_config(config)
 
@@ -618,7 +626,7 @@ def create_gcloud(num_workers, release, kubernetes_version, machine_type,
 
 def get_config_path():
     user_dir = user_data_dir("mlbench", "mlbench")
-    return os.path.join(user_dir, 'mlbench.ini')
+    return os.path.join(user_dir, "mlbench.ini")
 
 
 def get_config():
@@ -629,11 +637,11 @@ def get_config():
     if os.path.exists(path):
         config.read(path)
 
-    if not config.has_section('general'):
-        config.add_section('general')
+    if not config.has_section("general"):
+        config.add_section("general")
 
-    if not config.has_section('gke'):
-        config.add_section('gke')
+    if not config.has_section("gke"):
+        config.add_section("gke")
 
     return config
 
@@ -644,19 +652,19 @@ def write_config(config):
     if not os.path.exists(path):
         os.makedirs(os.path.dirname(path))
 
-    with open(path, 'w') as configfile:
+    with open(path, "w") as configfile:
         config.write(configfile)
 
 
 def setup_client_from_config():
     config = get_config()
 
-    provider = config.get('general', 'provider', fallback=None)
+    provider = config.get("general", "provider", fallback=None)
 
     if not provider:
         return False
 
-    if provider == 'gke':
+    if provider == "gke":
         return setup_gke_client_from_config(config)
     else:
         raise NotImplementedError()
@@ -666,7 +674,7 @@ def setup_gke_client_from_config(config):
     import google.auth
     from google.auth.exceptions import DefaultCredentialsError
 
-    cluster = config.get('gke', 'cluster')
+    cluster = config.get("gke", "cluster")
     if not cluster:
         return False
 
@@ -677,17 +685,18 @@ def setup_gke_client_from_config(config):
             "Couldn't find gcloud credentials. Install the gcloud"
             " sdk ( https://cloud.google.com/sdk/docs/quickstart-linux ) and "
             "run 'gcloud auth application-default login' to login and create "
-            "your credentials.")
+            "your credentials."
+        )
     auth_req = google.auth.transport.requests.Request()
     credentials.refresh(auth_req)
     configuration = client.Configuration()
-    configuration.host = f'https://{cluster}:443'
+    configuration.host = f"https://{cluster}:443"
     configuration.verify_ssl = False
-    configuration.api_key = {'authorization': 'Bearer ' + credentials.token}
+    configuration.api_key = {"authorization": "Bearer " + credentials.token}
     client.Configuration.set_default(configuration)
 
     return True
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(cli())  # pragma: no cover
