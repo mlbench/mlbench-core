@@ -66,31 +66,38 @@ def _correct_binary_labels(labels, is_01_classes=True):
     return labels
 
 
+def _get_features_and_labels(data, is_sparse):
+    features, labels = data
+
+    features = _get_dense_tensor(features) if not is_sparse else \
+        features
+    labels = _get_dense_tensor(labels)
+    labels = _correct_binary_labels(labels)
+    return features, labels
+
+
+def _load_libsvm_data(root_path, name, data_type):
+    data = _DATASET_MAP['{}_{}'.format(name, data_type)]
+    data_url = data['url']
+    is_sparse = data['sparse']
+
+    file_name = data_url.split('/')[-1]
+    # Downloads and extracts the data (deletes downloaded file after)
+    file_path = maybe_download_and_extract_bz2(root_path, file_name,
+                                               data_url)
+
+    print("Loading SVM file {}".format(file_path))
+    data = load_svmlight_file(file_path)
+    features, labels = _get_features_and_labels(data, is_sparse)
+    return features, labels, is_sparse
+
+
 class LIBSVMDataset(object):
-    def __init__(self, root_path, name, data_type):
+    def __init__(self, features, labels, is_sparse):
 
-        # get file url and file path.
-        data = _DATASET_MAP['{}_{}'.format(name, data_type)]
-        data_url = data['url']
-        self.is_sparse = data['sparse']
+        self.is_sparse = is_sparse
 
-        file_name = data_url.split('/')[-1]
-        # Downloads and extracts the data (deletes downloaded file after)
-        file_path = maybe_download_and_extract_bz2(root_path, file_name,
-                                                   data_url)
-
-        print("Loading SVM file {}".format(file_path))
-        data = load_svmlight_file(file_path)
-        self.features, self.labels = self._get_features_and_labels(data)
-
-    def _get_features_and_labels(self, data):
-        features, labels = data
-
-        features = _get_dense_tensor(features) if not self.is_sparse else \
-            features
-        labels = _get_dense_tensor(labels)
-        labels = _correct_binary_labels(labels)
-        return features, labels
+        self.features, self.labels = features, labels
 
     def __len__(self):
         return self.features.shape[0]
@@ -128,44 +135,9 @@ class LIBSVMDataset(object):
         pass
 
 
-class SyntheticLIBSVMDataset(object):
-    def __init__(self, features, labels):
-        self.features, self.labels = features, labels
-
-    def __len__(self):
-        return self.features.shape[0]
-
-    def __iter__(self):
-        idxs = list(range(self.__len__()))
-        for k in idxs:
-            features = self.features[k]
-            label = [self.labels[k]]
-            yield [features, label]
-
-    def get_data(self):
-        return self.__iter__()
-
-    def size(self):
-        return self.__len__()
-
-    def reset_state(self):
-        """
-        Reset state of the dataflow.
-        It **has to** be called once and only once before producing datapoints.
-        Note:
-            1. If the dataflow is forked, each process will call this method
-               before producing datapoints.
-            2. The caller thread of this method must remain alive to keep
-            this dataflow alive.
-        For example, RNG **has to** be reset if used in the DataFlow,
-        otherwise it won't work well with prefetching, because different
-        processes will have the same RNG state.
-        """
-        pass
-
-
 def sequential_epsilon_or_rcv1(root_path, name, data_type):
-    data = LIBSVMDataset(root_path, name, data_type)
+    features, labels, is_sparse = _load_libsvm_data(root_path, name, data_type)
+    data = LIBSVMDataset(features, labels, is_sparse)
     lmdb_file_path = os.path.join(root_path, '{}_{}.lmdb'.format(name,
                                                                  data_type))
 
@@ -187,14 +159,15 @@ def sequential_synthetic_dataset(root_path, dataset_name, data_type):
         raise NotImplementedError("{} synthetic dataset is "
                                   "not supported.".format(data_type))
 
-    data = SyntheticLIBSVMDataset(X, y)
+    data = LIBSVMDataset(X, y, False)
     lmdb_file_path = os.path.join(root_path, '{}_{}.lmdb'.format(dataset_name,
                                                                  data_type))
 
-    print('Dumped dataflow to {} for {}'.format(lmdb_file_path,
-                                                dataset_name))
     ds1 = PrefetchDataZMQ(data, nr_proc=1)
     LMDBSerializer.save(ds1, lmdb_file_path)
+
+    print('Dumped dataflow to {} for {}'.format(lmdb_file_path,
+                                                dataset_name))
 
 
 @click.command()
