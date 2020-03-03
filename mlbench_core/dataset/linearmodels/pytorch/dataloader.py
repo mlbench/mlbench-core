@@ -1,46 +1,58 @@
-import lmdb
-import os
-import torch.utils.data
-import pickle
-import numpy as np
-import math
 import logging
+import os
+import pickle
 
+import cv2
+import lmdb
+import numpy as np
+import torch.utils.data
+from PIL import Image
+from mlbench_core.dataset.util.tools import progress_download
 from tensorpack.utils.compatible_serialize import loads
-from tensorpack.dataflow.serialize import LMDBSerializer
 
 _logger = logging.getLogger('mlbench')
 
+# All available datasets
 _LIBSVM_DATASETS = [
-    {'name': 'webspam', 'n_samples': 350000, 'n_features': 16609143, 'sparse': True},
-    {'name': 'epsilon-train', 'n_samples': 400000, 'n_features': 2000, 'sparse': False},
-    {'name': 'duke-train', 'n_samples': 44, 'n_features': 7129, 'sparse': True},
-    {'name': 'australian-train', 'n_samples': 690, 'n_features': 14, 'sparse': False},
-    {'name': 'rcv1-train', 'n_samples': 677399, 'n_features': 47236, 'sparse': True},
-    {'name': 'synthetic-dense', 'n_samples': 10000, 'n_features': 100, 'sparse': False},
+    {'name': 'australian_train', 'n_samples': 690, 'n_features': 14,
+     'sparse': False},
+    {'name': 'duke_train', 'n_samples': 38, 'n_features': 7129,
+     'sparse': True},
+    {'name': 'duke_test', 'n_samples': 4, 'n_features': 7129,
+     'sparse': True},
+    {'name': 'epsilon_train', 'n_samples': 400000, 'n_features': 2000,
+     'sparse': False,
+     'url': 'https://storage.googleapis.com/mlbench-datasets/libsvm'
+            '/epsilon_train.lmdb'},
+    {'name': 'epsilon_test', 'n_samples': 100000, 'n_features': 2000,
+     'sparse': False,
+     'url': 'https://storage.googleapis.com/mlbench-datasets/libsvm'
+            '/epsilon_test.lmdb'},
+    {'name': 'rcv1_train', 'n_samples': 677399, 'n_features': 47236,
+     'sparse': True},
+    {'name': 'synthetic_dense', 'n_samples': 10000, 'n_features': 100,
+     'sparse': False},
+    {'name': 'webspam_train', 'n_samples': 350000, 'n_features': 16609143,
+     'sparse': True}
 ]
 
 
-class IMDBPT(torch.utils.data.Dataset):
+class LMDBDataset(torch.utils.data.Dataset):
     """
-    LMDB Dataset loader
+    LMDB Dataset
 
     Args:
         root (string): Either root directory for the database files,
             or a absolute path pointing to the file.
-        classes (string or list): One of {'train', 'val', 'test'} or a list of
-            categories to load. e,g. ['bedroom_train', 'church_train'].
-        transform (callable, optional): A function/transform that
-            takes in an PIL image and returns a transformed version.
-            E.g, ``transforms.RandomCrop``
         target_transform (callable, optional):
             A function/transform that takes in the target and transforms it.
     """
 
-    def __init__(self, root, transform=None, target_transform=None, is_image=True, n_features=None):
-        self.n_features = n_features
+    def __init__(self, name, data_type, root,
+                 is_image=False, target_transform=None, download=True):
+
+        root, self.transform = maybe_download_lmdb(name, data_type, root)
         self.root = os.path.expanduser(root)
-        self.transform = transform
         self.target_transform = target_transform
         self.lmdb_files = self._get_valid_lmdb_files()
 
@@ -48,12 +60,13 @@ class IMDBPT(torch.utils.data.Dataset):
         self.dbs = []
         for lmdb_file in self.lmdb_files:
             self.dbs.append(LMDBPTClass(
-                root=lmdb_file, transform=transform,
+                root=lmdb_file, transform=self.transform,
                 target_transform=target_transform, is_image=is_image))
 
         # build up indices.
         self.indices = np.cumsum([len(db) for db in self.dbs])
         self.length = self.indices[-1]
+
         self._get_index_zones = self._build_indices()
 
     def _get_valid_lmdb_files(self):
@@ -74,7 +87,7 @@ class IMDBPT(torch.utils.data.Dataset):
                 return 0, x
 
             for ind, (from_index, to_index) in from_to_indices:
-                if from_index <= x and x < to_index:
+                if from_index <= x < to_index:
                     return ind, x - from_index
 
         return f
@@ -88,7 +101,7 @@ class IMDBPT(torch.utils.data.Dataset):
         """
         block_index, item_index = self._get_index_zones(index)
         image, target = self.dbs[block_index][item_index]
-        return image, target
+        return image, np.array([target])
 
     def __len__(self):
         return self.length
@@ -123,7 +136,9 @@ class LMDBPTClass(torch.utils.data.Dataset):
             A function/transform that takes in the target and transforms it.
         is_image (bool): Whether the dataset file is an image or not
     """
-    def __init__(self, root, transform=None, target_transform=None, is_image=True):
+
+    def __init__(self, root, transform=None, target_transform=None,
+                 is_image=True):
         self.root = os.path.expanduser(root)
         self.transform = transform
         self.target_transform = target_transform
@@ -208,9 +223,29 @@ def get_dataset_info(name):
     return stats[0]
 
 
-def load_libsvm_lmdb(name, lmdb_path):
-    stats = get_dataset_info(name)
-    dataset = IMDBPT(lmdb_path, transform=maybe_transform_sparse(stats),
-                     target_transform=None, is_image=False)
-    return dataset
+def maybe_download_lmdb(name, data_type, dataset_dir):
+    """ Downloads the given dataset
 
+    Args:
+        name (str): Name of the dataset, one of
+            `[australian, duke, epsilon, rcv1, synthetic, webspam]`
+        data_type (str): One of `test` and `train`
+        dataset_dir (str): Directory where to store the dataset
+
+    Returns:
+        (str, bool): path of lmdb file and flag for sparse transform
+    """
+
+    full_name = "{}_{}".format(name, data_type)
+    stats = get_dataset_info(full_name)
+    lmdb_path = os.path.join(dataset_dir, "{}_{}.lmdb".format(name, data_type))
+
+    if not (os.path.exists(lmdb_path) and os.path.isfile(lmdb_path)):
+        if 'url' not in stats:
+            raise FileNotFoundError(
+                "Could not download LIBSVM dataset {}".format(full_name))
+        _logger.info("Downloading dataset {}".format(full_name))
+
+        progress_download(stats['url'], dest=lmdb_path)
+
+    return lmdb_path, maybe_transform_sparse(stats)

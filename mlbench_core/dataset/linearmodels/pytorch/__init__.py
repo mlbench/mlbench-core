@@ -1,3 +1,3 @@
-from .dataloader import load_libsvm_lmdb
+from .dataloader import LMDBDataset
 
-__all__ = ['load_libsvm_lmdb', 'IMDBPT']
+__all__ = ['LMDBDataset']

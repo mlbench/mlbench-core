@@ -3,6 +3,7 @@ import pytest
 import torch
 
 from mlbench_core.models.pytorch.resnet import *
+from mlbench_core.models.pytorch.linear_models import *
 
 
 def test_resnet18():
@@ -69,3 +70,24 @@ def test_resnet20v2():
     assert outp is not None
     assert outp.shape[0] == 3
     assert outp.shape[1] == 10
+
+
+def test_linear_regression():
+    lr = LinearRegression(10)  # Linear regression with 10 features
+    inp = torch.rand(100, 10)
+
+    output = lr(inp)
+    assert output is not None
+    assert output.shape[0] == 100
+    assert output.shape[1] == 1
+
+
+def test_logistic_regression():
+    log = LogisticRegression(10)
+
+    inp = torch.rand(100, 10)
+
+    output = log(inp)
+    assert output is not None
+    assert output.shape[0] == 100
+    assert output.shape[1] == 1

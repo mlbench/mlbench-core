@@ -27,7 +27,8 @@ requirements = [
     'google-cloud-container==0.3.0',
     'oauth2client==4.1.2',
     'torchtext==0.5.0',
-    'spacy==2.2.3']
+    'spacy==2.2.3',
+    'sklearn==0.0']
 
 setup_requirements = ['pytest-runner', ]
 
@@ -65,6 +66,6 @@ setup(
     test_suite='tests',
     tests_require=test_requirements,
     url='https://github.com/mlbench/mlbench_core',
-    version='2.3.0-dev10',
+    version='2.3.0-dev44',
     zip_safe=False,
 )
