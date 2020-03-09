@@ -61,6 +61,9 @@ def validation_round(
     transform_target_type=False,
     use_cuda=False,
     max_batches=None,
+    init_hidden=None,
+    package_hidden=None,
+    transform_parameters=None,
 ):
     """Evaluate the model on the test dataset.
 
@@ -74,6 +77,8 @@ def validation_round(
         transform_target_type (bool): Convert target to `dtype`. Default `False`
         use_cuda (bool): Whether to use GPU for training, default: `False`
         max_batches (int | None): Maximum number of batches to validate on
+        init_hidden (`func`): Function to initialize hidden state (for RNNs), default: `None`
+        package_hidden (`func`): Function to (re-)package hidden state (for RNNs), default: `None`
 
     Returns:
           (dict, float): Dictionary of average of each metric, and average validation loss
@@ -95,9 +100,20 @@ def validation_round(
         data_iter = iterate_dataloader(
             dataloader, dtype, max_batches, use_cuda, transform_target_type
         )
+
+        hidden = None
+        if init_hidden:
+            hidden = init_hidden()
+
         for data, target in data_iter:
+            if hidden:
+                hidden = package_hidden(hidden)
+
             # Inference
-            output = model(data)
+            if hidden:
+                output, hidden = model(data, hidden)
+            else:
+                output = model(data)
 
             # Compute loss
             loss = loss_function(output, target)
