@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 
+import math
 from bisect import bisect_right
+
 import numpy as np
 from torch.optim.lr_scheduler import LambdaLR
-import math
 
 
 def const(optimizer):
@@ -329,7 +330,6 @@ class SQRTTimeDecayLR(LambdaLR):
     """
 
     def __init__(self, optimizer, alpha):
-
         self.alpha = alpha
         self.optimizer = optimizer
 
@@ -342,3 +342,91 @@ class SQRTTimeDecayLR(LambdaLR):
 
     def f(self, iteration):
         return 1.0 / math.sqrt(max(1, iteration))
+
+
+def perhaps_convert_float(param, total):
+    if isinstance(param, float):
+        param = int(param * total)
+    return param
+
+
+class ExponentialWarmupMultiStepLR(LambdaLR):
+    """
+    Learning rate scheduler with exponential warmup and step decay.
+    """
+
+    def __init__(
+        self,
+        optimizer,
+        iterations,
+        warmup_steps=0,
+        remain_steps=1.0,
+        decay_interval=None,
+        decay_steps=4,
+        decay_factor=0.5,
+    ):
+        """
+        Constructor of Exponential WarmupMultiStepLR.
+
+        Parameters: warmup_steps, remain_steps and decay_interval accept both
+        integers and floats as an input. Integer input is interpreted as
+        absolute index of iteration, float input is interpreted as a fraction
+        of total training iterations (epochs * steps_per_epoch).
+
+        If decay_interval is None then the decay will happen at regulary spaced
+        intervals ('decay_steps' decays between iteration indices
+        'remain_steps' and 'iterations').
+
+        Args:
+            optimizer: instance of optimizer
+            iterations (int): total number of training iterations
+            warmup_steps (int): number of warmup iterations
+            remain_steps (int|float): start decay at 'remain_steps' iteration
+            decay_interval (int|float): interval between LR decay steps
+            decay_steps (int): max number of decay steps
+            decay_factor (float): decay factor
+        """
+
+        # iterations before learning rate reaches base LR
+        self.warmup_steps = perhaps_convert_float(warmup_steps, iterations)
+
+        # iteration at which decay starts
+        self.remain_steps = perhaps_convert_float(remain_steps, iterations)
+
+        # number of steps between each decay
+        if decay_interval is None:
+            # decay at regulary spaced intervals
+            decay_iterations = iterations - self.remain_steps
+            self.decay_interval = decay_iterations // decay_steps
+            self.decay_interval = max(self.decay_interval, 1)
+        else:
+            self.decay_interval = perhaps_convert_float(decay_interval, iterations)
+
+        # multiplicative decay factor
+        self.decay_factor = decay_factor
+
+        # max number of decay steps
+        self.decay_steps = decay_steps
+
+        if self.warmup_steps > self.remain_steps:
+            self.warmup_steps = self.remain_steps
+
+        super(ExponentialWarmupMultiStepLR, self).__init__(optimizer, self.f)
+
+    def f(self, duration):
+        factor = 1
+        if duration <= self.warmup_steps:
+            # exponential lr warmup
+            if self.warmup_steps != 0:
+                warmup_factor = math.exp(math.log(0.01) / self.warmup_steps)
+            else:
+                warmup_factor = 1.0
+            factor = warmup_factor ** (self.warmup_steps - self.last_epoch)
+
+        elif self.last_epoch >= self.remain_steps:
+            # step decay
+            decay_iter = self.last_epoch - self.remain_steps
+            num_decay_steps = decay_iter // self.decay_interval + 1
+            num_decay_steps = min(num_decay_steps, self.decay_steps)
+            factor = self.decay_factor ** num_decay_steps
+        return factor
