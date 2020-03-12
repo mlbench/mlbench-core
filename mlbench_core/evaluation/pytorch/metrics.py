@@ -81,8 +81,6 @@ class TopKAccuracy(MLBenchMetric):
                 "Cannot compute top {} accuracy with "
                 "input dimension {}".format(self.topk, dim)
             )
-        if dim > 2:
-            raise ValueError("Cannot compute top 1 accuracy with more than 2 ")
         return output
 
     @property
