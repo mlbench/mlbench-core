@@ -4,7 +4,7 @@ from mlbench_core.utils.pytorch.distributed import DecentralizedAggregation
 import numpy as np
 import torch
 import torch.distributed as dist
-from torch.optim import SGD
+from torch.optim import SGD, Adam
 from torch.optim.optimizer import Optimizer, required
 
 
@@ -412,4 +412,56 @@ class SignSGD(SGD):
                 # Update with the sign
                 p.data.add_(-group["lr"], torch.sign(d_p))
 
+        return loss
+    
+class CentralizedAdam(Adam):
+    r"""Implements centralized Adam algorithm.
+
+    Args:
+        world_size (int): Size of the network
+        model (:obj:`nn.Module`): Model which contains parameters for Adam
+        lr (float, optional): learning rate (default: 1e-3)
+        betas (Tuple[float, float], optional): coefficients used for computing
+            running averages of gradient and its square (default: (0.9, 0.999))
+        eps (float, optional): term added to the denominator to improve
+            numerical stability (default: 1e-8)
+        weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
+        amsgrad (boolean, optional): whether to use the AMSGrad variant of this
+            algorithm from the paper `On the Convergence of Adam and Beyond`_
+            (default: False)
+        average_models (bool): Whether to average models together. (default: `True`)
+
+    """
+
+    def __init__(
+        self,
+        world_size,
+        model,
+        lr=1e-3, 
+        betas=(0.9, 0.999), 
+        eps=1e-8,
+        weight_decay=0, 
+        amsgrad=False,
+        average_models=True,
+    ):
+        super(CentralizedAdam, self).__init__(
+            model.parameters(), lr, betas, eps, weight_decay, amsgrad
+        )
+        if average_models:
+            self.agg_mode = "avg"
+        else:
+            raise NotImplementedError("Only average model is supported right now.")
+
+        self.model = model
+        self.agg = AllReduceAggregation(world_size=world_size).agg_grad
+
+    def step(self, closure=None):
+        """ Aggregates the gradients and performs a single optimization step.
+
+        Arguments:
+            closure (callable, optional): A closure that reevaluates the model
+                and returns the loss.
+        """
+        self.agg(self.model, self.agg_mode)
+        loss = super(CentralizedAdam, self).step(closure=closure)
         return loss
