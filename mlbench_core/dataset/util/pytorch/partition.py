@@ -48,6 +48,10 @@ class Partitioner(object):
             indices = indices.cuda()
 
         dist.broadcast(indices, src=0)
+
+        if dist.get_backend() == dist.Backend.NCCL:
+            indices = indices.cpu()
+
         return list(indices)
 
 
