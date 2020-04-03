@@ -43,6 +43,10 @@ class Partitioner(object):
 
         # broadcast.
         indices = torch.IntTensor(indices)
+        
+        if dist.get_backend() == dist.Backend.NCCL:
+            indices = indices.cuda()
+
         dist.broadcast(indices, src=0)
         return list(indices)
 
