@@ -6,6 +6,9 @@ import torch.distributed as dist
 def _ranks_on_same_node(rank, world_size):
     hostname = socket.gethostname()
     hostname_length = torch.IntTensor([len(hostname)])
+    if dist.get_backend() == "nccl":
+        hostname_length = hostname_length.cuda()
+
     dist.all_reduce(hostname_length, op=dist.reduce_op.MAX)
     max_hostname_length = hostname_length.item()
 
