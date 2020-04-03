@@ -3,25 +3,34 @@ import torch
 import torch.distributed as dist
 
 
+def get_backend_tensor(tensor):
+    if dist.get_backend() == "nccl":
+        return tensor.cuda()
+    return tensor
+    
+
 def _ranks_on_same_node(rank, world_size):
     hostname = socket.gethostname()
-    hostname_length = torch.IntTensor([len(hostname)])
-    if dist.get_backend() == "nccl":
-        hostname_length = hostname_length.cuda()
+    hostname_length = get_backend_tensor( torch.IntTensor([len(hostname)]) )
 
     dist.all_reduce(hostname_length, op=dist.reduce_op.MAX)
     max_hostname_length = hostname_length.item()
 
     encoding = [ord(c) for c in hostname]
     encoding += [-1 for c in range(max_hostname_length - len(hostname))]
-    encoding = torch.IntTensor(encoding)
+    encoding = get_backend_tensor( torch.IntTensor(encoding) )
 
     all_encodings = [
-        torch.IntTensor([0] * max_hostname_length) for _ in range(world_size)
+        get_backend_tensor( torch.IntTensor([0] * max_hostname_length) ) for _ in range(world_size)
     ]
     dist.all_gather(all_encodings, encoding)
 
-    all_encodings = [ec.numpy().tolist() for ec in all_encodings]
+
+    if dist.get_backend() == "nccl":
+        all_encodings = [ec.cpu().numpy().tolist() for ec in all_encodings]
+    else:
+        all_encodings = [ec.numpy().tolist() for ec in all_encodings]
+        
     ranks = []
     for i in range(world_size):
         if all_encodings[rank] == all_encodings[i]:

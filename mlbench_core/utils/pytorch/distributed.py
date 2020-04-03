@@ -25,6 +25,8 @@ def aggregate_gradients(model, world_size, average_models=False):
 def global_average(sum, count):
     def helper(array):
         array = torch.Tensor(array)
+        if dist.get_backend() == "nccl":
+            array = array.cuda()
         dist.all_reduce(array, op=dist.reduce_op.SUM)
         return array[0] / array[1]
 
