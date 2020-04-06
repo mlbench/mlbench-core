@@ -293,5 +293,3 @@ def maybe_cuda(module, use_cuda):
     if use_cuda:
         module.cuda()
     return module
-
-

@@ -25,8 +25,8 @@ def aggregate_gradients(model, world_size, average_models=False):
 
 def global_average(sum, count):
     def helper(array):
-        array = get_backend_tensor( torch.Tensor(array) )
-        
+        array = get_backend_tensor(torch.Tensor(array))
+
         dist.all_reduce(array, op=dist.reduce_op.SUM)
         return array[0] / array[1]
 

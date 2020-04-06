@@ -46,7 +46,7 @@ class Partitioner(object):
         # broadcast.
         indices = torch.IntTensor(indices)
 
-        dist.broadcast( get_backend_tensor(indices), src=0 )
+        dist.broadcast(get_backend_tensor(indices), src=0)
 
         return list(indices)
 

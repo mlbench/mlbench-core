@@ -39,19 +39,21 @@ def initialize_backends(
     """
 
     if not (hasattr(dist, "_initialized") and dist._initialized):
-        
+
         if comm_backend in [dist.Backend.GLOO, dist.Backend.NCCL]:
 
             if comm_backend == dist.Backend.NCCL:
-                assert (torch.cuda.is_available(), 
-                        "Invalid use of NCCL backend without CUDA support available")
+                assert (
+                    torch.cuda.is_available(),
+                    "Invalid use of NCCL backend without CUDA support available",
+                )
 
-            hosts = hosts.split(',')
+            hosts = hosts.split(",")
             os.environ["MASTER_ADDR"] = hosts[0]
-            os.environ['MASTER_PORT'] = '29500'
+            os.environ["MASTER_PORT"] = "29500"
             os.environ["RANK"] = str(rank)
             os.environ["WORLD_SIZE"] = str(len(hosts))
-        
+
         dist.init_process_group(comm_backend)
 
     config_logging(logging_level, logging_file)
