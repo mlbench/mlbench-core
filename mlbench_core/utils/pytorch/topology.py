@@ -2,8 +2,10 @@ import socket
 import torch
 import torch.distributed as dist
 
-from .helpers import get_backend_tensor
-    
+def get_backend_tensor(tensor):
+    if dist.get_backend() == dist.Backend.NCCL:
+        return tensor.cuda()
+    return tensor    
 
 def _ranks_on_same_node(rank, world_size):
     hostname = socket.gethostname()

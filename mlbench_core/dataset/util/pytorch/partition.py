@@ -7,6 +7,9 @@ import numpy as np
 import torch
 import torch.distributed as dist
 
+from mlbench_core.utils.pytorch.topology import get_backend_tensor
+
+
 _logger = logging.getLogger("mlbench")
 
 
@@ -43,14 +46,8 @@ class Partitioner(object):
 
         # broadcast.
         indices = torch.IntTensor(indices)
-        
-        if dist.get_backend() == dist.Backend.NCCL:
-            indices = indices.cuda()
 
-        dist.broadcast(indices, src=0)
-
-        if dist.get_backend() == dist.Backend.NCCL:
-            indices = indices.cpu()
+        dist.broadcast( get_backend_tensor(indices), src=0 )
 
         return list(indices)
 
