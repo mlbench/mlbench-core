@@ -383,6 +383,8 @@ def create_gcloud(
             "your credentials."
         )
 
+    assert num_workers >= 2, "Number of workers should be at least 2"
+
     if not project:
         project = default_project
 
