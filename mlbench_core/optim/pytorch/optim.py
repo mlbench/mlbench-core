@@ -467,56 +467,36 @@ class CentralizedAdam(Adam):
         return loss
 
 
-def get_optimizer(optimizer, params=None, lr=required, weight_decay=0, sparse_grad_size=10, random_sparse=False,
-                  average_models=True, rank=1, neighbors=None, model=None, momentum=0, dampening=0, nesterov=False,
-                  world_size=2, betas=(0.9, 0.999), eps=1e-8, amsgrad=False,):
+def get_optimizer(optimizer, **kwargs):
     r"""Returns an object of the class specified with the argument `optimizer`.
 
         Args:
             optimizer (str): name of the optimizer
-            params (iterable, optional): iterable of parameters to optimize or dicts defining
-                parameter groups. Only used when optimizer='centralized_sparsified_sgd' or 'sign_sgd'.
-            lr (float, optional): Learning rate
-            weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
-            sparse_grad_size (int, optional): Size of the sparsified gradients vector. Only used when
-                optimizer='centralized_sparsified_sgd' (default: 10).
-            random_sparse (bool, optional): Whether select random sparsification. Only used when
-                optimizer='centralized_sparsified_sgd' (default: `False`).
-            average_models (bool, optional): Whether to average models together (default: `True`)
-            rank (int, optional): rank of current process in the network. Only used when optimizer='decentralized_sgd'.
-            neighbors (list, optional): list of ranks of the neighbors of current process. Only used when
-                optimizer='decentralized_sgd'.
-            model (:obj:`nn.Module`, optional): model which contains parameters for SGD. Only used when
-                optimizer='decentralized_sgd', 'centralized_sgd' or 'centralized_adam'.
-            momentum (float, optional): momentum factor. Only used when optimizer='decentralized_sgd',
-                'centralized_sgd' or 'sign_sgd' (default: 0).
-            dampening (float, optional): dampening for momentum. Only used when
-                optimizer='decentralized_sgd', 'centralized_sgd' or 'sign_sgd' (default: 0).
-            nesterov (bool, optional, optional): enables Nesterov momentum. Only used when
-                optimizer='decentralized_sgd', 'centralized_sgd' or 'sign_sgd' (default: False).
-            world_size (int, optional): Size of the network. Only used when optimizer='centralized_sgd' or
-                'centralized_adam'.
-            betas (Tuple[float, float], optional): coefficients used for computing running averages of gradient and
-                its square. Only used when optimizer='centralized_adam' (default: (0.9, 0.999)).
-            eps (float, optional): term added to the denominator to improve numerical stability.
-                Only used when optimizer='centralized_adam' (default: 1e-8).
-            amsgrad (boolean, optional): whether to use the AMSGrad variant of this
-                algorithm from the paper `On the Convergence of Adam and Beyond`.
-                Only used when optimizer='centralized_adam' (default: False).
+            **kwargs (dict, optional): additional optimizer-specific parameters. For the list of supported parameters
+                for each optimizer, please look at its documentation.
         """
     if optimizer == "centralized_sparsified_sgd":
-        return CentralizedSparsifiedSGD(params, lr, weight_decay, sparse_grad_size, random_sparse, average_models)
+        return CentralizedSparsifiedSGD(kwargs.get("params", None), kwargs.get("lr", required),
+                                        kwargs.get("weight_decay", 0),
+                                        kwargs.get("sparse_grad_size", 10), kwargs.get("random_sparse", False),
+                                        kwargs.get("average_models", True))
     elif optimizer == "decentralized_sgd":
-        return DecentralizedSGD(rank, neighbors, model, lr, momentum, dampening, weight_decay, nesterov, average_models)
+        return DecentralizedSGD(kwargs.get("rank", 1), kwargs.get("neighbors", None), kwargs.get("model", None),
+                                kwargs.get("lr", required), kwargs.get("momentum", 0), kwargs.get("dampening", 0),
+                                kwargs.get("weight_decay", 0), kwargs.get("nesterov", False),
+                                kwargs.get("average_models", True))
     elif optimizer == "centralized_sgd":
-        return CentralizedSGD(world_size, model, lr, momentum, dampening, weight_decay, nesterov, average_models)
+        return CentralizedSGD(kwargs.get("world_size", 2), kwargs.get("model", None),
+                              kwargs.get("lr", required), kwargs.get("momentum", 0), kwargs.get("dampening", 0),
+                              kwargs.get("weight_decay", 0), kwargs.get("nesterov", False),
+                              kwargs.get("average_models", True))
     elif optimizer == "sign_sgd":
-        return SignSGD(params, lr, momentum, dampening, weight_decay, nesterov)
+        return SignSGD(kwargs.get("params", None), kwargs.get("lr", required), kwargs.get("momentum", 0),
+                       kwargs.get("dampening", 0), kwargs.get("weight_decay", 0), kwargs.get("nesterov", False))
     elif optimizer == "centralized_adam":
-        return CentralizedAdam(world_size, model, lr, betas, eps, weight_decay, amsgrad, average_models)
+        return CentralizedAdam(kwargs.get("world_size", 2), kwargs.get("model", None),
+                               kwargs.get("lr", required), kwargs.get("betas", (0.9, 0.999)), kwargs.get("eps", 1e-8),
+                               kwargs.get("weight_decay", 0), kwargs.get("amsgrad", False),
+                               kwargs.get("average_models", True))
     else:
         raise ValueError("The optimizer %s is not supported." % optimizer)
-
-
-
-
