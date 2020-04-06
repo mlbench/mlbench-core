@@ -1,6 +1,7 @@
 import torch
 import torch.distributed as dist
 
+
 def broadcast(tensor, src):
     return dist.broadcast(tensor, src=src)
 

@@ -44,9 +44,8 @@ def initialize_backends(
 
             if comm_backend == dist.Backend.NCCL:
                 assert (
-                    torch.cuda.is_available(),
-                    "Invalid use of NCCL backend without CUDA support available",
-                )
+                    torch.cuda.is_available()
+                ), "Invalid use of NCCL backend without CUDA support available"
 
             hosts = hosts.split(",")
             os.environ["MASTER_ADDR"] = hosts[0]
