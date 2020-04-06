@@ -2,11 +2,7 @@ import socket
 import torch
 import torch.distributed as dist
 
-
-def get_backend_tensor(tensor):
-    if dist.get_backend() == "nccl":
-        return tensor.cuda()
-    return tensor
+from .helpers import get_backend_tensor
     
 
 def _ranks_on_same_node(rank, world_size):
@@ -26,10 +22,10 @@ def _ranks_on_same_node(rank, world_size):
     dist.all_gather(all_encodings, encoding)
 
 
-    if dist.get_backend() == "nccl":
-        all_encodings = [ec.cpu().numpy().tolist() for ec in all_encodings]
-    else:
-        all_encodings = [ec.numpy().tolist() for ec in all_encodings]
+    if dist.get_backend() == dist.Backend.NCCL:
+        all_encodings = [ec.cpu() for ec in all_encodings]
+    
+    all_encodings = [ec.numpy().tolist() for ec in all_encodings]
         
     ranks = []
     for i in range(world_size):
