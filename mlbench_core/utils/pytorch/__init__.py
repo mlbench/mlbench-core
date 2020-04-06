@@ -8,6 +8,8 @@ from .topology import FCGraph
 from contextlib import contextmanager
 
 import os
+import torch
+
 __all__ = ["initialize_backends", "Timeit", "FCGraph"]
 
 
@@ -38,7 +40,12 @@ def initialize_backends(
 
     if not (hasattr(dist, "_initialized") and dist._initialized):
         
-        if comm_backend != "mpi":
+        if comm_backend in [dist.Backend.GLOO, dist.Backend.NCCL]:
+
+            if comm_backend == dist.Backend.NCCL:
+                assert (torch.cuda.is_available(), 
+                        "Invalid use of NCCL backend without CUDA support available")
+
             hosts = hosts.split(',')
             os.environ["MASTER_ADDR"] = hosts[0]
             os.environ['MASTER_PORT'] = '29500'
