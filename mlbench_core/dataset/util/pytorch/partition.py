@@ -7,8 +7,7 @@ import numpy as np
 import torch
 import torch.distributed as dist
 
-from mlbench_core.utils.pytorch.topology import get_backend_tensor
-
+from mlbench_core.utils.pytorch.distributed import get_backend_tensor
 
 _logger = logging.getLogger("mlbench")
 

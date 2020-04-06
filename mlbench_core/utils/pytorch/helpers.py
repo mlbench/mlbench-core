@@ -8,12 +8,12 @@ import random
 import shutil
 import socket
 import time
+
+import deprecation
+import torch
 from mlbench_core.api import ApiClient
 from mlbench_core.utils.pytorch.topology import FCGraph
-
-import torch
-import torch.distributed as dist
-import deprecation
+from torch import distributed as dist
 
 
 class Timeit(object):
@@ -293,3 +293,5 @@ def maybe_cuda(module, use_cuda):
     if use_cuda:
         module.cuda()
     return module
+
+

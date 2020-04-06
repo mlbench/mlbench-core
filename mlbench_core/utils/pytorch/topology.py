@@ -1,25 +1,22 @@
 import socket
 import torch
 import torch.distributed as dist
+from mlbench_core.utils.pytorch.distributed import get_backend_tensor
 
-def get_backend_tensor(tensor):
-    if dist.get_backend() == dist.Backend.NCCL:
-        return tensor.cuda()
-    return tensor    
 
 def _ranks_on_same_node(rank, world_size):
     hostname = socket.gethostname()
-    hostname_length = get_backend_tensor( torch.IntTensor([len(hostname)]) )
+    hostname_length = get_backend_tensor(torch.IntTensor([len(hostname)]))
 
     dist.all_reduce(hostname_length, op=dist.reduce_op.MAX)
     max_hostname_length = hostname_length.item()
 
     encoding = [ord(c) for c in hostname]
     encoding += [-1 for c in range(max_hostname_length - len(hostname))]
-    encoding = get_backend_tensor( torch.IntTensor(encoding) )
+    encoding = get_backend_tensor(torch.IntTensor(encoding))
 
     all_encodings = [
-        get_backend_tensor( torch.IntTensor([0] * max_hostname_length) ) for _ in range(world_size)
+        get_backend_tensor(torch.IntTensor([0] * max_hostname_length)) for _ in range(world_size)
     ]
     dist.all_gather(all_encodings, encoding)
 

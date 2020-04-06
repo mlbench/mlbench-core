@@ -1,7 +1,7 @@
 import torch
 import torch.distributed as dist
+from torch import distributed as dist
 
-from .topology import get_backend_tensor
 
 def broadcast(tensor, src):
     return dist.broadcast(tensor, src=src)
@@ -153,3 +153,9 @@ class SparsifiedAggregation(Aggregation):
 
     def _agg(self, data, op):
         pass
+
+
+def get_backend_tensor(tensor):
+    if dist.is_initialized() and dist.get_backend() == dist.Backend.NCCL:
+        return tensor.cuda()
+    return tensor
