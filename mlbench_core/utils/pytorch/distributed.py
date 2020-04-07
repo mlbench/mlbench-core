@@ -24,7 +24,8 @@ def aggregate_gradients(model, world_size, average_models=False):
 
 def global_average(sum, count):
     def helper(array):
-        array = torch.Tensor(array)
+        array = get_backend_tensor(torch.Tensor(array))
+
         dist.all_reduce(array, op=dist.reduce_op.SUM)
         return array[0] / array[1]
 
@@ -151,3 +152,9 @@ class SparsifiedAggregation(Aggregation):
 
     def _agg(self, data, op):
         pass
+
+
+def get_backend_tensor(tensor):
+    if dist.is_initialized() and dist.get_backend() == dist.Backend.NCCL:
+        return tensor.cuda()
+    return tensor

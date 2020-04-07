@@ -413,7 +413,8 @@ class SignSGD(SGD):
                 p.data.add_(-group["lr"], torch.sign(d_p))
 
         return loss
-    
+
+
 class CentralizedAdam(Adam):
     r"""Implements centralized Adam algorithm.
 
@@ -437,10 +438,10 @@ class CentralizedAdam(Adam):
         self,
         world_size,
         model,
-        lr=1e-3, 
-        betas=(0.9, 0.999), 
+        lr=1e-3,
+        betas=(0.9, 0.999),
         eps=1e-8,
-        weight_decay=0, 
+        weight_decay=0,
         amsgrad=False,
         average_models=True,
     ):
