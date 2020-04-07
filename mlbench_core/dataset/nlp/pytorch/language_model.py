@@ -5,7 +5,14 @@ from torchtext.experimental.datasets import WikiText2
 
 
 class BPTTWikiText2(Dataset):
-    """WikiText2 dataset with backpropagation through time."""
+    """WikiText2 dataset with backpropagation through time.
+
+    Args:
+        bptt_len (int): Length of BPTT segments
+        train (bool): Whether to get the train or validation set (default=True)
+        tokenizer (:obj:`torchtext.data.utils.tokenizer`): Tokenizer to use
+        root (str): Root folder for the dataset
+        """
 
     def __init__(self, bptt_len, train=True, **kwargs):
         super(BPTTWikiText2, self).__init__()
