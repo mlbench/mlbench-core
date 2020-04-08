@@ -14,7 +14,7 @@ import click
 import yaml
 from appdirs import user_data_dir
 from kubernetes import client
-from mlbench_core.api import ApiClient, MLBENCH_IMAGES
+from mlbench_core.api import ApiClient, MLBENCH_IMAGES, MLBENCH_BACKENDS
 from pyhelm.chartbuilder import ChartBuilder
 from pyhelm.tiller import Tiller
 from tabulate import tabulate
@@ -130,16 +130,32 @@ def run(name, num_workers, gpu, light, dashboard_url):
         # run custom image
         image = click.prompt("Image", type=str)
         image_command = click.prompt("Command", type=str)
-        run_on_all = click.confirm(
-            "Run command on all nodes (otherwise just first node)"
-        )
         benchmark = {
             "custom_image_name": image,
             "custom_image_command": image_command,
-            "custom_image_all_nodes": run_on_all,
         }
     else:
         benchmark = {"image": images[selection]}
+
+    # Backend Prompt
+    text_prompt = "Backend: \n\n"
+    text_prompt += "\n".join("[{}]\t{}".format(i, t) for i, t in enumerate(MLBENCH_BACKENDS))
+    text_prompt += "\n[{}]\tCustom Backend".format(len(MLBENCH_BACKENDS))
+    text_prompt += "\n\nSelection"
+
+    selection = click.prompt(
+        text_prompt, type=click.IntRange(0, len(MLBENCH_BACKENDS)), default=0
+    )
+
+    if selection == len(MLBENCH_BACKENDS):
+        backend = click.prompt("Backend", type=str)
+        run_on_all = click.confirm(
+            "Run command on all nodes (otherwise just first node)"
+        )
+        benchmark["custom_backend"] = backend
+        benchmark["run_all_nodes"] = run_on_all
+    else:
+        benchmark["backend"] = MLBENCH_BACKENDS[selection]
 
     benchmark["gpu_enabled"] = gpu
     benchmark["light_target"] = light
