@@ -187,13 +187,15 @@ class CentralizedSparsifiedSGD(SparsifiedSGD):
 
     def __init__(
         self,
-        params,
+        params=None,
         lr=required,
         weight_decay=0,
         sparse_grad_size=10,
         random_sparse=False,
         average_models=True,
     ):
+        if not params:
+            raise ValueError('"params" not set for optimizer')
         self.average_models = average_models
         self.world_size = dist.get_world_size()
         self.random_sparse = random_sparse
@@ -274,9 +276,9 @@ class DecentralizedSGD(SGD):
 
     def __init__(
         self,
-        rank,
-        neighbors,
-        model,
+        rank=None,
+        neighbors=None,
+        model=None,
         lr=required,
         momentum=0,
         dampening=0,
@@ -284,6 +286,12 @@ class DecentralizedSGD(SGD):
         nesterov=False,
         average_models=True,
     ):
+        if not rank:
+            raise ValueError('"rank" not set for optimizer')
+        if not neighbors:
+            raise ValueError('"neighbors" not set for optimizer')
+        if not model:
+            raise ValueError('"model" not set for optimizer')
         super(DecentralizedSGD, self).__init__(
             model.parameters(), lr, momentum, dampening, weight_decay, nesterov
         )
@@ -326,8 +334,8 @@ class CentralizedSGD(SGD):
 
     def __init__(
         self,
-        world_size,
-        model,
+        world_size=None,
+        model=None,
         lr=required,
         momentum=0,
         dampening=0,
@@ -335,6 +343,10 @@ class CentralizedSGD(SGD):
         nesterov=False,
         average_models=True,
     ):
+        if not world_size:
+            raise ValueError('"world_size" not set for optimizer')
+        if not model:
+            raise ValueError('"model" not set for optimizer')
         super(CentralizedSGD, self).__init__(
             model.parameters(), lr, momentum, dampening, weight_decay, nesterov
         )
@@ -435,8 +447,8 @@ class CentralizedAdam(Adam):
 
     def __init__(
         self,
-        world_size,
-        model,
+        world_size=None,
+        model=None,
         lr=1e-3, 
         betas=(0.9, 0.999), 
         eps=1e-8,
@@ -444,6 +456,10 @@ class CentralizedAdam(Adam):
         amsgrad=False,
         average_models=True,
     ):
+        if not world_size:
+            raise ValueError('"world_size" not set for optimizer')
+        if not model:
+            raise ValueError('"model" not set for optimizer')
         super(CentralizedAdam, self).__init__(
             model.parameters(), lr, betas, eps, weight_decay, amsgrad
         )
@@ -467,6 +483,14 @@ class CentralizedAdam(Adam):
         return loss
 
 
+optimizers = {
+    'centralized_sparsified_sgd': CentralizedSparsifiedSGD,
+    'decentralized_sgd': DecentralizedSGD,
+    'centralized_sgd': CentralizedSGD,
+    'sign_sgd': SignSGD,
+    'centralized_adam': CentralizedAdam}
+
+
 def get_optimizer(optimizer, **kwargs):
     r"""Returns an object of the class specified with the argument `optimizer`.
 
@@ -475,28 +499,4 @@ def get_optimizer(optimizer, **kwargs):
             **kwargs (dict, optional): additional optimizer-specific parameters. For the list of supported parameters
                 for each optimizer, please look at its documentation.
         """
-    if optimizer == "centralized_sparsified_sgd":
-        return CentralizedSparsifiedSGD(kwargs.get("params", None), kwargs.get("lr", required),
-                                        kwargs.get("weight_decay", 0),
-                                        kwargs.get("sparse_grad_size", 10), kwargs.get("random_sparse", False),
-                                        kwargs.get("average_models", True))
-    elif optimizer == "decentralized_sgd":
-        return DecentralizedSGD(kwargs.get("rank", 1), kwargs.get("neighbors", None), kwargs.get("model", None),
-                                kwargs.get("lr", required), kwargs.get("momentum", 0), kwargs.get("dampening", 0),
-                                kwargs.get("weight_decay", 0), kwargs.get("nesterov", False),
-                                kwargs.get("average_models", True))
-    elif optimizer == "centralized_sgd":
-        return CentralizedSGD(kwargs.get("world_size", 2), kwargs.get("model", None),
-                              kwargs.get("lr", required), kwargs.get("momentum", 0), kwargs.get("dampening", 0),
-                              kwargs.get("weight_decay", 0), kwargs.get("nesterov", False),
-                              kwargs.get("average_models", True))
-    elif optimizer == "sign_sgd":
-        return SignSGD(kwargs.get("params", None), kwargs.get("lr", required), kwargs.get("momentum", 0),
-                       kwargs.get("dampening", 0), kwargs.get("weight_decay", 0), kwargs.get("nesterov", False))
-    elif optimizer == "centralized_adam":
-        return CentralizedAdam(kwargs.get("world_size", 2), kwargs.get("model", None),
-                               kwargs.get("lr", required), kwargs.get("betas", (0.9, 0.999)), kwargs.get("eps", 1e-8),
-                               kwargs.get("weight_decay", 0), kwargs.get("amsgrad", False),
-                               kwargs.get("average_models", True))
-    else:
-        raise ValueError("The optimizer %s is not supported." % optimizer)
+    return optimizers[optimizer](**kwargs)
