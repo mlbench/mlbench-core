@@ -454,7 +454,6 @@ class ApiClient(object):
             data["image_name"] = "custom_image"
             data["custom_image_name"] = custom_image_name
             data["custom_image_command"] = custom_image_command
-            # data["custom_image_all_nodes"] = custom_image_all_nodes
         elif image in MLBENCH_IMAGES:
             data["image_name"] = MLBENCH_IMAGES[image][0]
 
@@ -463,6 +462,7 @@ class ApiClient(object):
         else:
             raise ValueError("Image {image} not found".format(image=image))
 
+        assert not ((custom_backend is not None) and (backend is not None)), "custom_backend and backend are mutually exclusive"
         if custom_backend is not None:
             data["backend"] = "custom_backend"
             data["custom_backend"] = custom_backend

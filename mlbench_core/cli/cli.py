@@ -130,13 +130,9 @@ def run(name, num_workers, gpu, light, dashboard_url):
         # run custom image
         image = click.prompt("Image", type=str)
         image_command = click.prompt("Command", type=str)
-        # run_on_all = click.confirm(
-        #     "Run command on all nodes (otherwise just first node)"
-        # )
         benchmark = {
             "custom_image_name": image,
             "custom_image_command": image_command,
-            # "custom_image_all_nodes": run_on_all,
         }
     else:
         benchmark = {"image": images[selection]}

@@ -158,7 +158,7 @@ def config_pytorch(use_cuda=False, seed=None, cudnn_deterministic=False):
 
     rank = dist.get_rank()
     world_size = dist.get_world_size()
-    backend = dist.get_backend() if dist.is_initialized() else dist.get_backend()
+    backend = dist.get_backend() if dist.is_initialized() else None
     graph = FCGraph(rank, world_size, use_cuda)
 
     # enable cudnn accelerator if we are using cuda.
