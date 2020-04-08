@@ -18,6 +18,7 @@ from mlbench_core.api import ApiClient, MLBENCH_IMAGES, MLBENCH_BACKENDS
 from pyhelm.chartbuilder import ChartBuilder
 from pyhelm.tiller import Tiller
 from tabulate import tabulate
+import pickle
 
 GCLOUD_NVIDIA_DAEMONSET = (
     "https://raw.githubusercontent.com/"
@@ -113,6 +114,13 @@ def cli(args=None):
 @click.option("--dashboard-url", "-u", default=None, type=str)
 def run(name, num_workers, gpu, light, dashboard_url):
     """Start a new run for a benchmark image"""
+    current_run_inputs = {}
+
+    try:
+        last_run_inputs = pickle.load(open("last_run_inputs.pkl", "rb"))
+    except:
+        last_run_inputs = {}
+
     images = list(MLBENCH_IMAGES.keys())
 
     text_prompt = "Benchmark: \n\n"
@@ -123,13 +131,16 @@ def run(name, num_workers, gpu, light, dashboard_url):
     text_prompt += "\n\nSelection"
 
     selection = click.prompt(
-        text_prompt, type=click.IntRange(0, len(images)), default=0
+        text_prompt, type=click.IntRange(0, len(images)), default=last_run_inputs.get('benchmark', 0)
     )
+    current_run_inputs['benchmark'] = selection
 
     if selection == len(images):
         # run custom image
-        image = click.prompt("Image", type=str)
-        image_command = click.prompt("Command", type=str)
+        image = click.prompt("Image", type=str, default=last_run_inputs.get('image', None))
+        current_run_inputs['image'] = image
+        image_command = click.prompt("Command", type=str, default=last_run_inputs.get('image_command', None))
+        current_run_inputs['image_command'] = image_command
         benchmark = {
             "custom_image_name": image,
             "custom_image_command": image_command,
@@ -144,19 +155,24 @@ def run(name, num_workers, gpu, light, dashboard_url):
     text_prompt += "\n\nSelection"
 
     selection = click.prompt(
-        text_prompt, type=click.IntRange(0, len(MLBENCH_BACKENDS)), default=0
+        text_prompt, type=click.IntRange(0, len(MLBENCH_BACKENDS)), default=last_run_inputs.get('backend', 0)
     )
+    current_run_inputs['backend'] = selection
 
     if selection == len(MLBENCH_BACKENDS):
-        backend = click.prompt("Backend", type=str)
+        backend = click.prompt("Backend", type=str, default=last_run_inputs.get('custom_backend', None))
+        current_run_inputs['custom_backend'] = backend
         run_on_all = click.confirm(
-            "Run command on all nodes (otherwise just first node)"
+            "Run command on all nodes (otherwise just first node)", default=last_run_inputs.get('run_on_all', None)
         )
+        current_run_inputs['run_on_all'] = run_on_all
         benchmark["custom_backend"] = backend
         benchmark["run_all_nodes"] = run_on_all
     else:
         benchmark["backend"] = MLBENCH_BACKENDS[selection]
 
+    pickle.dump(current_run_inputs, open("last_run_inputs.pkl", "wb"))
+    
     benchmark["gpu_enabled"] = gpu
     benchmark["light_target"] = light
 
