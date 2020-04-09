@@ -284,7 +284,7 @@ def delete(name, dashboard_url):
 
 @cli.command()
 @click.argument("name", type=str)
-@click.option("--output", "-o", type=str)
+@click.option("--output", "-o", default="results.zip", type=str)
 @click.option("--dashboard-url", "-u", default=None, type=str)
 def download(name, output, dashboard_url):
     """Download the results of a benchmark run"""
