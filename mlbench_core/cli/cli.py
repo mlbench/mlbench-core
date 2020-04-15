@@ -139,7 +139,9 @@ def run(name, num_workers, gpu, light, dashboard_url):
 
     # Backend Prompt
     text_prompt = "Backend: \n\n"
-    text_prompt += "\n".join("[{}]\t{}".format(i, t) for i, t in enumerate(MLBENCH_BACKENDS))
+    text_prompt += "\n".join(
+        "[{}]\t{}".format(i, t) for i, t in enumerate(MLBENCH_BACKENDS)
+    )
     text_prompt += "\n[{}]\tCustom Backend".format(len(MLBENCH_BACKENDS))
     text_prompt += "\n\nSelection"
 

@@ -462,7 +462,9 @@ class ApiClient(object):
         else:
             raise ValueError("Image {image} not found".format(image=image))
 
-        assert not ((custom_backend is not None) and (backend is not None)), "custom_backend and backend are mutually exclusive"
+        assert not (
+            (custom_backend is not None) and (backend is not None)
+        ), "custom_backend and backend are mutually exclusive"
         if custom_backend is not None:
             data["backend"] = "custom_backend"
             data["custom_backend"] = custom_backend

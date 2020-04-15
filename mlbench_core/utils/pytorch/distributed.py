@@ -70,6 +70,7 @@ def pack_tensors(tensors, use_cuda=False):
 
     return vec, indices, tensor_sizes
 
+
 ##########################################################################################
 
 

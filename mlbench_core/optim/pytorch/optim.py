@@ -296,7 +296,9 @@ class DecentralizedSGD(SGD):
             raise NotImplementedError("Only average model is supported right now.")
 
         self.model = model
-        self.agg = DecentralizedAggregation(rank, neighbors, use_cuda=use_cuda).agg_model(by_layer=by_layer)
+        self.agg = DecentralizedAggregation(
+            rank, neighbors, use_cuda=use_cuda
+        ).agg_model(by_layer=by_layer)
 
     def step(self, closure=None):
         """ Aggregates the gradients and performs a single optimization step.
@@ -337,7 +339,7 @@ class CentralizedSGD(SGD):
         nesterov=False,
         average_models=True,
         use_cuda=False,
-        by_layer=False
+        by_layer=False,
     ):
         super(CentralizedSGD, self).__init__(
             model.parameters(), lr, momentum, dampening, weight_decay, nesterov
@@ -348,7 +350,9 @@ class CentralizedSGD(SGD):
             raise NotImplementedError("Only average model is supported right now.")
 
         self.model = model
-        self.agg = AllReduceAggregation(world_size=world_size, use_cuda=use_cuda).agg_grad(by_layer=by_layer)
+        self.agg = AllReduceAggregation(
+            world_size=world_size, use_cuda=use_cuda
+        ).agg_grad(by_layer=by_layer)
 
     def step(self, closure=None):
         """ Aggregates the gradients and performs a single optimization step.
@@ -449,7 +453,7 @@ class CentralizedAdam(Adam):
         amsgrad=False,
         average_models=True,
         use_cuda=False,
-        by_layer=False
+        by_layer=False,
     ):
         super(CentralizedAdam, self).__init__(
             model.parameters(), lr, betas, eps, weight_decay, amsgrad
@@ -460,7 +464,9 @@ class CentralizedAdam(Adam):
             raise NotImplementedError("Only average model is supported right now.")
 
         self.model = model
-        self.agg = AllReduceAggregation(world_size=world_size, use_cuda=use_cuda).agg_grad(by_layer=by_layer)
+        self.agg = AllReduceAggregation(
+            world_size=world_size, use_cuda=use_cuda
+        ).agg_grad(by_layer=by_layer)
 
     def step(self, closure=None):
         """ Aggregates the gradients and performs a single optimization step.
