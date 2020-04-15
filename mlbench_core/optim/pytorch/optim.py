@@ -269,7 +269,8 @@ class DecentralizedSGD(SGD):
         dampening (float, optional): dampening for momentum (default: 0)
         nesterov (bool, optional): enables Nesterov momentum (default: False)
         average_models (bool): Whether to average models together. (default: `True`)
-
+        use_cuda (bool): Whether to use cuda tensors for aggregation
+        by_layer (bool): Aggregate by layer instead of all layers at once
     """
 
     def __init__(
@@ -325,7 +326,8 @@ class CentralizedSGD(SGD):
         dampening (float, optional): dampening for momentum (default: 0)
         nesterov (bool, optional): enables Nesterov momentum (default: False)
         average_models (bool): Whether to average models together. (default: `True`)
-
+        use_cuda (bool): Whether to use cuda tensors for aggregation
+        by_layer (bool): Aggregate by layer instead of all layers at once
     """
 
     def __init__(
@@ -439,7 +441,8 @@ class CentralizedAdam(Adam):
             algorithm from the paper `On the Convergence of Adam and Beyond`_
             (default: False)
         average_models (bool): Whether to average models together. (default: `True`)
-
+        use_cuda (bool): Whether to use cuda tensors for aggregation
+        by_layer (bool): Aggregate by layer instead of all layers at once
     """
 
     def __init__(

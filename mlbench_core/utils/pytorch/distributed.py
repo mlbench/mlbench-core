@@ -93,7 +93,7 @@ class Aggregation(object):
         raise NotImplementedError
 
     def _agg_model_by_model(self, model, op):
-        """Aggregate models by model weight, all at once
+        """Aggregate models by model weight, all layers at once
 
         Args:
             model (:obj:`torch.Module`): Models to be averaged.
@@ -112,7 +112,7 @@ class Aggregation(object):
             param.data = aggregated[start_index[i] : end_index[i]].view(sizes[i])
 
     def _agg_gradients_by_model(self, model, op):
-        """Aggregate models gradients, all at once
+        """Aggregate models gradients, all layers at once
 
         Args:
             model (:obj:`torch.Module`): Models to be averaged.
