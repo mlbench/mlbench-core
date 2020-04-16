@@ -92,7 +92,7 @@ class Aggregation(object):
         """
         raise NotImplementedError
 
-    def _agg_model_by_model(self, model, op):
+    def _agg_weights_by_model(self, model, op):
         """Aggregate models by model weight, all layers at once
 
         Args:
@@ -130,7 +130,7 @@ class Aggregation(object):
         for i, param in enumerate(model.parameters()):
             param.grad.data = aggregated[start_index[i] : end_index[i]].view(sizes[i])
 
-    def _agg_model_by_layer(self, model, op):
+    def _agg_weights_by_layer(self, model, op):
         """Aggregate models by model weight, for each layer individually
 
         Args:
@@ -156,9 +156,9 @@ class Aggregation(object):
 
     def agg_model(self, by_layer=False):
         if by_layer:
-            return self._agg_model_by_layer
+            return self._agg_weights_by_layer
         else:
-            return self._agg_model_by_model
+            return self._agg_weights_by_model
 
     def agg_grad(self, by_layer=False):
         if by_layer:
