@@ -1,20 +1,37 @@
-# Config file for automatic testing at travis-ci.org
-jobs:
+dist: xenial
+
+
+language: python
+
+matrix:
   include:
-    - stage: test
-      language: python
-      python:
-        - 3.6
-        - 3.7
-
-      # Command to install dependencies, e.g. pip install -r requirements.txt --use-mirrors
-      install:
-        - pip install --progress-bar off -U tox-travis
-
-      # Command to run tests, e.g. python setup.py test
-      script:
-        - tox
+    - python: 3.6
+      env: TOXENV=black
+  
+install:
+  - pip install tox
 
 
-stages:
-  - test
+script:
+  - tox
+  -
+## Config file for automatic testing at travis-ci.org
+#jobs:
+#  include:
+#    - stage: test
+#      language: python
+#      python:
+#        - 3.6
+#        - 3.7
+#
+#      # Command to install dependencies, e.g. pip install -r requirements.txt --use-mirrors
+#      install:
+#        - pip install --progress-bar off -U tox-travis
+#
+#      # Command to run tests, e.g. python setup.py test
+#      script:
+#        - tox
+#
+#
+#stages:
+#  - test
