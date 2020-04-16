@@ -19,6 +19,7 @@ from pyhelm.chartbuilder import ChartBuilder
 from pyhelm.tiller import Tiller
 from tabulate import tabulate
 import pickle
+from pathlib import Path
 
 GCLOUD_NVIDIA_DAEMONSET = (
     "https://raw.githubusercontent.com/"
@@ -115,10 +116,15 @@ def cli(args=None):
 def run(name, num_workers, gpu, light, dashboard_url):
     """Start a new run for a benchmark image"""
     current_run_inputs = {}
+    
+    last_run_inputs_dir_location = os.path.join(os.environ['HOME'], ".local", "share", "mlbench")
+    Path(last_run_inputs_dir_location).mkdir(parents=True, exist_ok=True)
 
+    last_run_inputs_file_location = os.path.join(last_run_inputs_dir_location, "last_run_inputs.pkl")
+    
     try:
-        last_run_inputs = pickle.load(open("last_run_inputs.pkl", "rb"))
-    except:
+        last_run_inputs = pickle.load(open(last_run_inputs_file_location, "rb"))
+    except FileNotFoundError as e:
         last_run_inputs = {}
 
     images = list(MLBENCH_IMAGES.keys())
@@ -171,7 +177,7 @@ def run(name, num_workers, gpu, light, dashboard_url):
     else:
         benchmark["backend"] = MLBENCH_BACKENDS[selection]
 
-    pickle.dump(current_run_inputs, open("last_run_inputs.pkl", "wb"))
+    pickle.dump(current_run_inputs, open(last_run_inputs_file_location, "wb"))
     
     benchmark["gpu_enabled"] = gpu
     benchmark["light_target"] = light
