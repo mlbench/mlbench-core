@@ -271,7 +271,8 @@ class DecentralizedSGD(SGD):
         dampening (float, optional): dampening for momentum (default: 0)
         nesterov (bool, optional): enables Nesterov momentum (default: False)
         average_models (bool): Whether to average models together. (default: `True`)
-
+        use_cuda (bool): Whether to use cuda tensors for aggregation
+        by_layer (bool): Aggregate by layer instead of all layers at once
     """
 
     def __init__(
@@ -285,6 +286,8 @@ class DecentralizedSGD(SGD):
         weight_decay=0,
         nesterov=False,
         average_models=True,
+        use_cuda=False,
+        by_layer=False,
     ):
         if not rank:
             raise ValueError('"rank" not set for optimizer')
@@ -302,7 +305,9 @@ class DecentralizedSGD(SGD):
             raise NotImplementedError("Only average model is supported right now.")
 
         self.model = model
-        self.agg = DecentralizedAggregation(rank, neighbors).agg_model
+        self.agg = DecentralizedAggregation(
+            rank, neighbors, use_cuda=use_cuda
+        ).agg_model(by_layer=by_layer)
 
     def step(self, closure=None):
         """ Aggregates the gradients and performs a single optimization step.
@@ -329,7 +334,8 @@ class CentralizedSGD(SGD):
         dampening (float, optional): dampening for momentum (default: 0)
         nesterov (bool, optional): enables Nesterov momentum (default: False)
         average_models (bool): Whether to average models together. (default: `True`)
-
+        use_cuda (bool): Whether to use cuda tensors for aggregation
+        by_layer (bool): Aggregate by layer instead of all layers at once
     """
 
     def __init__(
@@ -342,6 +348,8 @@ class CentralizedSGD(SGD):
         weight_decay=0,
         nesterov=False,
         average_models=True,
+        use_cuda=False,
+        by_layer=False,
     ):
         if not world_size:
             raise ValueError('"world_size" not set for optimizer')
@@ -356,7 +364,9 @@ class CentralizedSGD(SGD):
             raise NotImplementedError("Only average model is supported right now.")
 
         self.model = model
-        self.agg = AllReduceAggregation(world_size=world_size).agg_grad
+        self.agg = AllReduceAggregation(
+            world_size=world_size, use_cuda=use_cuda
+        ).agg_grad(by_layer=by_layer)
 
     def step(self, closure=None):
         """ Aggregates the gradients and performs a single optimization step.
@@ -443,19 +453,22 @@ class CentralizedAdam(Adam):
             algorithm from the paper `On the Convergence of Adam and Beyond`_
             (default: False)
         average_models (bool): Whether to average models together. (default: `True`)
-
+        use_cuda (bool): Whether to use cuda tensors for aggregation
+        by_layer (bool): Aggregate by layer instead of all layers at once
     """
 
     def __init__(
         self,
         world_size=None,
         model=None,
-        lr=1e-3, 
+        lr=1e-3,
         betas=(0.9, 0.999),
         eps=1e-8,
         weight_decay=0,
         amsgrad=False,
         average_models=True,
+        use_cuda=False,
+        by_layer=False,
     ):
         if not world_size:
             raise ValueError('"world_size" not set for optimizer')
@@ -470,7 +483,9 @@ class CentralizedAdam(Adam):
             raise NotImplementedError("Only average model is supported right now.")
 
         self.model = model
-        self.agg = AllReduceAggregation(world_size=world_size).agg_grad
+        self.agg = AllReduceAggregation(
+            world_size=world_size, use_cuda=use_cuda
+        ).agg_grad(by_layer=by_layer)
 
     def step(self, closure=None):
         """ Aggregates the gradients and performs a single optimization step.
@@ -485,11 +500,12 @@ class CentralizedAdam(Adam):
 
 
 optimizers = {
-    'centralized_sparsified_sgd': CentralizedSparsifiedSGD,
-    'decentralized_sgd': DecentralizedSGD,
-    'centralized_sgd': CentralizedSGD,
-    'sign_sgd': SignSGD,
-    'centralized_adam': CentralizedAdam}
+    "centralized_sparsified_sgd": CentralizedSparsifiedSGD,
+    "decentralized_sgd": DecentralizedSGD,
+    "centralized_sgd": CentralizedSGD,
+    "sign_sgd": SignSGD,
+    "centralized_adam": CentralizedAdam,
+}
 
 
 def get_optimizer(optimizer, **kwargs):
