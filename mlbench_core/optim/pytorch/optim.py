@@ -461,7 +461,7 @@ class CentralizedAdam(Adam):
         self,
         world_size=None,
         model=None,
-        lr=1e-3, 
+        lr=1e-3,
         betas=(0.9, 0.999),
         eps=1e-8,
         weight_decay=0,
@@ -500,11 +500,12 @@ class CentralizedAdam(Adam):
 
 
 optimizers = {
-    'centralized_sparsified_sgd': CentralizedSparsifiedSGD,
-    'decentralized_sgd': DecentralizedSGD,
-    'centralized_sgd': CentralizedSGD,
-    'sign_sgd': SignSGD,
-    'centralized_adam': CentralizedAdam}
+    "centralized_sparsified_sgd": CentralizedSparsifiedSGD,
+    "decentralized_sgd": DecentralizedSGD,
+    "centralized_sgd": CentralizedSGD,
+    "sign_sgd": SignSGD,
+    "centralized_adam": CentralizedAdam,
+}
 
 
 def get_optimizer(optimizer, **kwargs):
