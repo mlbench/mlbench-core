@@ -187,13 +187,15 @@ class CentralizedSparsifiedSGD(SparsifiedSGD):
 
     def __init__(
         self,
-        params,
+        params=None,
         lr=required,
         weight_decay=0,
         sparse_grad_size=10,
         random_sparse=False,
         average_models=True,
     ):
+        if not params:
+            raise ValueError('"params" not set for optimizer')
         self.average_models = average_models
         self.world_size = dist.get_world_size()
         self.random_sparse = random_sparse
@@ -274,9 +276,9 @@ class DecentralizedSGD(SGD):
 
     def __init__(
         self,
-        rank,
-        neighbors,
-        model,
+        rank=None,
+        neighbors=None,
+        model=None,
         lr=required,
         momentum=0,
         dampening=0,
@@ -284,6 +286,12 @@ class DecentralizedSGD(SGD):
         nesterov=False,
         average_models=True,
     ):
+        if not rank:
+            raise ValueError('"rank" not set for optimizer')
+        if not neighbors:
+            raise ValueError('"neighbors" not set for optimizer')
+        if not model:
+            raise ValueError('"model" not set for optimizer')
         super(DecentralizedSGD, self).__init__(
             model.parameters(), lr, momentum, dampening, weight_decay, nesterov
         )
@@ -326,8 +334,8 @@ class CentralizedSGD(SGD):
 
     def __init__(
         self,
-        world_size,
-        model,
+        world_size=None,
+        model=None,
         lr=required,
         momentum=0,
         dampening=0,
@@ -335,6 +343,10 @@ class CentralizedSGD(SGD):
         nesterov=False,
         average_models=True,
     ):
+        if not world_size:
+            raise ValueError('"world_size" not set for optimizer')
+        if not model:
+            raise ValueError('"model" not set for optimizer')
         super(CentralizedSGD, self).__init__(
             model.parameters(), lr, momentum, dampening, weight_decay, nesterov
         )
@@ -436,15 +448,19 @@ class CentralizedAdam(Adam):
 
     def __init__(
         self,
-        world_size,
-        model,
-        lr=1e-3,
+        world_size=None,
+        model=None,
+        lr=1e-3, 
         betas=(0.9, 0.999),
         eps=1e-8,
         weight_decay=0,
         amsgrad=False,
         average_models=True,
     ):
+        if not world_size:
+            raise ValueError('"world_size" not set for optimizer')
+        if not model:
+            raise ValueError('"model" not set for optimizer')
         super(CentralizedAdam, self).__init__(
             model.parameters(), lr, betas, eps, weight_decay, amsgrad
         )
@@ -466,3 +482,22 @@ class CentralizedAdam(Adam):
         self.agg(self.model, self.agg_mode)
         loss = super(CentralizedAdam, self).step(closure=closure)
         return loss
+
+
+optimizers = {
+    'centralized_sparsified_sgd': CentralizedSparsifiedSGD,
+    'decentralized_sgd': DecentralizedSGD,
+    'centralized_sgd': CentralizedSGD,
+    'sign_sgd': SignSGD,
+    'centralized_adam': CentralizedAdam}
+
+
+def get_optimizer(optimizer, **kwargs):
+    r"""Returns an object of the class specified with the argument `optimizer`.
+
+        Args:
+            optimizer (str): name of the optimizer
+            **kwargs (dict, optional): additional optimizer-specific parameters. For the list of supported parameters
+                for each optimizer, please look at its documentation.
+        """
+    return optimizers[optimizer](**kwargs)
