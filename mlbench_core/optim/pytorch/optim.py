@@ -499,12 +499,290 @@ class CentralizedAdam(Adam):
         return loss
 
 
+class PowerSGD(Optimizer):
+    def __init__(
+        self,
+        model=None,
+        lr=0.1,
+        weight_decay=0,
+        momentum=0,
+        dampening=0,
+        nesterov=False,
+        reuse_query=False,
+        rank=1,
+    ):
+        if not model:
+            raise ValueError('"model" not set for optimizer')
+        if lr is not required and lr < 0.0:
+            raise ValueError("Invalid learning rate: {}".format(lr))
+        if weight_decay < 0.0:
+            raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
+
+        self.rank = rank
+        self.p_memory = None
+        self.q_memory = None
+        self.reuse_query = reuse_query
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.rng = np.random.RandomState(1)
+        self.n_workers = dist.get_world_size()
+
+        defaults = dict(lr=lr, weight_decay=weight_decay, momentum=momentum, nesterov=nesterov, dampening=dampening)
+
+        super(PowerSGD, self).__init__(model.parameters(), defaults)
+
+        self.__create_gradients_memory_and_buffers()
+
+    def __create_gradients_memory_and_buffers(self):
+        self.memories = []
+        self.send_buffers = []
+        for group in self.param_groups:
+            for p in group["params"]:
+                self.memories.append(torch.zeros_like(p.data))
+                self.send_buffers.append(torch.zeros_like(p.data))
+
+    def set_random(self, vector):
+        torch.manual_seed(self.rng.randint(1_000_000_000))
+        vector.data[:] = torch.randn(*vector.shape, device=self.device)
+        # orthogonalize(vector)
+
+    def step(self, closure=None):
+        """Performs a single optimization step.
+
+        Arguments:
+            closure (callable, optional): A closure that reevaluates the model
+                and returns the loss.
+        """
+        loss = None
+        if closure is not None:
+            loss = closure()
+
+        grads = []
+
+        # collect gradients in 'grads'
+        for group in self.param_groups:
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+                grads.append(p.grad.data)
+
+        # accumulate
+        for grad, memory, send_bfr in zip(grads, self.memories, self.send_buffers):
+            send_bfr.data[:] = grad + memory
+
+        # set 'grads' to the averaged value from the workers
+        self.reduce(self.send_buffers, grads, self.memories)
+
+        # update parameters
+        i = 0
+        for group in self.param_groups:
+            weight_decay = group['weight_decay']
+            momentum = group['momentum']
+            dampening = group['dampening']
+            nesterov = group['nesterov']
+
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+                d_p = grads[i]
+                i += 1
+                if weight_decay != 0:
+                    d_p.add_(weight_decay, p.data)
+                if momentum != 0:
+                    param_state = self.state[p]
+                    if 'momentum_buffer' not in param_state:
+                        buf = param_state['momentum_buffer'] = torch.clone(d_p).detach()
+                    else:
+                        buf = param_state['momentum_buffer']
+                        buf.mul_(momentum).add_(1 - dampening, d_p)
+                    if nesterov:
+                        d_p = d_p.add(momentum, buf)
+                    else:
+                        d_p = buf
+
+                p.data.add_(-group['lr'], d_p)
+
+        return loss
+
+    def reduce(self, grad_in, grad_out, memory_out):
+        # Split the tensors into rank1-ones that will be reduced un-compressed
+        # and rank > 1 tensors that are compressed
+        rank1_tensors = [
+            (tensor, out, mem)
+            for tensor, out, mem in zip(grad_in, grad_out, memory_out)
+            if tensor.ndimension() <= 1
+        ]
+        high_rank_tensors = [
+            (tensor, out, mem)
+            for tensor, out, mem in zip(grad_in, grad_out, memory_out)
+            if tensor.ndimension() > 1
+        ]
+
+        # We are building a rank-1 approximation of every tensor
+        # that can be interpreted as a matrix. Let the approximation be
+        # M = p q^T
+        # We are allocating consequtive memory for the p's and q's
+
+        memory_is_uninitialized = self.p_memory is None
+
+        p_total_size = 0
+        q_total_size = 0
+        for tensor, _, _ in high_rank_tensors:
+            matrix = tensor.view(tensor.shape[0], -1)
+            n, m = matrix.shape
+            rank = min(n, m, self.rank)
+            p_total_size += n * rank
+            q_total_size += m * rank
+        if self.p_memory is None:
+            self.p_memory = torch.empty(p_total_size, device=self.device)
+            self.q_memory = torch.empty(q_total_size, device=self.device)
+
+        # Find them again and make lists of pointers
+        ps = []
+        qs = []
+        p_idx = 0
+        q_idx = 0
+        for tensor, _, _ in high_rank_tensors:
+            matrix = tensor.view(tensor.shape[0], -1)
+            n, m = matrix.shape
+            rank = min(n, m, self.rank)
+            ps.append(self.p_memory[p_idx: p_idx + n * rank].view(n, rank))
+            qs.append(self.q_memory[q_idx: q_idx + m * rank].view(m, rank))
+            p_idx += n * rank
+            q_idx += m * rank
+
+        for (tensor, _, _), q, p in zip(high_rank_tensors, qs, ps):
+            matrix = tensor.view(tensor.shape[0], -1)
+            n, m = matrix.shape
+
+            if self.reuse_query and not memory_is_uninitialized:
+                # orthogonalize(q)
+                pass
+            else:
+                # Sample a query vector q
+                self.set_random(q)
+
+        for (tensor, _, _), q, p in zip(high_rank_tensors, qs, ps):
+            matrix = tensor.view(tensor.shape[0], -1)
+            torch.matmul(matrix, q, out=p)
+
+        all_reduce(self.p_memory)
+
+        # Start communicating rank 1 tensors
+        rank1_tensor_list = TensorBuffer([tensor for (tensor, _, _) in rank1_tensors])
+
+        rank1_handle = rank1_tensor_list.all_reduce(async_op=True)
+
+        for p in ps:
+            orthogonalize(p)
+
+        for p, q, (tensor, _, _) in zip(ps, qs, high_rank_tensors):
+            matrix = tensor.view(tensor.shape[0], -1)
+            torch.matmul(matrix.t(), p, out=q)
+
+        all_reduce(self.q_memory)
+        self.q_memory.data[:] /= self.n_workers
+
+        for p, q, (tensor, out, mem) in zip(ps, qs, high_rank_tensors):
+            # Set the output gradient
+            torch.matmul(p, q.t(), out=out.data[:])
+            mem.data[:] = tensor - out
+
+        rank1_handle.wait()
+        rank1_tensor_list.buffer /= self.n_workers
+        rank1_tensor_list.unpack([out for (_, out, _) in rank1_tensors])
+
+
+class TensorBuffer:
+    """
+    Packs multiple tensors into one flat buffer for efficient
+    intra-worker communication.
+    """
+
+    def __init__(self, tensors):
+        indices = [0]
+        for tensor in tensors:
+            new_end = indices[-1] + tensor.nelement()
+            indices.append(new_end)
+
+        self._start_idx = indices[:-1]
+        self._end_idx = indices[1:]
+        self._tensors = tensors
+
+        self.buffer = torch.cat([t.view(-1) for t in tensors])  # copies
+
+    def __getitem__(self, index):
+        return self.buffer[self._start_idx[index]: self._end_idx[index]].view(*self._tensors[index].shape)
+
+    def __len__(self):
+        return len(self._tensors)
+
+    def pack(self, tensors=None):
+        # Optional. init already does this.
+        if tensors is None:
+            tensors = self._tensors
+        for tensor, entry in zip(tensors, self):
+            entry[:] = tensor
+
+    def unpack(self, tensors):
+        for tensor, entry in zip(tensors, self):
+            tensor[:] = entry
+
+    def nelement(self):
+        return self.buffer.nelement()
+
+    def element_size(self):
+        return self.buffer.element_size()
+
+    def bits(self):
+        return 8 * self.nelement() * self.element_size()
+
+    def all_reduce(self, async_op=False):
+        return torch.distributed.all_reduce(self.buffer, async_op=async_op)
+
+    def all_gather(self, async_op=False):
+        n_workers = torch.distributed.get_world_size() if torch.distributed.is_available() else 1
+        buffers = [torch.empty_like(self.buffer) for i in range(n_workers)]
+        handle = all_gather(buffers, self.buffer, async_op=async_op)
+        if async_op:
+            return buffers, handle
+        else:
+            return buffers
+
+
+def all_reduce(*args, **kwargs):
+    if torch.distributed.is_available() and torch.distributed.get_world_size() > 1:
+        return torch.distributed.all_reduce(*args, **kwargs)
+
+
+@torch.jit.script
+def orthogonalize(matrix):
+    n, m = matrix.shape
+    for i in range(m):
+        # Normalize the i'th column
+        col = matrix[:, i : i + 1]
+        col /= torch.sqrt(torch.sum(col ** 2))
+        # Project it on the rest and remove it
+        if i + 1 < m:
+            rest = matrix[:, i + 1 :]
+            # rest -= torch.matmul(col.t(), rest) * col
+            rest -= torch.sum(col * rest, dim=0) * col
+
+
+def all_gather(out_list, in_tensor, **kwargs):
+    if torch.distributed.is_available() and torch.distributed.get_world_size() > 1:
+        return torch.distributed.all_gather(out_list, in_tensor, **kwargs)
+    else:
+        assert len(out_list) == 1
+        out_list[0].data = in_tensor
+
+
 optimizers = {
     "centralized_sparsified_sgd": CentralizedSparsifiedSGD,
     "decentralized_sgd": DecentralizedSGD,
     "centralized_sgd": CentralizedSGD,
     "sign_sgd": SignSGD,
     "centralized_adam": CentralizedAdam,
+    "power_sgd": PowerSGD,
 }
 
 
