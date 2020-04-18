@@ -95,15 +95,9 @@ def train_round(
 
     num_batches_per_device_train = len(dataloader)
 
-    if schedule_per == "epoch":
-        scheduler.step()
-
     for batch_idx, (data, target) in enumerate(data_iter):
         if tracker:
             tracker.batch_start()
-
-        if schedule_per == "batch":
-            scheduler.step()
 
         # Clear gradients in the optimizer.
         optimizer.zero_grad()
@@ -130,6 +124,10 @@ def train_round(
         if tracker:
             tracker.record_batch_step("opt_step")
 
+        if schedule_per == "batch":
+            scheduler.step()
+
+        if tracker:
             tracker.batch_end()
 
         _record_train_batch_stats(
@@ -141,6 +139,8 @@ def train_round(
             tracker,
             num_batches_per_device_train,
         )
+    if schedule_per == "epoch":
+        scheduler.step()
 
 
 def _validate(
