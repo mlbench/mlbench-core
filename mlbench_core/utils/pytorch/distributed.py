@@ -71,6 +71,27 @@ def pack_tensors(tensors, use_cuda=False):
     return vec, indices, tensor_sizes
 
 
+def unpack_tensors(aggregated, indices, sizes):
+    """
+    Unpacks a 1-dimensional tensor into a list of tensors
+
+    Args:
+        aggregated (torch.Tensor): The 1-dimensional tensor
+        indices (List[Int]): The start index of each tensor
+        sizes (List[(Int, Int)]): The size of each resulting tensor
+
+    Returns:
+        List[torch.Tensor]: The unpacked tensors
+    """
+    start_index = indices[:-1]
+    end_index = indices[1:]
+
+    tensors = []
+    for i, (start, end) in enumerate(zip(start_index, end_index)):
+        tensors.append(aggregated[start: end].view(sizes[i]))
+
+    return tensors
+
 ##########################################################################################
 
 
@@ -78,6 +99,11 @@ class Aggregation(object):
     """Aggregate udpates / models from different processes."""
 
     def __init__(self, use_cuda=False):
+        """
+
+        Args:
+            use_cuda (bool): Whether to use CUDA tensors for communication
+        """
         self.use_cuda = use_cuda
 
     def _agg(self, data, op):
@@ -105,11 +131,10 @@ class Aggregation(object):
         )
         aggregated = self._agg(packed, op=op)
 
-        start_index = indices[:-1]
-        end_index = indices[1:]
+        tensors = unpack_tensors(aggregated, indices, sizes)
         # Unpack
         for i, param in enumerate(model.parameters()):
-            param.data = aggregated[start_index[i] : end_index[i]].view(sizes[i])
+            param.data = tensors[i]
 
     def _agg_gradients_by_model(self, model, op):
         """Aggregate models gradients, all layers at once
@@ -119,16 +144,16 @@ class Aggregation(object):
             op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
         """
         # Pack all layers
+
         packed, indices, sizes = pack_tensors(
             [t.grad.data for t in model.parameters()], use_cuda=self.use_cuda
         )
         aggregated = self._agg(packed, op=op)
 
-        start_index = indices[:-1]
-        end_index = indices[1:]
         # Unpack
+        tensors = unpack_tensors(aggregated, indices, sizes)
         for i, param in enumerate(model.parameters()):
-            param.grad.data = aggregated[start_index[i] : end_index[i]].view(sizes[i])
+            param.grad.data = tensors[i]
 
     def _agg_weights_by_layer(self, model, op):
         """Aggregate models by model weight, for each layer individually
