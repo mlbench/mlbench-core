@@ -9,7 +9,7 @@ def broadcast(tensor, src):
 
 
 def elementwise_min(tensor):
-    dist.all_reduce(tensor, op=dist.reduce_op.MIN)
+    dist.all_reduce(tensor, op=dist.ReduceOp.MIN)
     return tensor
 
 
@@ -18,7 +18,7 @@ def aggregate_gradients(model, world_size, average_models=False):
     # all_reduce the gradients.
     for ind, param in enumerate(model.parameters()):
         # all reduce.
-        dist.all_reduce(param.grad.data, op=dist.reduce_op.SUM)
+        dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
 
         if average_models:
             param.grad.data /= world_size
@@ -28,7 +28,7 @@ def global_average(sum, count):
     def helper(array):
         array = get_backend_tensor(torch.Tensor(array))
 
-        dist.all_reduce(array, op=dist.reduce_op.SUM)
+        dist.all_reduce(array, op=dist.ReduceOp.SUM)
         return array[0] / array[1]
 
     avg = helper([sum, count])
@@ -185,7 +185,7 @@ class AllReduceAggregation(Aggregation):
             :obj:`torch.Tensor`: An aggregated tensor.
         """
         if op == "avg":
-            dist.all_reduce(data, op=dist.reduce_op.SUM)
+            dist.all_reduce(data, op=dist.ReduceOp.SUM)
             data /= self.world_size
         else:
             raise NotImplementedError
