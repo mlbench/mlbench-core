@@ -88,9 +88,10 @@ def unpack_tensors(aggregated, indices, sizes):
 
     tensors = []
     for i, (start, end) in enumerate(zip(start_index, end_index)):
-        tensors.append(aggregated[start: end].view(sizes[i]))
+        tensors.append(aggregated[start:end].view(sizes[i]))
 
     return tensors
+
 
 ##########################################################################################
 
