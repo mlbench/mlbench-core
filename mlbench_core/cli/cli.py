@@ -14,10 +14,12 @@ import click
 import yaml
 from appdirs import user_data_dir
 from kubernetes import client
-from mlbench_core.api import ApiClient, MLBENCH_IMAGES
+from mlbench_core.api import ApiClient, MLBENCH_IMAGES, MLBENCH_BACKENDS
 from pyhelm.chartbuilder import ChartBuilder
 from pyhelm.tiller import Tiller
 from tabulate import tabulate
+import pickle
+from pathlib import Path
 
 GCLOUD_NVIDIA_DAEMONSET = (
     "https://raw.githubusercontent.com/"
@@ -113,6 +115,22 @@ def cli(args=None):
 @click.option("--dashboard-url", "-u", default=None, type=str)
 def run(name, num_workers, gpu, light, dashboard_url):
     """Start a new run for a benchmark image"""
+    current_run_inputs = {}
+
+    last_run_inputs_dir_location = os.path.join(
+        os.environ["HOME"], ".local", "share", "mlbench"
+    )
+    Path(last_run_inputs_dir_location).mkdir(parents=True, exist_ok=True)
+
+    last_run_inputs_file_location = os.path.join(
+        last_run_inputs_dir_location, "last_run_inputs.pkl"
+    )
+
+    try:
+        last_run_inputs = pickle.load(open(last_run_inputs_file_location, "rb"))
+    except FileNotFoundError as e:
+        last_run_inputs = {}
+
     images = list(MLBENCH_IMAGES.keys())
 
     text_prompt = "Benchmark: \n\n"
@@ -123,23 +141,60 @@ def run(name, num_workers, gpu, light, dashboard_url):
     text_prompt += "\n\nSelection"
 
     selection = click.prompt(
-        text_prompt, type=click.IntRange(0, len(images)), default=0
+        text_prompt,
+        type=click.IntRange(0, len(images)),
+        default=last_run_inputs.get("benchmark", 0),
     )
+    current_run_inputs["benchmark"] = selection
 
     if selection == len(images):
         # run custom image
-        image = click.prompt("Image", type=str)
-        image_command = click.prompt("Command", type=str)
-        run_on_all = click.confirm(
-            "Run command on all nodes (otherwise just first node)"
+        image = click.prompt(
+            "Image", type=str, default=last_run_inputs.get("image", None)
         )
+        current_run_inputs["image"] = image
+        image_command = click.prompt(
+            "Command", type=str, default=last_run_inputs.get("image_command", None)
+        )
+        current_run_inputs["image_command"] = image_command
         benchmark = {
             "custom_image_name": image,
             "custom_image_command": image_command,
-            "custom_image_all_nodes": run_on_all,
         }
     else:
         benchmark = {"image": images[selection]}
+
+    # Backend Prompt
+    text_prompt = "Backend: \n\n"
+    text_prompt += "\n".join(
+        "[{}]\t{}".format(i, t) for i, t in enumerate(MLBENCH_BACKENDS)
+    )
+    text_prompt += "\n[{}]\tCustom Backend".format(len(MLBENCH_BACKENDS))
+    text_prompt += "\n\nSelection"
+
+    selection = click.prompt(
+        text_prompt,
+        type=click.IntRange(0, len(MLBENCH_BACKENDS)),
+        default=last_run_inputs.get("backend", 0),
+    )
+    current_run_inputs["backend"] = selection
+
+    if selection == len(MLBENCH_BACKENDS):
+        backend = click.prompt(
+            "Backend", type=str, default=last_run_inputs.get("custom_backend", None)
+        )
+        current_run_inputs["custom_backend"] = backend
+        run_on_all = click.confirm(
+            "Run command on all nodes (otherwise just first node)",
+            default=last_run_inputs.get("run_on_all", None),
+        )
+        current_run_inputs["run_on_all"] = run_on_all
+        benchmark["custom_backend"] = backend
+        benchmark["run_all_nodes"] = run_on_all
+    else:
+        benchmark["backend"] = MLBENCH_BACKENDS[selection]
+
+    pickle.dump(current_run_inputs, open(last_run_inputs_file_location, "wb"))
 
     benchmark["gpu_enabled"] = gpu
     benchmark["light_target"] = light
@@ -268,7 +323,7 @@ def delete(name, dashboard_url):
 
 @cli.command()
 @click.argument("name", type=str)
-@click.option("--output", "-o", type=str)
+@click.option("--output", "-o", default="results.zip", type=str)
 @click.option("--dashboard-url", "-u", default=None, type=str)
 def download(name, output, dashboard_url):
     """Download the results of a benchmark run"""

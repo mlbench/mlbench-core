@@ -158,6 +158,7 @@ def config_pytorch(use_cuda=False, seed=None, cudnn_deterministic=False):
 
     rank = dist.get_rank()
     world_size = dist.get_world_size()
+    backend = dist.get_backend() if dist.is_initialized() else None
     graph = FCGraph(rank, world_size, use_cuda)
 
     # enable cudnn accelerator if we are using cuda.
@@ -170,10 +171,11 @@ def config_pytorch(use_cuda=False, seed=None, cudnn_deterministic=False):
             print("CUDNN not found on device.")
 
         print(
-            "World size={}, Rank={}, hostname={}, cuda_available={}, cuda_device={}".format(
+            "World size={}, Rank={}, hostname={}, backend={}, cuda_available={}, cuda_device={}".format(
                 world_size,
                 rank,
                 socket.gethostname(),
+                backend,
                 torch.cuda.is_available(),
                 torch.cuda.current_device(),
             )

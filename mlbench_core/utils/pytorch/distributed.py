@@ -1,13 +1,15 @@
 import torch
 import torch.distributed as dist
 
+# TODO: those 3 funtions are never used, maybe delete them ?
+
 
 def broadcast(tensor, src):
     return dist.broadcast(tensor, src=src)
 
 
 def elementwise_min(tensor):
-    dist.all_reduce(tensor, op=dist.reduce_op.MIN)
+    dist.all_reduce(tensor, op=dist.ReduceOp.MIN)
     return tensor
 
 
@@ -16,7 +18,7 @@ def aggregate_gradients(model, world_size, average_models=False):
     # all_reduce the gradients.
     for ind, param in enumerate(model.parameters()):
         # all reduce.
-        dist.all_reduce(param.grad.data, op=dist.reduce_op.SUM)
+        dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
 
         if average_models:
             param.grad.data /= world_size
@@ -26,11 +28,47 @@ def global_average(sum, count):
     def helper(array):
         array = get_backend_tensor(torch.Tensor(array))
 
-        dist.all_reduce(array, op=dist.reduce_op.SUM)
+        dist.all_reduce(array, op=dist.ReduceOp.SUM)
         return array[0] / array[1]
 
     avg = helper([sum, count])
     return avg
+
+
+def pack_tensors(tensors, use_cuda=False):
+    """
+    Packs a list of tensors into one 1-dimensional tensor.
+
+    Args:
+        tensors (list[torch.Tensor]): The tensors to pack
+        use_cuda (bool): Whether the resulting tensor should be on cuda
+
+    Returns:
+        (torch.Tensor, list[int], list[(int, int)]):
+            The flattened tensors, the list start indices of each packed tensor,
+            and the original shape of each tensor.
+
+            Those values are used to then unpack the tensor
+    """
+    indices = [0]
+    for tensor in tensors:
+        new_end = indices[-1] + tensor.nelement()
+        indices.append(new_end)
+
+    tensor_sizes = [t.size() for t in tensors]
+    pointers = [0]
+    for tensor in tensors:
+        pointers.append(pointers[-1] + tensor.nelement())
+
+    vec = torch.empty(
+        pointers[-1],
+        device=tensors[0].device if tensors[0].is_cuda and use_cuda else "cpu",
+    )
+
+    for tensor, start_idx, end_idx in zip(tensors, pointers[:-1], pointers[1:]):
+        vec[start_idx:end_idx] = tensor.data.view(-1)
+
+    return vec, indices, tensor_sizes
 
 
 ##########################################################################################
@@ -38,6 +76,9 @@ def global_average(sum, count):
 
 class Aggregation(object):
     """Aggregate udpates / models from different processes."""
+
+    def __init__(self, use_cuda=False):
+        self.use_cuda = use_cuda
 
     def _agg(self, data, op):
         """Aggregate data using `op` operation.
@@ -51,8 +92,46 @@ class Aggregation(object):
         """
         raise NotImplementedError
 
-    def agg_model(self, model, op):
-        """Aggregate models by model weight.
+    def _agg_weights_by_model(self, model, op):
+        """Aggregate models by model weight, all layers at once
+
+        Args:
+            model (:obj:`torch.Module`): Models to be averaged.
+            op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
+        """
+        # Pack all layers
+        packed, indices, sizes = pack_tensors(
+            [t.data for t in model.parameters()], use_cuda=self.use_cuda
+        )
+        aggregated = self._agg(packed, op=op)
+
+        start_index = indices[:-1]
+        end_index = indices[1:]
+        # Unpack
+        for i, param in enumerate(model.parameters()):
+            param.data = aggregated[start_index[i] : end_index[i]].view(sizes[i])
+
+    def _agg_gradients_by_model(self, model, op):
+        """Aggregate models gradients, all layers at once
+
+        Args:
+            model (:obj:`torch.Module`): Models to be averaged.
+            op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
+        """
+        # Pack all layers
+        packed, indices, sizes = pack_tensors(
+            [t.grad.data for t in model.parameters()], use_cuda=self.use_cuda
+        )
+        aggregated = self._agg(packed, op=op)
+
+        start_index = indices[:-1]
+        end_index = indices[1:]
+        # Unpack
+        for i, param in enumerate(model.parameters()):
+            param.grad.data = aggregated[start_index[i] : end_index[i]].view(sizes[i])
+
+    def _agg_weights_by_layer(self, model, op):
+        """Aggregate models by model weight, for each layer individually
 
         Args:
             model (:obj:`torch.Module`): Models to be averaged.
@@ -63,8 +142,8 @@ class Aggregation(object):
             grad = self._agg(param.data, op=op)
             param.data = grad
 
-    def agg_grad(self, model, op):
-        """Aggregate models gradients.
+    def _agg_gradients_by_layer(self, model, op):
+        """Aggregate models gradients each layer individually
 
         Args:
             model (:obj:`torch.Module`): Models to be averaged.
@@ -75,12 +154,25 @@ class Aggregation(object):
             grad = self._agg(param.grad.data, op=op)
             param.grad.data = grad
 
+    def agg_model(self, by_layer=False):
+        if by_layer:
+            return self._agg_weights_by_layer
+        else:
+            return self._agg_weights_by_model
+
+    def agg_grad(self, by_layer=False):
+        if by_layer:
+            return self._agg_gradients_by_layer
+        else:
+            return self._agg_gradients_by_model
+
 
 class AllReduceAggregation(Aggregation):
     """Aggregate udpates / models from different processes."""
 
-    def __init__(self, world_size):
+    def __init__(self, world_size, use_cuda=False):
         self.world_size = world_size
+        super(AllReduceAggregation, self).__init__(use_cuda=use_cuda)
 
     def _agg(self, data, op):
         """Aggregate data using `op` operation.
@@ -93,7 +185,7 @@ class AllReduceAggregation(Aggregation):
             :obj:`torch.Tensor`: An aggregated tensor.
         """
         if op == "avg":
-            dist.all_reduce(data, op=dist.reduce_op.SUM)
+            dist.all_reduce(data, op=dist.ReduceOp.SUM)
             data /= self.world_size
         else:
             raise NotImplementedError
@@ -103,7 +195,7 @@ class AllReduceAggregation(Aggregation):
 class DecentralizedAggregation(Aggregation):
     """Aggregate updates in a decentralized manner."""
 
-    def __init__(self, rank, neighbors):
+    def __init__(self, rank, neighbors, use_cuda=False):
         """
         Args:
             rank (int): Rank of the current process
@@ -112,6 +204,7 @@ class DecentralizedAggregation(Aggregation):
         assert rank not in neighbors
         self.rank = rank
         self.neighbors = neighbors
+        super(DecentralizedAggregation, self).__init__(use_cuda=use_cuda)
 
     def _agg(self, data, op):
         """Aggregate data using `op` operation.
@@ -147,7 +240,8 @@ class DecentralizedAggregation(Aggregation):
 class SparsifiedAggregation(Aggregation):
     """Aggregate sparsified updates."""
 
-    def __init__(self, model):
+    def __init__(self, model, use_cuda=False):
+        super(SparsifiedAggregation, self).__init__(use_cuda=use_cuda)
         pass
 
     def _agg(self, data, op):
