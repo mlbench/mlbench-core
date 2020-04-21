@@ -526,7 +526,13 @@ class PowerSGD(Optimizer):
         self.rng = np.random.RandomState(1)
         self.n_workers = dist.get_world_size()
 
-        defaults = dict(lr=lr, weight_decay=weight_decay, momentum=momentum, nesterov=nesterov, dampening=dampening)
+        defaults = dict(
+            lr=lr,
+            weight_decay=weight_decay,
+            momentum=momentum,
+            nesterov=nesterov,
+            dampening=dampening,
+        )
 
         super(PowerSGD, self).__init__(model.parameters(), defaults)
 
@@ -560,7 +566,7 @@ class PowerSGD(Optimizer):
 
         # collect gradients in 'grads'
         for group in self.param_groups:
-            for p in group['params']:
+            for p in group["params"]:
                 if p.grad is None:
                     continue
                 grads.append(p.grad.data)
@@ -575,12 +581,12 @@ class PowerSGD(Optimizer):
         # update parameters
         i = 0
         for group in self.param_groups:
-            weight_decay = group['weight_decay']
-            momentum = group['momentum']
-            dampening = group['dampening']
-            nesterov = group['nesterov']
+            weight_decay = group["weight_decay"]
+            momentum = group["momentum"]
+            dampening = group["dampening"]
+            nesterov = group["nesterov"]
 
-            for p in group['params']:
+            for p in group["params"]:
                 if p.grad is None:
                     continue
                 d_p = grads[i]
@@ -589,17 +595,17 @@ class PowerSGD(Optimizer):
                     d_p.add_(weight_decay, p.data)
                 if momentum != 0:
                     param_state = self.state[p]
-                    if 'momentum_buffer' not in param_state:
-                        buf = param_state['momentum_buffer'] = torch.clone(d_p).detach()
+                    if "momentum_buffer" not in param_state:
+                        buf = param_state["momentum_buffer"] = torch.clone(d_p).detach()
                     else:
-                        buf = param_state['momentum_buffer']
+                        buf = param_state["momentum_buffer"]
                         buf.mul_(momentum).add_(1 - dampening, d_p)
                     if nesterov:
                         d_p = d_p.add(momentum, buf)
                     else:
                         d_p = buf
 
-                p.data.add_(-group['lr'], d_p)
+                p.data.add_(-group["lr"], d_p)
 
         return loss
 
@@ -645,8 +651,8 @@ class PowerSGD(Optimizer):
             matrix = tensor.view(tensor.shape[0], -1)
             n, m = matrix.shape
             rank = min(n, m, self.rank)
-            ps.append(self.p_memory[p_idx: p_idx + n * rank].view(n, rank))
-            qs.append(self.q_memory[q_idx: q_idx + m * rank].view(m, rank))
+            ps.append(self.p_memory[p_idx : p_idx + n * rank].view(n, rank))
+            qs.append(self.q_memory[q_idx : q_idx + m * rank].view(m, rank))
             p_idx += n * rank
             q_idx += m * rank
 
@@ -711,7 +717,9 @@ class TensorBuffer:
         self.buffer = torch.cat([t.view(-1) for t in tensors])  # copies
 
     def __getitem__(self, index):
-        return self.buffer[self._start_idx[index]: self._end_idx[index]].view(*self._tensors[index].shape)
+        return self.buffer[self._start_idx[index] : self._end_idx[index]].view(
+            *self._tensors[index].shape
+        )
 
     def __len__(self):
         return len(self._tensors)
@@ -740,7 +748,11 @@ class TensorBuffer:
         return torch.distributed.all_reduce(self.buffer, async_op=async_op)
 
     def all_gather(self, async_op=False):
-        n_workers = torch.distributed.get_world_size() if torch.distributed.is_available() else 1
+        n_workers = (
+            torch.distributed.get_world_size()
+            if torch.distributed.is_available()
+            else 1
+        )
         buffers = [torch.empty_like(self.buffer) for i in range(n_workers)]
         handle = all_gather(buffers, self.buffer, async_op=async_op)
         if async_op:
