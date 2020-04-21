@@ -145,13 +145,12 @@ class GNMTTrainer:
         # Opt step
         if update:
             self.fp_optimizer.step()
-
             if self.tracker:
                 self.tracker.record_batch_step("opt_step")
 
-        # Learning rate sheduler
-        if update and self.schedule_per == "batch":
-            self.scheduler.step()
+            # Learning rate scheduler
+            if self.schedule_per == "batch":
+                self.scheduler.step()
 
         if self.tracker:
             self.tracker.batch_end()
@@ -203,15 +202,15 @@ class GNMTTrainer:
 
         num_batches_per_device_train = len(train_loader)
 
-        if self.schedule_per == "epoch":
-            self.scheduler.step()
-
         for batch_idx, data in enumerate(train_loader):
             self.optimize(batch_idx, data, num_batches_per_device_train)
 
             if bleu_score and (batch_idx + 1) % validate_every == 0:
                 self.validation_round(val_loader)
                 self._training()
+
+        if self.schedule_per == "epoch":
+            self.scheduler.step()
 
     def validate(self, loader):
         losses = AverageMeter()
