@@ -18,7 +18,7 @@ requirements = [
     "Click>=6.0",
     "tabulate>=0.8.5",
     "dill==0.2.8.2",
-    "grpcio==1.28.1",
+    "grpcio==1.26.0",
     "pyhelm==2.14.5",
     "appdirs==1.4.3",
     "google-api-python-client==1.7.11",
