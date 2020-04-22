@@ -1,84 +1,62 @@
 mlbench_core.dataset
 --------------------
 
-.. automodule:: mlbench_core.dataset
+.. autoapimodule:: mlbench_core.dataset
 .. currentmodule:: mlbench_core.dataset
 
 
 linearmodels
 ~~~~~~~~~~~~
-.. automodule:: mlbench_core.dataset.linearmodels
+.. autoapimodule:: mlbench_core.dataset.linearmodels
 .. currentmodule:: mlbench_core.dataset.linearmodels
 
 pytorch
 +++++++
 
-.. automodule:: mlbench_core.dataset.linearmodels.pytorch
-.. currentmodule:: mlbench_core.dataset.linearmodels.pytorch
+.. autoapimodule:: mlbench_core.dataset.linearmodels.pytorch.dataloader
+.. currentmodule:: mlbench_core.dataset.linearmodels.pytorch.dataloader
 
-load_libsvm_lmdb
-''''''''''''''''
+Epsilon Logistic Regression
+'''''''''''''''''''''''''''
 
-.. autofunction:: load_libsvm_lmdb
-
-Partition
-'''''''''
-
-.. autoclass:: Partition
+.. autoapiclass:: LMDBDataset
     :members:
 
-DataPartitioner
-'''''''''''''''
-
-.. autoclass:: DataPartitioner
+.. autoapiclass:: LMDBPTClass
     :members:
-
-
 
 imagerecognition
 ~~~~~~~~~~~~~~~~
 
-.. automodule:: mlbench_core.dataset.imagerecognition
+.. autoapimodule:: mlbench_core.dataset.imagerecognition
 .. currentmodule:: mlbench_core.dataset.imagerecognition
 
 pytorch
 +++++++
 
-.. automodule:: mlbench_core.dataset.imagerecognition.pytorch
-.. currentmodule:: mlbench_core.dataset.imagerecognition.pytorch
+.. autoapimodule:: mlbench_core.dataset.imagerecognition.pytorch.dataloader
+.. currentmodule:: mlbench_core.dataset.imagerecognition.pytorch.dataloader
 
 CIFAR10V1
 '''''''''
 
-.. autoclass:: CIFAR10V1
+.. autoapiclass:: CIFAR10V1
     :members:
 
 Imagenet
 ''''''''
 
-.. autoclass:: Imagenet
-    :members:
-
-Partition
-'''''''''
-
-.. autoclass:: Partition
-    :members:
-
-DataPartitioner
-'''''''''''''''
-
-.. autoclass:: DataPartitioner
+.. autoapiclass:: Imagenet
     :members:
 
 tensorflow
 ++++++++++
 
-.. automodule:: mlbench_core.dataset.imagerecognition.tensorflow
+.. autoapimodule:: mlbench_core.dataset.imagerecognition.tensorflow
 .. currentmodule:: mlbench_core.dataset.imagerecognition.tensorflow
 
 DatasetCifar
 ''''''''''''
 
-.. autoclass:: DatasetCifar
+.. autoapiclass:: DatasetCifar
     :members:

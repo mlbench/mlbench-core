@@ -10,7 +10,7 @@ import os
 
 from os.path import abspath, join, dirname
 
-sys.path.insert(0, abspath(join(dirname(__file__))))
+sys.path.insert(0, abspath(join(dirname(__file__), '.')))
 sys.path.insert(0, abspath(join(dirname(__file__), "..")))
 
 import sys
@@ -42,7 +42,7 @@ MOCK_MODULES = [
 ]
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
-import mlbench_core
+# import mlbench_core
 
 
 # -- RTD configuration ------------------------------------------------
@@ -68,7 +68,11 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinxcontrib.napoleon",
     "sphinxcontrib.bibtex",
+    'autoapi.extension',
 ]
+
+autoapi_dirs = ['../mlbench_core']
+autoapi_generate_api_docs = False
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -91,7 +95,7 @@ napoleon_google_docstring = True
 napoleon_numpy_docstring = False
 
 
-autoclass_content = "both"
+autoapiclass_content = "both"
 
 intersphinx_mapping = {}
 

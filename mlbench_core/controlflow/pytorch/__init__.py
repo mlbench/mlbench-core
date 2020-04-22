@@ -6,5 +6,4 @@ __all__ = [
     "CheckpointsEvaluationControlFlow",
     "train_round",
     "validation_round",
-    "create_train_validation_step",
 ]
