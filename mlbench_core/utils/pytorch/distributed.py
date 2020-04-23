@@ -66,7 +66,6 @@ def pack_tensors(tensors, use_cuda=False):
     vec = torch.empty(
         indices[-1],
         device=tensors[0].device if tensors[0].is_cuda and use_cuda else "cpu",
-        dtype=tensors[0].dtype,
     )
 
     for tensor, start_idx, end_idx in zip(tensors, indices[:-1], indices[1:]):

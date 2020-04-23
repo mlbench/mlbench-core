@@ -1,9 +1,10 @@
 import os
 
+import torch
 from mlbench_core.dataset.translation.pytorch import config
 from mlbench_core.dataset.translation.pytorch.tokenizer import WMT14Tokenizer
-from torchtext.data import Example, Dataset
 from mlbench_core.dataset.util.tools import maybe_download_and_extract_tar_gz
+from torchtext.data import Dataset
 
 
 def _construct_filter_pred(min_len, max_len):
@@ -25,39 +26,64 @@ def _construct_filter_pred(min_len, max_len):
     return filter_pred
 
 
-def process_data(path, filter_pred, fields, lazy=False, max_size=None):
-    """Loads data from given path and processes the lines
+def build_collate_fn(batch_first, sort):
+    """Builds the collate function that adds the lengths of each datapoint to the batch
 
     Args:
-        path (str): Dataset directory path
-        filter_pred (func): Filter predicate function (to filter inputs)
-        fields (list): SRC and TRG fields
-        lazy (bool): Whether to load the dataset in lazy mode
-        max_size (int | None): Maximum size of dataset
+        batch_first (bool): Whether to put the batch as first dimension
+        sort (bool): Sort within each batch
 
     Returns:
-        List: The list of examples
+        func
     """
-    src_path, trg_path = tuple(os.path.expanduser(path + x) for x in config.EXTS)
-    examples = []
-    with open(src_path, mode="r", encoding="utf-8") as src_file, open(
-        trg_path, mode="r", encoding="utf-8"
-    ) as trg_file:
-        for src_line, trg_line in zip(src_file, trg_file):
-            src_line, trg_line = src_line.strip(), trg_line.strip()
 
-            should_consider = filter_pred(
-                (src_line.count(" ") + 1, trg_line.count(" ") + 1)
+    def collate_seq(seq):
+        """Builds batches for training or inference.
+        Batches are returned as pytorch tensors, with padding.
+
+        Args:
+            seq (list[`obj`:torch.Tensor]): The batch
+
+        Returns:
+            (`obj`:torch.Tensor, `obj`:torch.Tensor): The batch and the lengths of each sequence
+        """
+        lengths = torch.tensor([len(s) for s in seq], dtype=torch.int64)
+        batch_length = max(lengths)
+
+        shape = (len(seq), batch_length)
+        seq_tensor = torch.full(shape, config.PAD, dtype=torch.int64)
+
+        for i, s in enumerate(seq):
+            end_seq = lengths[i]
+            seq_tensor[i, :end_seq].copy_(s[:end_seq])
+
+        if not batch_first:
+            seq_tensor = seq_tensor.t()
+
+        return seq_tensor, lengths
+
+    def parallel_collate(seqs):
+        """Builds batches from parallel dataset (src, tgt), optionally sorts batch
+        by src sequence length.
+
+        Args:
+            seqs (tuple): Tuple of (data, target) sequences
+
+        Returns:
+            (tuple, tuple): The data and target, along with the lengths
+        """
+        src_seqs, trg_seqs = zip(*seqs)
+        if sort:
+            indices, src_seqs = zip(
+                *sorted(enumerate(src_seqs), key=lambda x: len(x[1]), reverse=True)
             )
-            if src_line != "" and trg_line != "" and should_consider:
-                if lazy:
-                    examples.append((src_line, trg_line))
-                else:
-                    examples.append(Example.fromlist([src_line, trg_line], fields))
+            trg_seqs = [trg_seqs[idx] for idx in indices]
 
-            if max_size and len(examples) >= max_size:
-                break
-    return examples
+        src_seqs = collate_seq(src_seqs)
+        trg_seqs = collate_seq(trg_seqs)
+        return src_seqs, trg_seqs
+
+    return parallel_collate
 
 
 class WMT14Dataset(Dataset):
@@ -66,8 +92,6 @@ class WMT14Dataset(Dataset):
 
     Args:
         root (str): Root folder where to download files
-        batch_first (bool): Use batch as first dimension of ouptut
-        include_lengths (bool): Include datapoint lengths
         lang (dict): Language translation pair
         math_precision (str): One of `fp16` or `fp32`. The precision used during training
         download (bool): Download the dataset from source
@@ -78,6 +102,7 @@ class WMT14Dataset(Dataset):
         max_len (int | None): Maximum sentence length
         max_size (int | None): Maximum dataset size
     """
+
     urls = [
         (
             "https://storage.googleapis.com/mlbench-datasets/translation/wmt16_en_de.tar.gz",
@@ -90,14 +115,13 @@ class WMT14Dataset(Dataset):
     def __init__(
         self,
         root,
-        batch_first=False,
-        include_lengths=False,
         lang=None,
         math_precision=None,
         download=True,
         train=False,
         validation=False,
         lazy=False,
+        sort=False,
         min_len=0,
         max_len=None,
         max_size=None,
@@ -109,26 +133,12 @@ class WMT14Dataset(Dataset):
             url, file_name = self.urls[0]
             maybe_download_and_extract_tar_gz(root, file_name, url)
 
-        src_tokenizer = WMT14Tokenizer(
-            root,
-            batch_first=batch_first,
-            include_lengths=include_lengths,
-            lang=lang,
-            math_precision=math_precision,
-        )
-        trg_tokenizer = WMT14Tokenizer(
-            root,
-            batch_first=batch_first,
-            include_lengths=include_lengths,
-            lang=lang,
-            math_precision=math_precision,
-            is_target=True,
-        )
+        src_tokenizer = WMT14Tokenizer(root, lang=lang, math_precision=math_precision,)
+        trg_tokenizer = WMT14Tokenizer(root, lang=lang, math_precision=math_precision,)
 
         self.vocab_size = src_tokenizer.vocab_size
-        self.list_fields = [("src", src_tokenizer), ("trg", trg_tokenizer)]
+        self.fields = {"src": src_tokenizer, "trg": trg_tokenizer}
 
-        self.fields = dict(self.list_fields)
         self.max_len = max_len
         self.min_len = min_len
 
@@ -139,28 +149,65 @@ class WMT14Dataset(Dataset):
         else:
             raise NotImplementedError()
 
-        self.examples = process_data(
+        self.examples, self.indices = self._process_data(
             path,
             filter_pred=_construct_filter_pred(min_len, max_len),
-            fields=self.list_fields,
             lazy=lazy,
+            sort=sort,
             max_size=max_size,
         )
+
+    def _process_data(self, path, filter_pred, sort=False, lazy=False, max_size=None):
+        """Loads data from given path and processes the lines
+
+        Args:
+            path (str): Dataset directory path
+            filter_pred (func): Filter predicate function (to filter inputs)
+            lazy (bool): Whether to load the dataset in lazy mode
+            max_size (int | None): Maximum size of dataset
+
+        Returns:
+            List: The list of examples
+        """
+        src_path, trg_path = tuple(os.path.expanduser(path + x) for x in config.EXTS)
+        examples = []
+        src_lengths = []
+        with open(src_path, mode="r", encoding="utf-8") as src_file, open(
+            trg_path, mode="r", encoding="utf-8"
+        ) as trg_file:
+            for src_line, trg_line in zip(src_file, trg_file):
+                src_line, trg_line = src_line.strip(), trg_line.strip()
+
+                should_consider = filter_pred(
+                    (src_line.count(" ") + 1, trg_line.count(" ") + 1)
+                )
+                if src_line != "" and trg_line != "" and should_consider:
+                    src_lengths.append(src_line.count(" ") + 1)
+                    if lazy:
+                        examples.append((src_line, trg_line))
+                    else:
+                        examples.append(self._parse_example((src_line, trg_line)))
+
+                if max_size and len(examples) >= max_size:
+                    break
+
+        indices = list(range(len(examples)))
+        if sort:
+            indices, _ = zip(*sorted(enumerate(src_lengths), key=lambda x: x[1]))
+        return examples, indices
 
     def __len__(self):
         return len(self.examples)
 
+    def _parse_example(self, example):
+        src_line, trg_line = example
+        return (
+            self.fields["src"].parse_line(src_line),
+            self.fields["trg"].parse_line(trg_line),
+        )
+
     def __getitem__(self, item):
         if self.lazy:
-            src_line, trg_line = self.examples[item]
-            return Example.fromlist([src_line, trg_line], self.list_fields)
+            return self._parse_example(self.examples[self.indices[item]])
         else:
-            return self.examples[item]
-
-    def __iter__(self):
-        for x in self.examples:
-            if self.lazy:
-                src_line, trg_line = x
-                yield Example.fromlist([src_line, trg_line], self.list_fields)
-            else:
-                yield x
+            return self.examples[self.indices[item]]

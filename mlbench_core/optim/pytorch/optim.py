@@ -530,7 +530,6 @@ class FP32Optimizer:
             grad_clip (float): Coefficient for gradient clipping (max L2 norm of gradients)
         """
         self.model = model
-        self.params = model.parameters()
         self.grad_clip = grad_clip
         self.optimizer = optimizer
 
@@ -539,8 +538,10 @@ class FP32Optimizer:
         Performs one step of the optimizer.
         """
         if self.grad_clip != float("inf"):
-            clip_grad_norm_(self.params, self.grad_clip)
-        return self.optimizer.step(closure=closure)
+            clip_grad_norm_(self.model.parameters(), self.grad_clip)
+
+        loss = self.optimizer.step(closure=closure)
+        return loss
 
     def backward_loss(self, loss):
         loss.backward()
@@ -574,7 +575,7 @@ class AMPOptimizer:
 
         Args:
             model (torch.nn.Module): Model
-            optimizer: The underlying optimizer
+            optimizer (torch.optim.optimizer.Optimizer): The underlying optimizer
             grad_clip (float): Coefficient for gradient clipping, max L2 norm of the gradients
             loss_scale:
             dls_upscale_interval:
@@ -612,7 +613,8 @@ class AMPOptimizer:
             clip_grad_norm_(amp.master_params(self.optimizer), self.grad_clip)
 
         self.agg(self.model, self.agg_mode)
-        self.optimizer.step(closure=closure)
+        loss = self.optimizer.step(closure=closure)
+        return loss
 
     def zero_grad(self):
         self.optimizer.zero_grad()

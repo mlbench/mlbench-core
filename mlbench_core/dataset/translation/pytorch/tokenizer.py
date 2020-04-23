@@ -63,51 +63,21 @@ def _parse_vocab(vocab_fname, math_precision):
     return vocab, idx2tok, tok2idx
 
 
-def _pad_batch(segmented_batch):
-    """
-    Given a batch of segmented tokens, adds a PAD token
-    so that they all have the same length
-
-    Args:
-        segmented_batch (list):
-
-    Returns:
-        list
-    """
-    max_len = max(len(x) for x in segmented_batch)
-
-    for line in segmented_batch:
-        line += [config.PAD] * (max_len - len(line))
-
-    return segmented_batch
-
-
 class WMT14Tokenizer:
     """Tokenizer Class for WMT14 that uses the whole vocabulary
 
     Args:
         base_dir (str): Base directory for files
-        batch_first (bool): Batch as first dimension
-        include_lengths (bool): Include sentence length
         lang (dict): With keys `src` and `trg` designating source and target language
         math_precision (str): Math precision
         separator:
     """
 
     def __init__(
-        self,
-        base_dir,
-        batch_first=False,
-        is_target=False,
-        include_lengths=False,
-        lang=None,
-        math_precision=None,
-        separator="@@",
+        self, base_dir, lang=None, math_precision=None, separator="@@",
     ):
         self.separator = separator
         self.lang = lang
-        self.batch_first = batch_first
-        self.include_lengths = include_lengths
 
         # base_dir = os.path.join(base_dir, "wmt14")
         bpe_fname = os.path.join(base_dir, config.BPE_CODES)
@@ -127,30 +97,8 @@ class WMT14Tokenizer:
             self.moses_tokenizer = sacremoses.MosesTokenizer(lang["src"])
             self.moses_detokenizer = sacremoses.MosesDetokenizer(lang["trg"])
 
-        self.is_target = is_target
-
-    def process(self, batch, device=None):
-        """Processes a batch of inputs by segmenting and putting in
-        appropriate format.
-
-        Args:
-            batch (list): The list of lines to process
-            device (str): The device to use
-
-        Returns:
-            `obj`:torch.Tensor
-        """
-        segmented = [self.segment(line) for line in batch]
-        lengths = torch.tensor([len(x) for x in segmented], device=device)
-        segmented = _pad_batch(segmented)
-        tensor = torch.tensor(segmented, device=device)
-
-        if not self.batch_first:
-            tensor = torch.t(tensor)
-        if self.include_lengths:
-            return tensor, lengths
-
-        return tensor
+    def parse_line(self, line):
+        return torch.tensor(self.segment(self.preprocess(line)))
 
     def segment(self, line):
         """

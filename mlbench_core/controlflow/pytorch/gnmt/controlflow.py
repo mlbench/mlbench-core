@@ -36,6 +36,14 @@ def _record_train_batch_stats(
     logger.info(status + str(tracker))
 
 
+def _iterate_loader(dataloader, use_cuda=False):
+    for (data, target) in dataloader:
+        if use_cuda:
+            data = data[0].cuda(), data[1].cuda()
+            target = target[0].cuda(), target[1]
+        yield data, target
+
+
 class GNMTTrainer:
     """ Trainer used for GNMT model
     Args:
@@ -51,6 +59,7 @@ class GNMTTrainer:
         iter_size (int): Number of iterations to do before calling `optimizer.step`
 
     """
+
     def __init__(
         self,
         model,
@@ -63,6 +72,7 @@ class GNMTTrainer:
         tracker,
         metrics,
         iter_size,
+        use_cuda,
     ):
         self.model = model
         self.batch_first = model.batch_first
@@ -82,23 +92,22 @@ class GNMTTrainer:
 
         self.tracker = tracker
 
-    def compute_model_output(self, src, tgt):
+        self.use_cuda = use_cuda
+
+    def compute_model_output(self, src, trg):
         """ Computes output of GNMT model
 
         Args:
             src (tuple): Source data point. Should be tuple of (tokens, lengths)
-            tgt (tuple): Target data point. Should be tuple of (tokens, lengths)
+            trg (tuple): Target data point. Should be tuple of (tokens, lengths)
 
         Returns:
             `obj`:torch.Tensor: The output tensor
         """
-        src, src_length = src
-        tgt, tgt_length = tgt
-
         if self.batch_first:
-            output = self.model(src, src_length, tgt[:, :-1])
+            output = self.model(src[0], src[1], trg[0][:, :-1])
         else:
-            output = self.model(src, src_length, tgt[:-1])
+            output = self.model(src[0], src[1], trg[0][:-1])
 
         return output
 
@@ -110,28 +119,28 @@ class GNMTTrainer:
         """
         self.tracker = tracker
 
-    def compute_loss(self, src, tgt, output):
+    def compute_loss(self, src, trg, output):
         """ Computes the Loss of a given input and output
 
         Args:
             src (tuple): Source data point. Should be tuple of (tokens, lengths)
-            tgt (tuple): Target data point. Should be tuple of (tokens, lengths)
+            trg (tuple): Target data point. Should be tuple of (tokens, lengths)
             output (`obj`:torch.Tensor): Output of given input
 
         Returns:
-            (float, float, float, int): Total loss, loss per token, loss per sentence, num tokens
+            (`obj`:torch.Tensor, float): Total loss, loss per token
         """
         src, src_length = src
-        tgt, tgt_length = tgt
+        trg, trg_length = trg
 
-        num_toks = {"tgt": int(sum(tgt_length - 1)), "src": int(sum(src_length))}
+        num_toks = {"trg": int(sum(trg_length - 1)), "src": int(sum(src_length))}
 
         if self.batch_first:
-            tgt_labels = tgt[:, 1:]
+            tgt_labels = trg[:, 1:]
             T, B = output.size(1), output.size(0)
 
         else:
-            tgt_labels = tgt[1:]
+            tgt_labels = trg[1:]
             T, B = output.size(0), output.size(1)
 
         loss = self.criterion(output.view(T * B, -1), tgt_labels.contiguous().view(-1))
@@ -139,10 +148,9 @@ class GNMTTrainer:
         loss_per_batch = loss.item()
         loss /= B * self.iter_size
 
-        loss_per_token = loss_per_batch / num_toks["tgt"]
-        loss_per_sentence = loss_per_batch / B
+        loss_per_token = loss_per_batch / num_toks["trg"]
 
-        return loss, loss_per_token, loss_per_sentence, num_toks
+        return loss, loss_per_token
 
     def optimize(self, batch_idx, data, num_batches_per_device_train):
         """ Optimizes on a given batch
@@ -152,7 +160,6 @@ class GNMTTrainer:
             data (`obj`:torch.Tensor): Batch tensor
             num_batches_per_device_train (int): Number of batches per train epoch
         """
-
         # Whether to update the weights at this iteration
         update = (batch_idx % self.iter_size) == self.iter_size - 1
         if self.tracker:
@@ -165,16 +172,14 @@ class GNMTTrainer:
                 self.tracker.record_batch_step("init")
 
         # Compute the output
-        src, tgt = data.src, data.trg
-        output = self.compute_model_output(src, tgt)
+        src, trg = data
+        output = self.compute_model_output(src, trg)
 
         if self.tracker:
             self.tracker.record_batch_step("fwd_pass")
 
         # Compute the loss
-        stats = self.compute_loss(src, tgt, output)
-        loss, loss_per_token, loss_per_sentence, num_toks = stats
-        #
+        loss, loss_per_token = self.compute_loss(src, trg, output)
 
         if self.tracker:
             self.tracker.record_batch_step("comp_loss")
@@ -244,9 +249,12 @@ class GNMTTrainer:
 
         num_batches_per_device_train = len(train_loader)
 
-        for batch_idx, data in enumerate(train_loader):
-            self.optimize(batch_idx, data, num_batches_per_device_train)
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
+        data_iter = _iterate_loader(train_loader, use_cuda=self.use_cuda)
+        for batch_idx, data in enumerate(data_iter):
+            self.optimize(batch_idx, data, num_batches_per_device_train)
             if bleu_score and (batch_idx + 1) % validate_every == 0:
                 self.validation_round(val_loader)
                 self._training()
@@ -270,18 +278,15 @@ class GNMTTrainer:
             metric.reset()
 
         with torch.no_grad():
-            for data in loader:
-
-                # Inference
-                src, trg = data.src, data.trg
+            data_iter = _iterate_loader(loader, use_cuda=self.use_cuda)
+            for (src, trg) in data_iter:
                 output = self.compute_model_output(src, trg)
 
                 # Compute loss
-                stats = self.compute_loss(src, trg, output)
-                loss, loss_per_token, loss_per_sentence, num_toks = stats
+                loss, loss_per_token = self.compute_loss(src, trg, output)
 
                 # Update loss
-                losses.update(loss_per_token, num_toks["tgt"])
+                losses.update(loss_per_token, 1)
 
                 # Update metrics
                 translated, targets = self.translator.translate(src, trg)
