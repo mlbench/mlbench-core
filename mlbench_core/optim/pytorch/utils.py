@@ -1,5 +1,6 @@
 import torch
 
+
 @torch.jit.script
 def orthogonalize(matrix):
     n, m = matrix.shape

@@ -677,7 +677,9 @@ class PowerSGD(Optimizer):
         dist.all_reduce(self.p_memory)
 
         # Start communicating rank 1 tensors
-        rank1_packed, rank1_indices, rank1_sizes = pack_tensors([tensor for (tensor, _, _) in rank1_tensors])
+        rank1_packed, rank1_indices, rank1_sizes = pack_tensors(
+            [tensor for (tensor, _, _) in rank1_tensors]
+        )
 
         rank1_handle = dist.all_reduce(rank1_packed, async_op=True)
 
