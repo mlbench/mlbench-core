@@ -26,10 +26,18 @@ def _construct_filter_pred(min_len, max_len):
 
 
 def process_data(path, filter_pred, fields, lazy=False, max_size=None):
-    """
-    Loads data from the input file.
-    """
+    """Loads data from given path and processes the lines
 
+    Args:
+        path (str): Dataset directory path
+        filter_pred (func): Filter predicate function (to filter inputs)
+        fields (list): SRC and TRG fields
+        lazy (bool): Whether to load the dataset in lazy mode
+        max_size (int | None): Maximum size of dataset
+
+    Returns:
+        List: The list of examples
+    """
     src_path, trg_path = tuple(os.path.expanduser(path + x) for x in config.EXTS)
     examples = []
     with open(src_path, mode="r", encoding="utf-8") as src_file, open(
@@ -53,6 +61,23 @@ def process_data(path, filter_pred, fields, lazy=False, max_size=None):
 
 
 class WMT14Dataset(Dataset):
+    """Dataset for WMT14 en to de translation
+    Based on `torchtext.datasets.WMT14`
+
+    Args:
+        root (str): Root folder where to download files
+        batch_first (bool): Use batch as first dimension of ouptut
+        include_lengths (bool): Include datapoint lengths
+        lang (dict): Language translation pair
+        math_precision (str): One of `fp16` or `fp32`. The precision used during training
+        download (bool): Download the dataset from source
+        train (bool): Load train set
+        validation (bool): Load validation set
+        lazy (bool): Load the dataset in a lazy format
+        min_len (int): Minimum sentence length
+        max_len (int | None): Maximum sentence length
+        max_size (int | None): Maximum dataset size
+    """
     urls = [
         (
             "https://storage.googleapis.com/mlbench-datasets/translation/wmt16_en_de.tar.gz",
@@ -77,20 +102,6 @@ class WMT14Dataset(Dataset):
         max_len=None,
         max_size=None,
     ):
-        """WMT14 Dataset.
-
-        Loads WMT14 dataset.
-        Based on `torchtext.datasets.WMT14`
-
-        Args:
-            root (str): Root folder of WMT14 dataset
-            download (bool): Download dataset
-            train (bool): Whether to get the train or validation set.
-                Default=True
-            batch_first (bool): if True the model uses (batch,seq,feature)
-                tensors, if false the model uses (seq, batch, feature)
-        """
-
         self.lazy = lazy
 
         super(WMT14Dataset, self).__init__(examples=[], fields={})

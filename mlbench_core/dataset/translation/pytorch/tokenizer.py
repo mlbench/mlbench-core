@@ -83,6 +83,17 @@ def _pad_batch(segmented_batch):
 
 
 class WMT14Tokenizer:
+    """Tokenizer Class for WMT14 that uses the whole vocabulary
+
+    Args:
+        base_dir (str): Base directory for files
+        batch_first (bool): Batch as first dimension
+        include_lengths (bool): Include sentence length
+        lang (dict): With keys `src` and `trg` designating source and target language
+        math_precision (str): Math precision
+        separator:
+    """
+
     def __init__(
         self,
         base_dir,
@@ -93,16 +104,6 @@ class WMT14Tokenizer:
         math_precision=None,
         separator="@@",
     ):
-        """
-        Tokenizer Class for WMT14 that uses the whole vocabulary
-        Args:
-            base_dir (str): Base directory for files
-            batch_first (bool): Batch as first dimension
-            include_lengths (bool): Include sentence length
-            lang (dict): With keys `src` and `trg` designating source and target language
-            math_precision (str): Math precision
-            separator:
-        """
         self.separator = separator
         self.lang = lang
         self.batch_first = batch_first
@@ -129,15 +130,15 @@ class WMT14Tokenizer:
         self.is_target = is_target
 
     def process(self, batch, device=None):
-        """
-        Processes a batch of inputs by segmenting and putting in
-        appropriate format
+        """Processes a batch of inputs by segmenting and putting in
+        appropriate format.
+
         Args:
             batch (list): The list of lines to process
             device (str): The device to use
 
         Returns:
-            tensor
+            `obj`:torch.Tensor
         """
         segmented = [self.segment(line) for line in batch]
         lengths = torch.tensor([len(x) for x in segmented], device=device)

@@ -13,7 +13,7 @@ LOG_EVERY_N_BATCHES = 25
 def _record_train_batch_stats(
     batch_idx, loss, batch_size, tracker, num_batches_per_device_train
 ):
-    r"""Record the stats in a training batch.
+    """Record the stats in a training batch.
 
     Args:
         batch_idx (int): The id of the current batch
@@ -37,6 +37,20 @@ def _record_train_batch_stats(
 
 
 class GNMTTrainer:
+    """ Trainer used for GNMT model
+    Args:
+        model (`obj`:mlbench_core.models.pytorch.gnmt.GNMT): The GNMT model
+        criterion (`obj`:torch.nn.Module): The loss function to use
+        fp_optimizer: Floating point optimizer (either for fp16 or fp32)
+        scheduler (`obj`:torch.optim.LambdaLR): Learning Rate scheduler
+        translator (`obj`:mlbench_core.evaluation.pytorch.inference.Translator): Translator class
+        rank (int): Current node rank
+        schedule_per (str): Scheduler per `batch` or `epoch`
+        tracker (`obj`:mlbench_core.utils.Tracker): Tracker object to use.
+        metrics (list): The list of metrics to use
+        iter_size (int): Number of iterations to do before calling `optimizer.step`
+
+    """
     def __init__(
         self,
         model,
@@ -69,6 +83,15 @@ class GNMTTrainer:
         self.tracker = tracker
 
     def compute_model_output(self, src, tgt):
+        """ Computes output of GNMT model
+
+        Args:
+            src (tuple): Source data point. Should be tuple of (tokens, lengths)
+            tgt (tuple): Target data point. Should be tuple of (tokens, lengths)
+
+        Returns:
+            `obj`:torch.Tensor: The output tensor
+        """
         src, src_length = src
         tgt, tgt_length = tgt
 
@@ -80,13 +103,26 @@ class GNMTTrainer:
         return output
 
     def set_tracker(self, tracker):
+        """ Sets the trainer's tracker
+
+        Args:
+            tracker (`obj`:mlbench_core.utils.Tracker): Tracker object to use.
+        """
         self.tracker = tracker
 
     def compute_loss(self, src, tgt, output):
+        """ Computes the Loss of a given input and output
+
+        Args:
+            src (tuple): Source data point. Should be tuple of (tokens, lengths)
+            tgt (tuple): Target data point. Should be tuple of (tokens, lengths)
+            output (`obj`:torch.Tensor): Output of given input
+
+        Returns:
+            (float, float, float, int): Total loss, loss per token, loss per sentence, num tokens
+        """
         src, src_length = src
         tgt, tgt_length = tgt
-        tgt = tgt.to(self.device)
-        src_length = src_length.to(self.device)
 
         num_toks = {"tgt": int(sum(tgt_length - 1)), "src": int(sum(src_length))}
 
@@ -109,6 +145,13 @@ class GNMTTrainer:
         return loss, loss_per_token, loss_per_sentence, num_toks
 
     def optimize(self, batch_idx, data, num_batches_per_device_train):
+        """ Optimizes on a given batch
+
+        Args:
+            batch_idx (int): Index of the batch
+            data (`obj`:torch.Tensor): Batch tensor
+            num_batches_per_device_train (int): Number of batches per train epoch
+        """
 
         # Whether to update the weights at this iteration
         update = (batch_idx % self.iter_size) == self.iter_size - 1
@@ -169,15 +212,14 @@ class GNMTTrainer:
         )
 
     def _training(self):
-        torch.set_grad_enabled(True)
+        """Sets the model and tracker in training"""
         self.model.train()
 
         if self.tracker:
             self.tracker.train()
 
     def _eval(self):
-
-        torch.set_grad_enabled(False)
+        """Sets the model and tracker in evaluation mode"""
         self.model.eval()
 
         # Set tracker in validation mode
@@ -188,14 +230,14 @@ class GNMTTrainer:
     def train_round(
         self, train_loader, val_loader, bleu_score=False, validate_every=None
     ):
-        """
-        Sets model in training mode, preallocates memory and runs training on
-        data provided by data_loader.
+        """ Performs one epoch of training
+
         Args:
-            data_loader: Data loader
-
-        Returns:
-
+            train_loader: The train set loader
+            val_loader: The validation set loader
+            bleu_score (bool): Compute bleu score during epoch
+            validate_every (int | None): Validate every n batches.
+                Default `None` (no validation)
         """
         # Set in training mode
         self._training()
@@ -213,6 +255,14 @@ class GNMTTrainer:
             self.scheduler.step()
 
     def validate(self, loader):
+        """Performs validation of the validation set
+
+        Args:
+            loader: The data set loader
+
+        Returns:
+            (dict, float): The metrics averages and the loss average
+        """
         losses = AverageMeter()
 
         # Reset metrics
@@ -246,11 +296,13 @@ class GNMTTrainer:
         return metrics_averages, loss_average
 
     def validation_round(self, data_loader):
-        """
-        Sets model in eval mode, disables gradients, preallocates memory and
-        runs validation on data provided by data_loader.
+        """Performs one validation round and checks if the goal was reached
 
-        :param data_loader: data loader
+        Args:
+            data_loader: Data loader
+
+        Returns:
+            (bool): Whether this validation is the best so far
         """
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
