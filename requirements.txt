@@ -1,7 +1,7 @@
 kubernetes==9.0.0
 torch==1.4.0
 torchvision==0.5.0
-tensorflow==1.13.2
+tensorflow==1.15.2
 dill==0.2.8.2
 deprecation==2.0.6
 pyhelm==2.14.5
