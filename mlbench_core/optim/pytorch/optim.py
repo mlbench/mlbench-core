@@ -1,5 +1,9 @@
-from mlbench_core.utils.pytorch.distributed import AllReduceAggregation
-from mlbench_core.utils.pytorch.distributed import DecentralizedAggregation
+from mlbench_core.utils.pytorch.distributed import (
+    AllReduceAggregation,
+    DecentralizedAggregation,
+    pack_tensors,
+    unpack_tensors,
+)
 
 import numpy as np
 import torch
@@ -674,9 +678,9 @@ class PowerSGD(Optimizer):
         all_reduce(self.p_memory)
 
         # Start communicating rank 1 tensors
-        rank1_tensor_list = TensorBuffer([tensor for (tensor, _, _) in rank1_tensors])
+        rank1_packed, rank1_indices, rank1_sizes = pack_tensors([tensor for (tensor, _, _) in rank1_tensors])
 
-        rank1_handle = rank1_tensor_list.all_reduce(async_op=True)
+        rank1_handle = dist.all_reduce(rank1_packed, async_op=True)
 
         for p in ps:
             orthogonalize(p)
@@ -694,72 +698,10 @@ class PowerSGD(Optimizer):
             mem.data[:] = tensor - out
 
         rank1_handle.wait()
-        rank1_tensor_list.buffer /= self.n_workers
-        rank1_tensor_list.unpack([out for (_, out, _) in rank1_tensors])
-
-
-class TensorBuffer:
-    """
-    Packs multiple tensors into one flat buffer for efficient
-    intra-worker communication.
-    """
-
-    def __init__(self, tensors):
-        indices = [0]
-        for tensor in tensors:
-            new_end = indices[-1] + tensor.nelement()
-            indices.append(new_end)
-
-        self._start_idx = indices[:-1]
-        self._end_idx = indices[1:]
-        self._tensors = tensors
-
-        self.buffer = torch.cat([t.view(-1) for t in tensors])  # copies
-
-    def __getitem__(self, index):
-        return self.buffer[self._start_idx[index] : self._end_idx[index]].view(
-            *self._tensors[index].shape
-        )
-
-    def __len__(self):
-        return len(self._tensors)
-
-    def pack(self, tensors=None):
-        # Optional. init already does this.
-        if tensors is None:
-            tensors = self._tensors
-        for tensor, entry in zip(tensors, self):
-            entry[:] = tensor
-
-    def unpack(self, tensors):
-        for tensor, entry in zip(tensors, self):
-            tensor[:] = entry
-
-    def nelement(self):
-        return self.buffer.nelement()
-
-    def element_size(self):
-        return self.buffer.element_size()
-
-    def bits(self):
-        return 8 * self.nelement() * self.element_size()
-
-    def all_reduce(self, async_op=False):
-        return torch.distributed.all_reduce(self.buffer, async_op=async_op)
-
-    def all_gather(self, async_op=False):
-        n_workers = (
-            torch.distributed.get_world_size()
-            if torch.distributed.is_available()
-            else 1
-        )
-        buffers = [torch.empty_like(self.buffer) for i in range(n_workers)]
-        handle = all_gather(buffers, self.buffer, async_op=async_op)
-        if async_op:
-            return buffers, handle
-        else:
-            return buffers
-
+        rank1_packed /= self.n_workers
+        rank1_unpacked = unpack_tensors(rank1_packed, rank1_indices, rank1_sizes)
+        for i, (_, out, _) in enumerate(rank1_tensors):
+            out[:] = rank1_unpacked[i]
 
 def all_reduce(*args, **kwargs):
     if torch.distributed.is_available() and torch.distributed.get_world_size() > 1:
