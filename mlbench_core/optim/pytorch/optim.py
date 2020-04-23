@@ -675,7 +675,7 @@ class PowerSGD(Optimizer):
             matrix = tensor.view(tensor.shape[0], -1)
             torch.matmul(matrix, q, out=p)
 
-        all_reduce(self.p_memory)
+        dist.all_reduce(self.p_memory)
 
         # Start communicating rank 1 tensors
         rank1_packed, rank1_indices, rank1_sizes = pack_tensors([tensor for (tensor, _, _) in rank1_tensors])
@@ -689,7 +689,7 @@ class PowerSGD(Optimizer):
             matrix = tensor.view(tensor.shape[0], -1)
             torch.matmul(matrix.t(), p, out=q)
 
-        all_reduce(self.q_memory)
+        dist.all_reduce(self.q_memory)
         self.q_memory.data[:] /= self.n_workers
 
         for p, q, (tensor, out, mem) in zip(ps, qs, high_rank_tensors):
@@ -702,10 +702,6 @@ class PowerSGD(Optimizer):
         rank1_unpacked = unpack_tensors(rank1_packed, rank1_indices, rank1_sizes)
         for i, (_, out, _) in enumerate(rank1_tensors):
             out[:] = rank1_unpacked[i]
-
-def all_reduce(*args, **kwargs):
-    if torch.distributed.is_available() and torch.distributed.get_world_size() > 1:
-        return torch.distributed.all_reduce(*args, **kwargs)
 
 
 @torch.jit.script
@@ -720,14 +716,6 @@ def orthogonalize(matrix):
             rest = matrix[:, i + 1 :]
             # rest -= torch.matmul(col.t(), rest) * col
             rest -= torch.sum(col * rest, dim=0) * col
-
-
-def all_gather(out_list, in_tensor, **kwargs):
-    if torch.distributed.is_available() and torch.distributed.get_world_size() > 1:
-        return torch.distributed.all_gather(out_list, in_tensor, **kwargs)
-    else:
-        assert len(out_list) == 1
-        out_list[0].data = in_tensor
 
 
 optimizers = {
