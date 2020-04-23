@@ -2,7 +2,10 @@ import numpy as np
 import torch
 import torch.distributed as dist
 from apex import amp
-from mlbench_core.utils.pytorch.distributed import AllReduceAggregation
+from mlbench_core.utils.pytorch.distributed import (
+    AllReduceAggregation,
+    AllReduceAggregationFP16,
+)
 from mlbench_core.utils.pytorch.distributed import DecentralizedAggregation
 from torch.nn.utils import clip_grad_norm_
 from torch.optim import Adam, SGD
@@ -564,6 +567,7 @@ class AMPOptimizer:
         world_size=1,
         use_cuda=False,
         by_layer=False,
+        use_horovod=False,
     ):
         """
         Constructor for the AMPOptimizer
@@ -587,9 +591,14 @@ class AMPOptimizer:
         else:
             raise NotImplementedError("Only average model is supported right now.")
 
-        self.agg = AllReduceAggregation(
-            world_size=world_size, use_cuda=use_cuda
-        ).agg_grad(by_layer=by_layer)
+        if use_horovod:
+            self.agg = AllReduceAggregationFP16(
+                world_size=world_size, use_cuda=use_cuda
+            ).agg_grad(by_layer=by_layer)
+        else:
+            self.agg = AllReduceAggregation(
+                world_size=world_size, use_cuda=use_cuda
+            ).agg_grad(by_layer=by_layer)
 
     def backward_loss(self, loss):
         with amp.scale_loss(loss, self.optimizer) as scaled_loss:

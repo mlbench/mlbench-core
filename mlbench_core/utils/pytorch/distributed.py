@@ -1,6 +1,12 @@
 import torch
 import torch.distributed as dist
 
+try:
+    import horovod.torch as hvd
+except ImportError as e:
+    pass
+
+
 # TODO: those 3 funtions are never used, maybe delete them ?
 
 
@@ -60,6 +66,7 @@ def pack_tensors(tensors, use_cuda=False):
     vec = torch.empty(
         indices[-1],
         device=tensors[0].device if tensors[0].is_cuda and use_cuda else "cpu",
+        dtype=tensors[0].dtype,
     )
 
     for tensor, start_idx, end_idx in zip(tensors, indices[:-1], indices[1:]):
@@ -210,6 +217,22 @@ class AllReduceAggregation(Aggregation):
         if op == "avg":
             dist.all_reduce(data, op=dist.ReduceOp.SUM)
             data /= self.world_size
+        else:
+            raise NotImplementedError
+        return data
+
+
+class AllReduceAggregationFP16(AllReduceAggregation):
+    def _agg(self, data, op):
+        """Aggregate data using `op` operation.
+        Args:
+            data (:obj:`torch.Tensor`): A Tensor to be aggregated (Should be `torch.float16`)
+            op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
+        Returns:
+            :obj:`torch.Tensor`: An aggregated tensor.
+        """
+        if op == "avg":
+            data = hvd.allreduce(data, op=hvd.Sum) / self.world_size
         else:
             raise NotImplementedError
         return data
