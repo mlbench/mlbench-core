@@ -2,7 +2,7 @@ mlbench-core: Distributed Machine Learning Benchmark Core Library
 =================================================================
 
 [![Build Status](https://travis-ci.com/mlbench/mlbench-core.svg?branch=develop)](https://travis-ci.com/mlbench/mlbench-core)
-[![DocumentationStatus](https://readthedocs.org/projects/mlbench-docs/badge/?version=latest)](https://mlbench.readthedocs.io/projects/mlbench_core/en/latest/api.html?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/mlbench-core/badge/?version=latest)](https://mlbench.readthedocs.io/projects/mlbench_core/en/latest/?badge=latest)
 
 MLBench is a Benchmarking Framework for Distributed Machine Learning algorithms.
 

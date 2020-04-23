@@ -1,44 +1,54 @@
 mlbench_core.optim
 ------------------
 
-.. automodule:: mlbench_core.optim
+.. autoapimodule:: mlbench_core.optim
 .. currentmodule:: mlbench_core.optim
 
 
 pytorch
 ~~~~~~~
-.. automodule:: mlbench_core.optim.pytorch
+.. autoapimodule:: mlbench_core.optim.pytorch
 .. currentmodule:: mlbench_core.optim.pytorch
 
 
 optim
 +++++
-.. automodule:: mlbench_core.models.pytorch.optim
-.. currentmodule:: mlbench_core.models.pytorch.optim
+.. autoapimodule:: mlbench_core.optim.pytorch.optim
+.. currentmodule:: mlbench_core.optim.pytorch.optim
 
 
 SparsifiedSGD
 '''''''''''''
 
-.. autoclass:: SparsifiedSGD
+.. autoapiclass:: SparsifiedSGD
     :members:
-
 
 CentralizedSparsifiedSGD
 ''''''''''''''''''''''''
 
-.. autoclass:: CentralizedSparsifiedSGD
+.. autoapiclass:: CentralizedSparsifiedSGD
     :members:
 
 DecentralizedSGD
 ''''''''''''''''
 
-.. autoclass:: DecentralizedSGD
+.. autoapiclass:: DecentralizedSGD
     :members:
 
 CentralizedSGD
 ''''''''''''''
 
-.. autoclass:: CentralizedSGD
+.. autoapiclass:: CentralizedSGD
     :members:
 
+SignSGD
+'''''''
+
+.. autoapiclass:: SignSGD
+    :members:
+
+CentralizedAdam
+'''''''''''''''
+
+.. autoapiclass:: CentralizedAdam
+    :members:

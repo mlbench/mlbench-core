@@ -1,37 +1,37 @@
 mlbench_core.utils
 ------------------
-.. automodule:: mlbench_core.utils
+.. autoapimodule:: mlbench_core.utils
 .. currentmodule:: mlbench_core.utils
 
 pytorch
 ~~~~~~~
 
-.. automodule:: mlbench_core.utils.pytorch
+.. autoapimodule:: mlbench_core.utils.pytorch
 .. currentmodule:: mlbench_core.utils.pytorch
 
 Timeit
 ''''''
 
-.. autoclass:: Timeit
+.. autoapiclass:: Timeit
     :members:
+
 
 
 FCGraph
 '''''''
 
-.. autoclass:: FCGraph
+.. autoapiclass:: FCGraph
     :members:
 
 initialize_backends
 '''''''''''''''''''
 
-.. autofunction:: initialize_backends
-
+.. autoapifunction:: initialize_backends
 
 tensorflow
 ~~~~~~~~~~
 
-.. automodule:: mlbench_core.utils.tensorflow
+.. autoapimodule:: mlbench_core.utils.tensorflow
 .. currentmodule:: mlbench_core.utils.tensorflow
 
 
