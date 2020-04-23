@@ -187,9 +187,6 @@ class TrainValidation(object):
         lr_scheduler_level="epoch",
         tracker=None,
     ):
-        """
-
-        """
         self.batch_size = batch_size
         self.num_batches_per_epoch_for_train = num_batches_per_epoch_for_train
         self.num_batches_per_epoch_for_validation = num_batches_per_epoch_for_validation
