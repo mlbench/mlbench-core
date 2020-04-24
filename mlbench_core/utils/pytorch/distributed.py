@@ -56,16 +56,13 @@ def pack_tensors(tensors, use_cuda=False):
         indices.append(new_end)
 
     tensor_sizes = [t.size() for t in tensors]
-    pointers = [0]
-    for tensor in tensors:
-        pointers.append(pointers[-1] + tensor.nelement())
 
     vec = torch.empty(
-        pointers[-1],
+        indices[-1],
         device=tensors[0].device if tensors[0].is_cuda and use_cuda else "cpu",
     )
 
-    for tensor, start_idx, end_idx in zip(tensors, pointers[:-1], pointers[1:]):
+    for tensor, start_idx, end_idx in zip(tensors, indices[:-1], indices[1:]):
         vec[start_idx:end_idx] = tensor.data.view(-1)
 
     return vec, indices, tensor_sizes
