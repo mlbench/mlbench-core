@@ -6,42 +6,27 @@ import logging
 from kubernetes import client, config
 import requests
 
+MLBENCH_BACKENDS = ["MPI", "GLOO", "NCCL"]
 
 MLBENCH_IMAGES = {
-    "PyTorch Cifar-10 ResNet-20 Open-MPI": (
+    "PyTorch Cifar-10 ResNet-20": (
         "mlbench/pytorch-cifar10-resnet:latest",
-        "/.openmpi/bin/mpirun --mca btl_tcp_if_exclude docker0,lo "
-        "-x KUBERNETES_SERVICE_HOST -x KUBERNETES_SERVICE_PORT "
-        "-x LD_LIBRARY_PATH=/usr/local/nvidia/lib64 --host {hosts}"
-        " /conda/bin/python /codes/main.py --run_id {run_id}",
-        False,
+        "/conda/bin/python /codes/main.py --run_id {run_id} --rank {rank} --hosts {hosts} --backend {backend}",
         True,
     ),
-    "PyTorch Cifar-10 ResNet-20 Open-MPI (Scaling LR)": (
+    "PyTorch Cifar-10 ResNet-20 (Scaling LR)": (
         "mlbench/pytorch-cifar10-resnet-scaling:latest",
-        "/.openmpi/bin/mpirun --mca btl_tcp_if_exclude docker0,lo "
-        "-x KUBERNETES_SERVICE_HOST -x KUBERNETES_SERVICE_PORT "
-        "-x LD_LIBRARY_PATH=/usr/local/nvidia/lib64 --host {hosts}"
-        " /conda/bin/python /codes/main.py --run_id {run_id}",
-        False,
+        "/conda/bin/python /codes/main.py --run_id {run_id} --rank {rank} --hosts {hosts} --backend {backend}",
         True,
     ),
-    "PyTorch Linear Logistic Regression Open-MPI": (
-        "mlbench/pytorch-openmpi-epsilon-logistic-regression-all-reduce:latest",
-        "/.openmpi/bin/mpirun --mca btl_tcp_if_exclude docker0,lo "
-        "-x KUBERNETES_SERVICE_HOST -x KUBERNETES_SERVICE_PORT "
-        "-x LD_LIBRARY_PATH=/usr/local/nvidia/lib64 --host {hosts}"
-        " /conda/bin/python /codes/main.py --run_id {run_id}",
-        False,
+    "PyTorch Linear Logistic Regression": (
+        "mlbench/pytorch-epsilon-logistic-regression-all-reduce:latest",
+        "/conda/bin/python /codes/main.py --run_id {run_id} --rank {rank} --hosts {hosts} --backend {backend}",
         True,
     ),
-    "Tensorflow Cifar-10 ResNet-20 Open-MPI": (
+    "Tensorflow Cifar-10 ResNet-20": (
         "mlbench/tensorflow-cifar10-resnet:latest",
-        "/.openmpi/bin/mpirun --mca btl_tcp_if_exclude docker0,lo "
-        "-x KUBERNETES_SERVICE_HOST -x KUBERNETES_SERVICE_PORT "
-        "-x LD_LIBRARY_PATH=/usr/local/nvidia/lib64 --host {hosts} "
-        "/conda/bin/python /codes/main.py --run_id {run_id} --hosts {hosts}",
-        False,
+        "/conda/bin/python /codes/main.py --run_id {run_id} --rank {rank} --hosts {hosts} --backend {backend}",
         False,
     ),
 }
@@ -409,9 +394,11 @@ class ApiClient(object):
         num_cpus=2.0,
         max_bandwidth=1000,
         image=None,
+        backend=None,
         custom_image_name=None,
         custom_image_command=None,
-        custom_image_all_nodes=False,
+        custom_backend=None,
+        run_all_nodes=False,
         gpu_enabled=False,
         light_target=False,
     ):
@@ -430,14 +417,22 @@ class ApiClient(object):
             image (str): Name of the official benchmark image to use (
                 see ``mlbench_core.api.MLBENCH_IMAGES`` keys).
                 Default: ``None``
+            backend (str): Name of the backend to use (see ``mlbench_core.api.MLBENCH_BACKENDS``)
+                Default: ``None``
             custom_image_name (str): The name of a custom Docker image
                 to run. Can be a dockerhub or private Docker repository url.
                 Default: ``None``
             custom_image_command (str): Command to run on the custom image.
                 Default: ``None``
-            custom_image_all_nodes (bool): Whether to run
+            custom_backend (str): Custom backend to use.
+                Default: ``None``
+            run_all_nodes (bool): Whether to run
                 ``custom_image_command`` on all worker nodes or only the
                 rank 0 node.
+            gpu_enabled (bool): Enable GPU acceleration.
+                Default: ``False``
+            light_target (bool): Use light target goal
+                Default: ``False``
 
         Returns:
             A ``concurrent.futures.Future`` objects wrapping
@@ -452,20 +447,29 @@ class ApiClient(object):
             "max_bandwidth": max_bandwidth,
             "gpu_enabled": "true" if gpu_enabled else "false",
             "light_target": "true" if light_target else "false",
+            "run_all_nodes": "true" if run_all_nodes else "false",
         }
 
         if custom_image_name is not None:
             data["image_name"] = "custom_image"
             data["custom_image_name"] = custom_image_name
             data["custom_image_command"] = custom_image_command
-            data["custom_image_all_nodes"] = custom_image_all_nodes
         elif image in MLBENCH_IMAGES:
             data["image_name"] = MLBENCH_IMAGES[image][0]
 
-            if MLBENCH_IMAGES[image][3]:
+            if MLBENCH_IMAGES[image][2]:
                 data["gpu_enabled"] = "true" if gpu_enabled else "false"
         else:
             raise ValueError("Image {image} not found".format(image=image))
+
+        assert not (
+            (custom_backend is not None) and (backend is not None)
+        ), "custom_backend and backend are mutually exclusive"
+        if custom_backend is not None:
+            data["backend"] = "custom_backend"
+            data["custom_backend"] = custom_backend
+        elif backend in MLBENCH_BACKENDS:
+            data["backend"] = backend
 
         future = self.executor.submit(requests.post, request_url, data=data)
         return future

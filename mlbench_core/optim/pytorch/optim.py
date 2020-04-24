@@ -187,13 +187,15 @@ class CentralizedSparsifiedSGD(SparsifiedSGD):
 
     def __init__(
         self,
-        params,
+        params=None,
         lr=required,
         weight_decay=0,
         sparse_grad_size=10,
         random_sparse=False,
         average_models=True,
     ):
+        if not params:
+            raise ValueError('"params" not set for optimizer')
         self.average_models = average_models
         self.world_size = dist.get_world_size()
         self.random_sparse = random_sparse
@@ -269,21 +271,30 @@ class DecentralizedSGD(SGD):
         dampening (float, optional): dampening for momentum (default: 0)
         nesterov (bool, optional): enables Nesterov momentum (default: False)
         average_models (bool): Whether to average models together. (default: `True`)
-
+        use_cuda (bool): Whether to use cuda tensors for aggregation
+        by_layer (bool): Aggregate by layer instead of all layers at once
     """
 
     def __init__(
         self,
-        rank,
-        neighbors,
-        model,
+        rank=None,
+        neighbors=None,
+        model=None,
         lr=required,
         momentum=0,
         dampening=0,
         weight_decay=0,
         nesterov=False,
         average_models=True,
+        use_cuda=False,
+        by_layer=False,
     ):
+        if not rank:
+            raise ValueError('"rank" not set for optimizer')
+        if not neighbors:
+            raise ValueError('"neighbors" not set for optimizer')
+        if not model:
+            raise ValueError('"model" not set for optimizer')
         super(DecentralizedSGD, self).__init__(
             model.parameters(), lr, momentum, dampening, weight_decay, nesterov
         )
@@ -294,7 +305,9 @@ class DecentralizedSGD(SGD):
             raise NotImplementedError("Only average model is supported right now.")
 
         self.model = model
-        self.agg = DecentralizedAggregation(rank, neighbors).agg_model
+        self.agg = DecentralizedAggregation(
+            rank, neighbors, use_cuda=use_cuda
+        ).agg_model(by_layer=by_layer)
 
     def step(self, closure=None):
         """ Aggregates the gradients and performs a single optimization step.
@@ -321,20 +334,27 @@ class CentralizedSGD(SGD):
         dampening (float, optional): dampening for momentum (default: 0)
         nesterov (bool, optional): enables Nesterov momentum (default: False)
         average_models (bool): Whether to average models together. (default: `True`)
-
+        use_cuda (bool): Whether to use cuda tensors for aggregation
+        by_layer (bool): Aggregate by layer instead of all layers at once
     """
 
     def __init__(
         self,
-        world_size,
-        model,
+        world_size=None,
+        model=None,
         lr=required,
         momentum=0,
         dampening=0,
         weight_decay=0,
         nesterov=False,
         average_models=True,
+        use_cuda=False,
+        by_layer=False,
     ):
+        if not world_size:
+            raise ValueError('"world_size" not set for optimizer')
+        if not model:
+            raise ValueError('"model" not set for optimizer')
         super(CentralizedSGD, self).__init__(
             model.parameters(), lr, momentum, dampening, weight_decay, nesterov
         )
@@ -344,7 +364,9 @@ class CentralizedSGD(SGD):
             raise NotImplementedError("Only average model is supported right now.")
 
         self.model = model
-        self.agg = AllReduceAggregation(world_size=world_size).agg_grad
+        self.agg = AllReduceAggregation(
+            world_size=world_size, use_cuda=use_cuda
+        ).agg_grad(by_layer=by_layer)
 
     def step(self, closure=None):
         """ Aggregates the gradients and performs a single optimization step.
@@ -431,20 +453,27 @@ class CentralizedAdam(Adam):
             algorithm from the paper `On the Convergence of Adam and Beyond`_
             (default: False)
         average_models (bool): Whether to average models together. (default: `True`)
-
+        use_cuda (bool): Whether to use cuda tensors for aggregation
+        by_layer (bool): Aggregate by layer instead of all layers at once
     """
 
     def __init__(
         self,
-        world_size,
-        model,
+        world_size=None,
+        model=None,
         lr=1e-3,
         betas=(0.9, 0.999),
         eps=1e-8,
         weight_decay=0,
         amsgrad=False,
         average_models=True,
+        use_cuda=False,
+        by_layer=False,
     ):
+        if not world_size:
+            raise ValueError('"world_size" not set for optimizer')
+        if not model:
+            raise ValueError('"model" not set for optimizer')
         super(CentralizedAdam, self).__init__(
             model.parameters(), lr, betas, eps, weight_decay, amsgrad
         )
@@ -454,7 +483,9 @@ class CentralizedAdam(Adam):
             raise NotImplementedError("Only average model is supported right now.")
 
         self.model = model
-        self.agg = AllReduceAggregation(world_size=world_size).agg_grad
+        self.agg = AllReduceAggregation(
+            world_size=world_size, use_cuda=use_cuda
+        ).agg_grad(by_layer=by_layer)
 
     def step(self, closure=None):
         """ Aggregates the gradients and performs a single optimization step.
@@ -466,3 +497,23 @@ class CentralizedAdam(Adam):
         self.agg(self.model, self.agg_mode)
         loss = super(CentralizedAdam, self).step(closure=closure)
         return loss
+
+
+optimizers = {
+    "centralized_sparsified_sgd": CentralizedSparsifiedSGD,
+    "decentralized_sgd": DecentralizedSGD,
+    "centralized_sgd": CentralizedSGD,
+    "sign_sgd": SignSGD,
+    "centralized_adam": CentralizedAdam,
+}
+
+
+def get_optimizer(optimizer, **kwargs):
+    r"""Returns an object of the class specified with the argument `optimizer`.
+
+        Args:
+            optimizer (str): name of the optimizer
+            **kwargs (dict, optional): additional optimizer-specific parameters. For the list of supported parameters
+                for each optimizer, please look at its documentation.
+        """
+    return optimizers[optimizer](**kwargs)

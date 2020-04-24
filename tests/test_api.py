@@ -254,7 +254,7 @@ def test_create_run_official(mocker, kubernetes_api_client_node_port):
         5,
         num_cpus=4.1,
         max_bandwidth=10000,
-        image="PyTorch Cifar-10 ResNet-20 Open-MPI",
+        image="PyTorch Cifar-10 ResNet-20",
     )
 
     assert result is not None
@@ -275,7 +275,7 @@ def test_create_run_custom(mocker, kubernetes_api_client_node_port):
         max_bandwidth=10000,
         custom_image_name="localhost:5000/mlbench_worker:latest",
         custom_image_command="/.openmpi/bin/mpirun /app/main.py",
-        custom_image_all_nodes=False,
+        run_all_nodes=False,
     )
 
     assert result is not None

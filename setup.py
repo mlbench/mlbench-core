@@ -79,6 +79,6 @@ setup(
     tests_require=test_requirements,
     extras_require=extras,
     url="https://github.com/mlbench/mlbench_core",
-    version="2.3.2",
+    version="2.4.0",
     zip_safe=False,
 )

@@ -8,7 +8,7 @@ def _ranks_on_same_node(rank, world_size):
     hostname = socket.gethostname()
     hostname_length = get_backend_tensor(torch.IntTensor([len(hostname)]))
 
-    dist.all_reduce(hostname_length, op=dist.reduce_op.MAX)
+    dist.all_reduce(hostname_length, op=dist.ReduceOp.MAX)
     max_hostname_length = hostname_length.item()
 
     encoding = [ord(c) for c in hostname]
