@@ -1,11 +1,8 @@
 from mlbench_core.utils.pytorch.distributed import (
     AllReduceAggregation,
     DecentralizedAggregation,
-    pack_tensors,
-    unpack_tensors,
+    PowerAggregation,
 )
-from mlbench_core.optim.pytorch.utils import orthogonalize
-
 import numpy as np
 import torch
 import torch.distributed as dist
@@ -504,15 +501,34 @@ class CentralizedAdam(Adam):
         return loss
 
 
-class PowerSGD(Optimizer):
+class PowerSGD(SGD):
+    r"""Implements PowerSGD with error feedback (optionally with momentum).
+
+        Args:
+            model (:obj:`nn.Module`): Model which contains parameters for SGD
+            lr (float): learning rate
+            momentum (float, optional): momentum factor (default: 0)
+            weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
+            dampening (float, optional): dampening for momentum (default: 0)
+            nesterov (bool, optional): enables Nesterov momentum (default: False)
+            average_models (bool): Whether to average models together. (default: `True`)
+            use_cuda (bool): Whether to use cuda tensors for aggregation
+            by_layer (bool): Aggregate by layer instead of all layers at once
+            reuse_query (bool): Whether to use warm start to initialize the power iteration
+            rank (int): The rank of the gradient approximation
+        """
+
     def __init__(
         self,
         model=None,
         lr=0.1,
-        weight_decay=0,
         momentum=0,
+        weight_decay=0,
         dampening=0,
         nesterov=False,
+        average_models=True,
+        use_cuda=False,
+        by_layer=False,
         reuse_query=False,
         rank=1,
     ):
@@ -523,37 +539,18 @@ class PowerSGD(Optimizer):
         if weight_decay < 0.0:
             raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
 
-        self.rank = rank
-        self.p_memory = None
-        self.q_memory = None
-        self.reuse_query = reuse_query
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        self.rng = np.random.RandomState(1)
-        self.n_workers = dist.get_world_size()
-
-        defaults = dict(
-            lr=lr,
-            weight_decay=weight_decay,
-            momentum=momentum,
-            nesterov=nesterov,
-            dampening=dampening,
+        super(PowerSGD, self).__init__(
+            model.parameters(), lr, momentum, dampening, weight_decay, nesterov
         )
+        if average_models:
+            self.agg_mode = "avg"
+        else:
+            raise NotImplementedError("Only average model is supported right now.")
 
-        super(PowerSGD, self).__init__(model.parameters(), defaults)
-
-        self.__create_gradients_memory_and_buffers()
-
-    def __create_gradients_memory_and_buffers(self):
-        self.memories = []
-        self.send_buffers = []
-        for group in self.param_groups:
-            for p in group["params"]:
-                self.memories.append(torch.zeros_like(p.data))
-                self.send_buffers.append(torch.zeros_like(p.data))
-
-    def set_random(self, vector):
-        torch.manual_seed(self.rng.randint(1_000_000_000))
-        vector.data[:] = torch.randn(*vector.shape, device=self.device)
+        self.model = model
+        self.agg = PowerAggregation(
+            model=model, use_cuda=use_cuda, reuse_query=reuse_query, rank=rank
+        ).agg_grad(by_layer=by_layer)
 
     def step(self, closure=None):
         """Performs a single optimization step.
@@ -562,147 +559,9 @@ class PowerSGD(Optimizer):
             closure (callable, optional): A closure that reevaluates the model
                 and returns the loss.
         """
-        loss = None
-        if closure is not None:
-            loss = closure()
-
-        grads = []
-
-        # collect gradients in 'grads'
-        for group in self.param_groups:
-            for p in group["params"]:
-                if p.grad is None:
-                    continue
-                grads.append(p.grad.data)
-
-        # accumulate
-        for grad, memory, send_bfr in zip(grads, self.memories, self.send_buffers):
-            send_bfr.data[:] = grad + memory
-
-        # set 'grads' to the averaged value from the workers
-        self.reduce(self.send_buffers, grads, self.memories)
-
-        # update parameters
-        i = 0
-        for group in self.param_groups:
-            weight_decay = group["weight_decay"]
-            momentum = group["momentum"]
-            dampening = group["dampening"]
-            nesterov = group["nesterov"]
-
-            for p in group["params"]:
-                if p.grad is None:
-                    continue
-                d_p = grads[i]
-                i += 1
-                if weight_decay != 0:
-                    d_p.add_(weight_decay, p.data)
-                if momentum != 0:
-                    param_state = self.state[p]
-                    if "momentum_buffer" not in param_state:
-                        buf = param_state["momentum_buffer"] = torch.clone(d_p).detach()
-                    else:
-                        buf = param_state["momentum_buffer"]
-                        buf.mul_(momentum).add_(1 - dampening, d_p)
-                    if nesterov:
-                        d_p = d_p.add(momentum, buf)
-                    else:
-                        d_p = buf
-
-                p.data.add_(-group["lr"], d_p)
-
+        self.agg(self.model, self.agg_mode)
+        loss = super(PowerSGD, self).step(closure=closure)
         return loss
-
-    def reduce(self, grad_in, grad_out, memory_out):
-        # Split the tensors into rank1-ones that will be reduced un-compressed
-        # and rank > 1 tensors that are compressed
-        rank1_tensors = [
-            (tensor, out, mem)
-            for tensor, out, mem in zip(grad_in, grad_out, memory_out)
-            if tensor.ndimension() <= 1
-        ]
-        high_rank_tensors = [
-            (tensor, out, mem)
-            for tensor, out, mem in zip(grad_in, grad_out, memory_out)
-            if tensor.ndimension() > 1
-        ]
-
-        # We are building a rank-1 approximation of every tensor
-        # that can be interpreted as a matrix. Let the approximation be
-        # M = p q^T
-        # We are allocating consequtive memory for the p's and q's
-
-        memory_is_uninitialized = self.p_memory is None
-
-        p_total_size = 0
-        q_total_size = 0
-        for tensor, _, _ in high_rank_tensors:
-            matrix = tensor.view(tensor.shape[0], -1)
-            n, m = matrix.shape
-            rank = min(n, m, self.rank)
-            p_total_size += n * rank
-            q_total_size += m * rank
-        if self.p_memory is None:
-            self.p_memory = torch.empty(p_total_size, device=self.device)
-            self.q_memory = torch.empty(q_total_size, device=self.device)
-
-        # Find them again and make lists of pointers
-        ps = []
-        qs = []
-        p_idx = 0
-        q_idx = 0
-        for tensor, _, _ in high_rank_tensors:
-            matrix = tensor.view(tensor.shape[0], -1)
-            n, m = matrix.shape
-            rank = min(n, m, self.rank)
-            ps.append(self.p_memory[p_idx : p_idx + n * rank].view(n, rank))
-            qs.append(self.q_memory[q_idx : q_idx + m * rank].view(m, rank))
-            p_idx += n * rank
-            q_idx += m * rank
-
-        for (tensor, _, _), q, p in zip(high_rank_tensors, qs, ps):
-            matrix = tensor.view(tensor.shape[0], -1)
-            n, m = matrix.shape
-
-            if self.reuse_query and not memory_is_uninitialized:
-                pass
-            else:
-                # Sample a query vector q
-                self.set_random(q)
-
-        for (tensor, _, _), q, p in zip(high_rank_tensors, qs, ps):
-            matrix = tensor.view(tensor.shape[0], -1)
-            torch.matmul(matrix, q, out=p)
-
-        dist.all_reduce(self.p_memory)
-
-        # Start communicating rank 1 tensors
-        rank1_packed, rank1_indices, rank1_sizes = pack_tensors(
-            [tensor for (tensor, _, _) in rank1_tensors]
-        )
-
-        rank1_handle = dist.all_reduce(rank1_packed, async_op=True)
-
-        for p in ps:
-            orthogonalize(p)
-
-        for p, q, (tensor, _, _) in zip(ps, qs, high_rank_tensors):
-            matrix = tensor.view(tensor.shape[0], -1)
-            torch.matmul(matrix.t(), p, out=q)
-
-        dist.all_reduce(self.q_memory)
-        self.q_memory.data[:] /= self.n_workers
-
-        for p, q, (tensor, out, mem) in zip(ps, qs, high_rank_tensors):
-            # Set the output gradient
-            torch.matmul(p, q.t(), out=out.data[:])
-            mem.data[:] = tensor - out
-
-        rank1_handle.wait()
-        rank1_packed /= self.n_workers
-        rank1_unpacked = unpack_tensors(rank1_packed, rank1_indices, rank1_sizes)
-        for i, (_, out, _) in enumerate(rank1_tensors):
-            out[:] = rank1_unpacked[i]
 
 
 optimizers = {

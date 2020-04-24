@@ -3,6 +3,7 @@ import torch
 
 @torch.jit.script
 def orthogonalize(matrix):
+    """Function used to orthogonalize a matrix."""
     n, m = matrix.shape
     for i in range(m):
         # Normalize the i'th column
