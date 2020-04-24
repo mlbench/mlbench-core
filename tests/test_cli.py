@@ -35,7 +35,8 @@ def get_gcloud_cmd_line(args, option_dict=None):
         'gpu_type'      : '--gpu-type',
         'zone'          : '-z',
         'preemptible'   : '-e',
-        'custom_value'  : '-v'
+        'project'       : '-p',
+        'custom_value'  : '-v',
     }
 
     args = list(map(str, args))
@@ -50,6 +51,7 @@ def get_gcloud_cmd_line(args, option_dict=None):
 
     if option_dict is not None:
         options = option_dict
+
         cmd_line_options = [str(elem) for option in options for elem in get_array(option)]
 
         return args + cmd_line_options
@@ -105,12 +107,6 @@ def gcloud_mock(mocker, gcloud_auth, sys_mock):
         'pathexists'        : mocker.patch("os.path.exists"),
         'pathjoin'          : mocker.patch("os.path.join"),
     }
-    
-
-def test_invalid_num_workers(mocker, gcloud_auth):
-    
-    with pytest.raises(AssertionError):
-        create_gcloud(['1','test'])
 
 
 def create_gcloud_test_helper(mocker, gcloud_mock, args, option_dict=None):
@@ -121,13 +117,23 @@ def create_gcloud_test_helper(mocker, gcloud_mock, args, option_dict=None):
     cluster = container_v1.types.Cluster
     get_operation = container_v1.ClusterManagerClient.return_value.get_operation
     nodeconfig = container_v1.types.NodeConfig
+    accelerator = container_v1.types.AcceleratorConfig
+
     install_release = tiller.return_value.install_release
-    _, project = auth()
+    
+    if option_dict is not None and 'project' in option_dict: 
+        project = option_dict['project']
+    else:
+        _, project = auth()
 
     cmd_line = get_gcloud_cmd_line(args, option_dict)
 
     if option_dict is None:
         option_dict = CREATE_GCLOUD_DEFAULTS
+    else:
+        for k in CREATE_GCLOUD_DEFAULTS: # add missing defaults
+            if k not in option_dict:
+                option_dict[k] = CREATE_GCLOUD_DEFAULTS[k]      
 
     create_gcloud(cmd_line)
 
@@ -150,6 +156,18 @@ def create_gcloud_test_helper(mocker, gcloud_mock, args, option_dict=None):
     assert option_dict["zone"] in get_operation.call_args[1]["name"]
     assert project in get_operation.call_args[1]["name"]
 
+    
+    if option_dict["num_gpus"] > 0:
+        num_gpus = option_dict["num_gpus"]
+        gpu_type = option_dict["gpu_type"]
+        accelerator.assert_called_once_with(accelerator_count=num_gpus, accelerator_type=gpu_type)
+
+
+def test_invalid_num_workers(mocker, gcloud_auth):
+    
+    with pytest.raises(AssertionError):
+        create_gcloud(['1','test'])
+
 
 def test_create_cluster_default(mocker, gcloud_mock):
     args = [3, 'test']
@@ -166,8 +184,15 @@ def test_create_cluster_non_default(mocker, gcloud_mock):
         'gpu_type'      : "my-nvidia-tesla-p100",
         'zone'          : "my-europe-west1-b",
         'preemptible'   : True,
+        'project'       : 'myproj'
     }
 
     create_gcloud_test_helper(mocker, gcloud_mock, args, option_dict)
 
-#def test_create_cluster_gpu(mocker, gcloud_mock):
+def test_create_cluster_gpu(mocker, gcloud_mock):
+    args = [10, 'test']
+    option_dict = {
+        'num_gpus'  : 3
+    }
+
+    create_gcloud_test_helper(mocker, gcloud_mock, args, option_dict)
