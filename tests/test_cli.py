@@ -5,9 +5,10 @@
 
 import pytest
 from mlbench_core.cli import cli_group
+from google.auth.exceptions import DefaultCredentialsError
+#import click
 
 create_gcloud = cli_group.commands['create-cluster'].commands['gcloud'].main
-
 
 CREATE_GCLOUD_DEFAULTS = {
     'machine_type'  : 'n1-standard-4',
@@ -18,6 +19,44 @@ CREATE_GCLOUD_DEFAULTS = {
     'zone'          : "europe-west1-b",
     'preemptible'   : False,
 }
+    
+
+def get_gcloud_cmd_line(args, option_dict=None):
+    '''
+    args: (list) command-line arguments
+    option_dict: (dict) key-value for options line in CREATE_GCLOUD_DEFAULTS
+    '''
+
+    flags ={
+        'machine_type'  : '-t',
+        'disk_size'     : '-d',
+        'num_cpus'      : '-c',
+        'num_gpus'      : '-g',
+        'gpu_type'      : '--gpu-type',
+        'zone'          : '-z',
+        'preemptible'   : '-e',
+        'custom_value'  : '-v'
+    }
+
+    args = list(map(str, args))
+    def get_array(option):
+        #e.g. option='num_gpus' --> ['-g', 0]
+        if options[option] == True: # check if flag is boolean
+            return [flags[option]]
+        elif options[option] == False:
+            return []
+        else:
+            return [flags[option], options[option]] 
+
+    if option_dict is not None:
+        options = option_dict
+        cmd_line_options = [str(elem) for option in options for elem in get_array(option)]
+
+        return args + cmd_line_options
+    
+    return args
+
+
 
 @pytest.fixture
 def gcloud_auth(mocker):
@@ -73,11 +112,8 @@ def test_invalid_num_workers(mocker, gcloud_auth):
     with pytest.raises(AssertionError):
         create_gcloud(['1','test'])
 
-#def test_no_credentials(mocker):
 
-
-def test_create_cluster_default(mocker, gcloud_mock):
-    
+def create_gcloud_test_helper(mocker, gcloud_mock, args, option_dict=None):
     container_v1 = gcloud_mock["containerv1"]
     tiller = gcloud_mock["tiller"]
     auth = gcloud_mock["auth"]
@@ -88,28 +124,50 @@ def test_create_cluster_default(mocker, gcloud_mock):
     install_release = tiller.return_value.install_release
     _, project = auth()
 
+    cmd_line = get_gcloud_cmd_line(args, option_dict)
 
-    num_workers = 3
-    release = 'test'
-    args = [str(num_workers), release]
+    if option_dict is None:
+        option_dict = CREATE_GCLOUD_DEFAULTS
 
-    create_gcloud(args)
+    create_gcloud(cmd_line)
 
     cluster.assert_called_once()
-    assert cluster.call_args[1]["initial_node_count"] == num_workers
+    assert cluster.call_args[1]["initial_node_count"] == args[0] # num_workers
     
     nodeconfig.assert_called_once()
-    assert nodeconfig.call_args[1]["machine_type"] == CREATE_GCLOUD_DEFAULTS['machine_type']
-    assert nodeconfig.call_args[1]["disk_size_gb"] == CREATE_GCLOUD_DEFAULTS['disk_size']
-    assert nodeconfig.call_args[1]["preemptible"] == CREATE_GCLOUD_DEFAULTS['preemptible']
+    assert nodeconfig.call_args[1]["machine_type"] == option_dict['machine_type']
+    assert nodeconfig.call_args[1]["disk_size_gb"] == option_dict['disk_size']
+    assert nodeconfig.call_args[1]["preemptible"] == option_dict['preemptible']
 
     tiller.assert_called_once()
     install_release.assert_called_once()
 
-    assert install_release.call_args[1]["values"]["limits"]["workers"] == num_workers - 1
-    assert install_release.call_args[1]["values"]["limits"]["gpu"] == CREATE_GCLOUD_DEFAULTS["num_gpus"]
-    assert install_release.call_args[1]["values"]["limits"]["cpu"] == CREATE_GCLOUD_DEFAULTS["num_cpus"]
+    assert install_release.call_args[1]["values"]["limits"]["workers"] == args[0] - 1
+    assert install_release.call_args[1]["values"]["limits"]["gpu"] == option_dict["num_gpus"]
+    assert install_release.call_args[1]["values"]["limits"]["cpu"] == option_dict["num_cpus"]
 
     get_operation.assert_called()
-    assert CREATE_GCLOUD_DEFAULTS["zone"] in get_operation.call_args[1]["name"]
+    assert option_dict["zone"] in get_operation.call_args[1]["name"]
     assert project in get_operation.call_args[1]["name"]
+
+
+def test_create_cluster_default(mocker, gcloud_mock):
+    args = [3, 'test']
+    create_gcloud_test_helper(mocker, gcloud_mock, args)
+
+def test_create_cluster_non_default(mocker, gcloud_mock):
+
+    args = [3, 'test']
+    option_dict = {
+        'machine_type'  : 'my-custom-type',
+        'disk_size'     : 20,
+        'num_cpus'      : 5,
+        'num_gpus'      : 0,
+        'gpu_type'      : "my-nvidia-tesla-p100",
+        'zone'          : "my-europe-west1-b",
+        'preemptible'   : True,
+    }
+
+    create_gcloud_test_helper(mocker, gcloud_mock, args, option_dict)
+
+#def test_create_cluster_gpu(mocker, gcloud_mock):
