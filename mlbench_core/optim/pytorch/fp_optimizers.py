@@ -9,7 +9,7 @@ from mlbench_core.utils.pytorch.distributed import (
     AllReduceAggregation,
 )
 from torch.nn.utils import clip_grad_norm_
-
+from datetime import datetime
 try:
     from apex.optimizers import FusedAdam
     from apex import amp
@@ -173,7 +173,13 @@ class FP16Optimizer:
 
         if scaling_factor != 1.0:
             self.fp32_params.grad.data /= scaling_factor
+        start = datetime.now()
+        torch.cuda.synchronize()
+        end = datetime.now()
+        logger.info("Took {} to synchronize".format(end - start))
         norm = clip_grad_norm_([self.fp32_params], self.grad_clip)
+
+
         updated = False
         if math.isfinite(norm):
             self.optimizer.step(closure=closure)
