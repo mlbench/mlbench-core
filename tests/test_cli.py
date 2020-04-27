@@ -9,13 +9,14 @@ from google.auth.exceptions import DefaultCredentialsError
 #import click
 
 create_gcloud = cli_group.commands['create-cluster'].commands['gcloud'].main
+delete_gcloud = cli_group.commands['delete-cluster'].commands['gcloud'].main
 
 CREATE_GCLOUD_DEFAULTS = {
     'machine_type'  : 'n1-standard-4',
     'disk_size'     : 50,
     'num_cpus'      : 1,
     'num_gpus'      : 0,
-    'gpu_type'      : "nvidia-tesla-p100",
+    'gpu_type'      : "nvidia-tesla-k80",
     'zone'          : "europe-west1-b",
     'preemptible'   : False,
 }
@@ -78,20 +79,26 @@ def gcloud_mock(mocker, gcloud_auth, sys_mock):
     # One response loop
     container_v1 = mocker.patch("google.cloud.container_v1")
     gclient = container_v1.ClusterManagerClient.return_value
-    response_1 = gclient.create_cluster.return_value
-    response_2 = gclient.get_operation.return_value
+    response_create = gclient.create_cluster.return_value
+    response_delete = gclient.delete_cluster.return_value
+    response_get_op = gclient.get_operation.return_value
 
-    response_1.status = 0
-    response_1.DONE = 1
-    response_1.name = 'test' # for concatenation
+    response_create.status = 0
+    response_create.DONE = 1
+    response_create.name = 'test-create-name' # for concatenation
 
-    response_2.status = 1
-    response_2.DONE = 1
-    response_2.name = 'test'
+    response_delete.status = 0
+    response_delete.DONE = 1
+    response_delete.name = 'test-delete-name'
+
+    response_get_op.status = 1
+    response_get_op.DONE = 1
+    response_get_op.name = 'test-get-op-name'
 
 
     return {
         'auth'              : gcloud_auth,
+        'gclient'           : gclient,
         'containerv1'       : container_v1,
         'discovery'         : mocker.patch("googleapiclient.discovery"),
         'http'              : mocker.patch("googleapiclient.http"),
@@ -196,3 +203,28 @@ def test_create_cluster_gpu(mocker, gcloud_mock):
     }
 
     create_gcloud_test_helper(mocker, gcloud_mock, args, option_dict)
+
+
+def test_delete_cluster(gcloud_mock):
+    gclient = gcloud_mock['gclient']
+    delete_cluster = gclient.delete_cluster
+    get_operation = gclient.get_operation
+
+    args = ['test-name']
+    opts = {'project' : 'test-proj', 'zone' : 'test-zone'}
+
+    cmd = get_gcloud_cmd_line(args, opts)
+
+    delete_gcloud(cmd)
+
+    delete_cluster.assert_called_once()
+    get_operation.assert_called_once()
+
+    for arg in list(opts.values()):
+        assert arg in delete_cluster.call_args[1]["name"]    
+        assert arg in get_operation.call_args[1]["name"]
+
+    assert args[0] in delete_cluster.call_args[1]["name"]
+    assert delete_cluster.return_value.name in get_operation.call_args[1]["name"]
+
+    
