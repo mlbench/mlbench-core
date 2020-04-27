@@ -232,7 +232,7 @@ def run(name, num_workers, gpu, light, dashboard_url):
 
 @cli_group.command()
 @click.argument("name", type=str)
-@click.option("--dashboard-url", "--u", default=None, type=str)
+@click.option("--dashboard-url", "-u", default=None, type=str)
 def status(name, dashboard_url):
     """Get the status of a benchmark run"""
     loaded = setup_client_from_config()
