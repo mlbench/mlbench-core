@@ -299,7 +299,7 @@ def get_dashboard_url():
 
 @cli_group.command()
 @click.argument("name", type=str)
-@click.option("--dashboard-url", "--u", default=None, type=str)
+@click.option("--dashboard-url", "-u", default=None, type=str)
 def delete(name, dashboard_url):
     """Delete a benchmark run"""
     loaded = setup_client_from_config()
