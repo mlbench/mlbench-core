@@ -1,14 +1,9 @@
 import numpy as np
 import torch
 import torch.distributed as dist
-from apex import amp
-from mlbench_core.utils.pytorch.distributed import (
-    AllReduceAggregation,
-    AllReduceAggregationFP16,
-)
+from mlbench_core.utils.pytorch.distributed import AllReduceAggregation
 from mlbench_core.utils.pytorch.distributed import DecentralizedAggregation
-from torch.nn.utils import clip_grad_norm_
-from torch.optim import Adam, SGD
+from torch.optim import SGD, Adam
 from torch.optim.optimizer import Optimizer, required
 
 
@@ -20,8 +15,7 @@ class SparsifiedSGD(Optimizer):
             parameter groups
         lr (float): learning rate
         weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
-        sparse_grad_size (int): Size of the sparsified gradients vector (
-        default: 10).
+        sparse_grad_size (int): Size of the sparsified gradients vector (default: 10).
 
     """
 
@@ -42,8 +36,7 @@ class SparsifiedSGD(Optimizer):
         self.num_coordinates = sparse_grad_size
 
     def __create_weighted_average_params(self):
-        r""" Create a memory to keep the weighted average of parameters in
-        each iteration """
+        r""" Create a memory to keep the weighted average of parameters in each iteration """
         for group in self.param_groups:
             for p in group["params"]:
                 param_state = self.state[p]
@@ -52,8 +45,7 @@ class SparsifiedSGD(Optimizer):
                 param_state["estimated_w"].copy_(p.data)
 
     def __create_gradients_memory(self):
-        r""" Create a memory to keep gradients that are not used in each
-        iteration """
+        r""" Create a memory to keep gradients that are not used in each iteration """
         for group in self.param_groups:
             for p in group["params"]:
                 param_state = self.state[p]
@@ -90,8 +82,7 @@ class SparsifiedSGD(Optimizer):
         """ Calls one of the sparsification functions (random or blockwise)
 
         Args:
-            random_sparse (bool): Indicates the way we want to make the
-            gradients sparse
+            random_sparse (bool): Indicates the way we want to make the gradients sparse
                 (random or blockwise) (default: False)
             param (:obj: `torch.nn.Parameter`): Model parameter
         """
@@ -180,20 +171,16 @@ class SparsifiedSGD(Optimizer):
 
 
 class CentralizedSparsifiedSGD(SparsifiedSGD):
-    r"""Implements centralized sparsified version of stochastic gradient
-    descent.
+    r"""Implements centralized sparsified version of stochastic gradient descent.
 
     Args:
         params (iterable): iterable of parameters to optimize or dicts defining
             parameter groups
         lr (float): Learning rate
         weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
-        sparse_grad_size (int): Size of the sparsified gradients vector (
-        default: 10)
-        random_sparse (bool): Whether select random sparsification (default:
-        `False`)
-        average_models (bool): Whether to average models together (default:
-        `True`)
+        sparse_grad_size (int): Size of the sparsified gradients vector (default: 10)
+        random_sparse (bool): Whether select random sparsification (default: `False`)
+        average_models (bool): Whether to average models together (default: `True`)
 
     """
 
@@ -219,8 +206,7 @@ class CentralizedSparsifiedSGD(SparsifiedSGD):
         """ Aggregates the gradients and performs a single optimization step.
 
             Arguments:
-                closure (callable, optional): A closure that reevaluates the
-                model and returns the loss.
+                closure (callable, optional): A closure that reevaluates the model and returns the loss.
         """
 
         loss = None
@@ -272,8 +258,7 @@ class CentralizedSparsifiedSGD(SparsifiedSGD):
 
 
 class DecentralizedSGD(SGD):
-    r"""Implements decentralized stochastic gradient descent (optionally
-    with momentum).
+    r"""Implements decentralized stochastic gradient descent (optionally with momentum).
 
     Args:
         rank (int): rank of current process in the network
@@ -337,8 +322,7 @@ class DecentralizedSGD(SGD):
 
 
 class CentralizedSGD(SGD):
-    r"""Implements centralized stochastic gradient descent (optionally with
-    momentum).
+    r"""Implements centralized stochastic gradient descent (optionally with momentum).
 
     Args:
         world_size (int): Size of the network
@@ -406,8 +390,7 @@ class SignSGD(SGD):
         weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
         dampening (float, optional): dampening for momentum (default: 0)
         nesterov (bool, optional): enables Nesterov momentum (default: False)
-        average_models (bool): Whether to average models together. (default:
-        `True`)
+        average_models (bool): Whether to average models together. (default: `True`)
 
     """
 
@@ -513,111 +496,6 @@ class CentralizedAdam(Adam):
         self.agg(self.model, self.agg_mode)
         loss = super(CentralizedAdam, self).step(closure=closure)
         return loss
-
-
-class FP32Optimizer:
-    """
-    Standard optimizer, computes backward and applies weight update.
-    """
-
-    def __init__(self, model, optimizer, grad_clip=None):
-        """
-        Constructor for the Fp32Optimizer
-
-        Args:
-            model (torch.nn.Module): Model
-            optimizer: The underlying optimizer
-            grad_clip (float): Coefficient for gradient clipping (max L2 norm of gradients)
-        """
-        self.model = model
-        self.grad_clip = grad_clip
-        self.optimizer = optimizer
-
-    def step(self, closure=None):
-        """
-        Performs one step of the optimizer.
-        """
-        if self.grad_clip != float("inf"):
-            clip_grad_norm_(self.model.parameters(), self.grad_clip)
-
-        loss = self.optimizer.step(closure=closure)
-        return loss
-
-    def backward_loss(self, loss):
-        loss.backward()
-
-    def zero_grad(self):
-        self.optimizer.zero_grad()
-
-
-class AMPOptimizer:
-    """
-    Optimizer compatible with AMP.
-    Uses AMP to apply loss scaling, computes backward and applies weight
-    update.
-    """
-
-    def __init__(
-        self,
-        model,
-        optimizer,
-        grad_clip=None,
-        loss_scale=8192,
-        dls_upscale_interval=128,
-        average_models=True,
-        world_size=1,
-        use_cuda=False,
-        by_layer=False,
-        use_horovod=False,
-    ):
-        """
-        Constructor for the AMPOptimizer
-
-        Args:
-            model (torch.nn.Module): Model
-            optimizer (torch.optim.optimizer.Optimizer): The underlying optimizer
-            grad_clip (float): Coefficient for gradient clipping, max L2 norm of the gradients
-            loss_scale:
-            dls_upscale_interval:
-        """
-        self.model = model
-        self.grad_clip = grad_clip
-        self.optimizer = optimizer
-        loss_scaler = amp._amp_state.loss_scalers[0]
-        loss_scaler._loss_scale = loss_scale
-        loss_scaler._scale_seq_len = dls_upscale_interval
-
-        if average_models:
-            self.agg_mode = "avg"
-        else:
-            raise NotImplementedError("Only average model is supported right now.")
-
-        if use_horovod:
-            self.agg = AllReduceAggregationFP16(
-                world_size=world_size, use_cuda=use_cuda
-            ).agg_grad(by_layer=by_layer)
-        else:
-            self.agg = AllReduceAggregation(
-                world_size=world_size, use_cuda=use_cuda
-            ).agg_grad(by_layer=by_layer)
-
-    def backward_loss(self, loss):
-        with amp.scale_loss(loss, self.optimizer) as scaled_loss:
-            scaled_loss.backward()
-
-    def step(self, closure=None):
-        """
-        Performs one step of the optimizer.
-        """
-        if self.grad_clip != float("inf"):
-            clip_grad_norm_(amp.master_params(self.optimizer), self.grad_clip)
-
-        self.agg(self.model, self.agg_mode)
-        loss = self.optimizer.step(closure=closure)
-        return loss
-
-    def zero_grad(self):
-        self.optimizer.zero_grad()
 
 
 optimizers = {
