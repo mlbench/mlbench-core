@@ -5,11 +5,10 @@ import math
 import torch
 import torch.distributed as dist
 from mlbench_core.utils.pytorch.distributed import (
-    AllReduceAggregationFP16,
+    AllReduceAggregationHVD,
     AllReduceAggregation,
 )
 from torch.nn.utils import clip_grad_norm_
-from datetime import datetime
 
 try:
     from apex.optimizers import FusedAdam
@@ -24,6 +23,19 @@ class FP16Optimizer:
     """
     Mixed precision optimizer with dynamic loss scaling and backoff.
     https://docs.nvidia.com/deeplearning/sdk/mixed-precision-training/index.html#scalefactor
+
+    Args:
+        fp16_model (`obj`:torch.nn.Module): model (previously casted to half)
+        world_size (int): Distributed world size
+        use_cuda (bool): Use cuda tensors for aggregation
+        use_horovod (bool): Use Horovod for aggregation
+        by_layer (bool): Aggregate by layer
+        grad_clip (float): coefficient for gradient clipping, max L2 norm of the gradients
+        loss_scale (int):  initial loss scale
+        dls_downscale (int): loss downscale factor, loss scale is divided by this factor when NaN/INF occurs in the gradients
+        dls_upscale (int): loss upscale factor, loss scale is multiplied by this factor if previous dls_upscale_interval batches finished successfully
+        dls_upscale_interval (int): interval for loss scale upscaling
+        average_models (bool): Average the models
     """
 
     def __init__(
@@ -40,20 +52,6 @@ class FP16Optimizer:
         dls_upscale_interval=128,
         average_models=True,
     ):
-        """
-        Constructor for the Fp16Optimizer.
-
-        :param fp16_model: model (previously casted to half)
-        :param grad_clip: coefficient for gradient clipping, max L2 norm of the
-            gradients
-        :param loss_scale: initial loss scale
-        :param dls_downscale: loss downscale factor, loss scale is divided by
-            this factor when NaN/INF occurs in the gradients
-        :param dls_upscale: loss upscale factor, loss scale is multiplied by
-            this factor if previous dls_upscale_interval batches finished
-            successfully
-        :param dls_upscale_interval: interval for loss scale upscaling
-        """
         self.use_cuda = use_cuda
 
         self.fp16_model = fp16_model
@@ -69,7 +67,7 @@ class FP16Optimizer:
         self.optimizer = None
 
         if use_horovod:
-            self.agg = AllReduceAggregationFP16(
+            self.agg = AllReduceAggregationHVD(
                 world_size=world_size, use_cuda=use_cuda
             ).agg_grad(by_layer=by_layer)
         else:
@@ -87,6 +85,11 @@ class FP16Optimizer:
 
     # Flattening master weight
     def initialize_flat_fp32_weight(self):
+        """ Initializes the model's parameters in fp32 and fp16
+
+        Returns:
+            (torch.Tensor, torch.Tensor): The Parametrs in fp16 and fp32
+        """
         # Set all gradients to None
         for p in self.fp16_model.parameters():
             p.grad = None
@@ -127,6 +130,13 @@ class FP16Optimizer:
 
     @staticmethod
     def fp16_to_fp32_flat_grad(fp32_params, fp16_model):
+        """ Copies the parameters in `fp16_model` into `fp32_params` in-place
+
+        Args:
+            fp32_params (torch.Tensor): Parameters in fp32
+            fp16_model (torch.nn.Module): Model in fp16
+
+        """
         pointer = 0
         for p in fp16_model.parameters():
             nelem = p.numel()
@@ -134,13 +144,14 @@ class FP16Optimizer:
             pointer += nelem
 
     @staticmethod
-    def fp16_to_fp16_flat_grad(fp16_params, fp16_model):
-        fp16_params.grad.data = torch.cat(
-            [p.grad.data.view(-1) for p in fp16_model.parameters()]
-        )
-
-    @staticmethod
     def fp32_to_fp16_grads(fp16_model, fp32_params):
+        """ Copies the parameters in `fp32_params` into `fp16_model` in-place
+
+         Args:
+             fp16_model (torch.nn.Module): Model in fp16
+             fp32_params (torch.Tensor): Parameters in fp32
+
+         """
         pointer = 0
         for p in fp16_model.parameters():
             nelem = p.numel()
@@ -148,6 +159,12 @@ class FP16Optimizer:
             pointer += nelem
 
     def backward_loss(self, loss):
+        """ Scales and performs backward on the given loss
+
+        Args:
+            loss (torch.nn.Module): The loss
+
+        """
         loss *= self.loss_scale
         loss.backward()
 
@@ -174,10 +191,6 @@ class FP16Optimizer:
 
         if scaling_factor != 1.0:
             self.fp32_params.grad.data /= scaling_factor
-        start = datetime.now()
-        torch.cuda.synchronize()
-        end = datetime.now()
-        logger.info("Took {} to synchronize".format(end - start))
         norm = clip_grad_norm_([self.fp32_params], self.grad_clip)
 
         updated = False
@@ -208,6 +221,14 @@ class FP16Optimizer:
 class FP32Optimizer:
     """
     Standard optimizer, computes backward and applies weight update.
+
+    Args:
+        model (`obj`:torch.nn.Module): model
+        world_size (int): Distributed world size
+        use_cuda (bool): Use cuda tensors for aggregation
+        by_layer (bool): Aggregate by layer
+        grad_clip (float): coefficient for gradient clipping, max L2 norm of the gradients
+        average_models (bool): Average the models
     """
 
     def __init__(
@@ -219,13 +240,6 @@ class FP32Optimizer:
         grad_clip=None,
         average_models=True,
     ):
-        """
-        Constructor for the Fp32Optimizer
-
-        Args:
-            model (torch.nn.Module): Model
-            grad_clip (float): Coefficient for gradient clipping (max L2 norm of gradients)
-        """
         self.model = model
         self.grad_clip = grad_clip
         self.optimizer = None
@@ -263,6 +277,17 @@ class AMPOptimizer:
     Optimizer compatible with AMP.
     Uses AMP to apply loss scaling, computes backward and applies weight
     update.
+
+    Args:
+        model (`obj`:torch.nn.Module): model
+        grad_clip (float): coefficient for gradient clipping, max L2 norm of the gradients
+        loss_scale (int):  initial loss scale
+        dls_upscale_interval (int): interval for loss scale upscaling
+        average_models (bool): Average the models
+        world_size (int): Distributed world size
+        use_cuda (bool): Use cuda tensors for aggregation
+        by_layer (bool): Aggregate by layer
+        use_horovod (bool): Use Horovod for aggregation
     """
 
     def __init__(
@@ -277,15 +302,6 @@ class AMPOptimizer:
         by_layer=False,
         use_horovod=False,
     ):
-        """
-        Constructor for the AMPOptimizer
-
-        Args:
-            model (torch.nn.Module): Model
-            grad_clip (float): Coefficient for gradient clipping, max L2 norm of the gradients
-            loss_scale:
-            dls_upscale_interval:
-        """
         self.model = model
         self.grad_clip = grad_clip
         self.optimizer = None
@@ -299,7 +315,7 @@ class AMPOptimizer:
             raise NotImplementedError("Only average model is supported right now.")
 
         if use_horovod:
-            self.agg = AllReduceAggregationFP16(
+            self.agg = AllReduceAggregationHVD(
                 world_size=world_size, use_cuda=use_cuda
             ).agg_grad(by_layer=by_layer)
         else:

@@ -6,7 +6,6 @@ try:
 except ImportError as e:
     pass
 
-
 # TODO: those 3 funtions are never used, maybe delete them ?
 
 
@@ -66,6 +65,7 @@ def pack_tensors(tensors, use_cuda=False):
     vec = torch.empty(
         indices[-1],
         device=tensors[0].device if tensors[0].is_cuda and use_cuda else "cpu",
+        dtype=tensors[0].dtype,
     )
 
     for tensor, start_idx, end_idx in zip(tensors, indices[:-1], indices[1:]):
@@ -114,7 +114,7 @@ class Aggregation(object):
         """Aggregate data using `op` operation.
 
         Args:
-            data (:obj:`torch.Tensor`): A Tensor to be aggragated.
+            data (:obj:`torch.Tensor`): A Tensor to be aggregated.
             op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
 
         Returns:
@@ -221,9 +221,9 @@ class AllReduceAggregation(Aggregation):
         return data
 
 
-class AllReduceAggregationFP16(AllReduceAggregation):
+class AllReduceAggregationHVD(AllReduceAggregation):
     def _agg(self, data, op):
-        """Aggregate data using `op` operation.
+        """Aggregate data using `op` operation. Uses horovod library for reduction
         Args:
             data (:obj:`torch.Tensor`): A Tensor to be aggregated (Should be `torch.float16`)
             op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.

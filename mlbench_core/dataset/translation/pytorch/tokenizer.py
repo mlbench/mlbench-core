@@ -19,7 +19,7 @@ def _pad_vocabulary(vocab, math):
     Returns:
         list: padded vocabulary
     """
-    if math == "fp16" or math == "manual_fp16":
+    if math == "fp16" or math == "amp_fp16":
         pad = 8
     elif math == "fp32":
         pad = 1
