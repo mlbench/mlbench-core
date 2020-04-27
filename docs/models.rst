@@ -59,6 +59,49 @@ ResNet18_CIFAR10
 .. bibliography:: models.bib
    :cited:
 
+RNN
++++
+---
+
+Google Neural Machine Translation
+'''''''''''''''''''''''''''''''''
+.. autoapimodule:: mlbench_core.models.pytorch.gnmt
+.. currentmodule:: mlbench_core.models.pytorch.gnmt
+
+Model
+=====
+
+.. autoapiclass:: GNMT
+    :members: encode, decode, generate, forward
+
+BahdanauAttention
+=================
+
+.. autoapiclass:: BahdanauAttention
+    :members:
+
+Encoder
+=======
+.. autoapimodule:: mlbench_core.models.pytorch.gnmt.encoder
+.. currentmodule:: mlbench_core.models.pytorch.gnmt.encoder
+
+.. autoapiclass:: ResidualRecurrentEncoder
+    :members:
+
+Decoder
+=======
+.. autoapimodule:: mlbench_core.models.pytorch.gnmt.decoder
+.. currentmodule:: mlbench_core.models.pytorch.gnmt.decoder
+
+.. autoapiclass:: RecurrentAttention
+    :members:
+
+.. autoapiclass:: Classifier
+    :members:
+
+.. autoapiclass:: ResidualRecurrentDecoder
+    :members:
+
 
 tensorflow
 ~~~~~~~~~~

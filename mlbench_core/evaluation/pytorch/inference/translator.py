@@ -6,6 +6,10 @@ from mlbench_core.evaluation.pytorch.inference.beam_search import SequenceGenera
 class Translator:
     """
     Translator that output translated sentences from GNMT model by using a Sequence Generator
+
+    Args:
+        model (`obj`:torch.nn.Module): Model to use
+        trg_tokenizer (`obj`:mlbench_core.dataset.translation.pytorch.tokenizer.WMT14Tokenizer): The target tokenizer
     """
 
     def __init__(

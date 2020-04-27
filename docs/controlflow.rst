@@ -18,6 +18,20 @@ TrainValidation
 
     .. autoapimethod:: __call__
 
+pytorch.gnmt
+~~~~~~~~~~~~
+
+.. autoapimodule:: mlbench_core.controlflow.pytorch.gnmt
+.. currentmodule:: mlbench_core.controlflow.pytorch.gnmt
+
+GNMTTrainer
++++++++++++
+
+
+.. autoapiclass:: GNMTTrainer
+    :members:
+
+
 tensorflow
 ~~~~~~~~~~
 

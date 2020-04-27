@@ -8,17 +8,13 @@ from torch.nn.functional import log_softmax
 class Seq2Seq(nn.Module):
     """
     Generic Seq2Seq module, with an encoder and a decoder.
+    Args:
+        encoder (Encoder): Model encoder
+        decoder (Decoder): Model decoder
+        batch_first (bool): Batch as first dim
     """
 
     def __init__(self, encoder=None, decoder=None, batch_first=False):
-        """
-        Constructor for the Seq2Seq module.
-
-        Args:
-            encoder (Encoder): Model encoder
-            decoder (Decoder): Model decoder
-            batch_first (bool): Batch as first dim
-        """
         super(Seq2Seq, self).__init__()
         self.encoder = encoder
         self.decoder = decoder
@@ -81,6 +77,17 @@ class Seq2Seq(nn.Module):
 class GNMT(Seq2Seq):
     """
     GNMT v2 model
+
+    Args:
+        vocab_size (int): size of vocabulary (number of tokens)
+        hidden_size (int): internal hidden size of the model
+        num_layers (int): number of layers, applies to both encoder and
+            decoder
+        dropout (float): probability of dropout (in encoder and decoder)
+        batch_first (bool): if True the model uses (batch,seq,feature)
+            tensors, if false the model uses (seq, batch, feature)
+        share_embedding (bool): if True embeddings are shared between
+            encoder and decoder
     """
 
     def __init__(
@@ -92,21 +99,6 @@ class GNMT(Seq2Seq):
         batch_first=False,
         share_embedding=True,
     ):
-        """
-        Constructor for the GNMT v2 model.
-
-        Args:
-            vocab_size (int): size of vocabulary (number of tokens)
-            hidden_size (int): internal hidden size of the model
-            num_layers (int): number of layers, applies to both encoder and
-                decoder
-            dropout (float): probability of dropout (in encoder and decoder)
-            batch_first (bool): if True the model uses (batch,seq,feature)
-                tensors, if false the model uses (seq, batch, feature)
-            share_embedding (bool): if True embeddings are shared between
-                encoder and decoder
-        """
-
         super(GNMT, self).__init__(batch_first=batch_first)
 
         if share_embedding:

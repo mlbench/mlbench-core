@@ -14,6 +14,17 @@ class ResidualRecurrentEncoder(nn.Module):
     API, the remaining (num_layers-1) layers are unidirectional. Residual
     connections are enabled after third LSTM layer, dropout is applied on
     inputs to LSTM layers.
+
+    Args:
+        vocab_size: size of vocabulary
+        hidden_size: hidden size for LSTM layers
+        num_layers: number of LSTM layers, 1st layer is bidirectional
+        dropout: probability of dropout (on input to LSTM layers)
+        batch_first: if True the model uses (batch,seq,feature) tensors,
+            if false the model uses (seq, batch, feature)
+        embedder: instance of nn.Embedding, if None constructor will
+            create new embedding layer
+        init_weight: range for the uniform initializer
     """
 
     def __init__(
@@ -26,20 +37,6 @@ class ResidualRecurrentEncoder(nn.Module):
         embedder=None,
         init_weight=0.1,
     ):
-        """
-        Constructor for the ResidualRecurrentEncoder.
-
-        Args:
-            vocab_size: size of vocabulary
-            hidden_size: hidden size for LSTM layers
-            num_layers: number of LSTM layers, 1st layer is bidirectional
-            dropout: probability of dropout (on input to LSTM layers)
-            batch_first: if True the model uses (batch,seq,feature) tensors,
-                if false the model uses (seq, batch, feature)
-            embedder: instance of nn.Embedding, if None constructor will
-                create new embedding layer
-            init_weight: range for the uniform initializer
-        """
         super(ResidualRecurrentEncoder, self).__init__()
         self.batch_first = batch_first
         self.rnn_layers = nn.ModuleList()

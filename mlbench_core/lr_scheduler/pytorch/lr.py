@@ -353,6 +353,24 @@ def perhaps_convert_float(param, total):
 class ExponentialWarmupMultiStepLR(LambdaLR):
     """
     Learning rate scheduler with exponential warmup and step decay.
+
+    Parameters: warmup_steps, remain_steps and decay_interval accept both
+    integers and floats as an input. Integer input is interpreted as
+    absolute index of iteration, float input is interpreted as a fraction
+    of total training iterations (epochs * steps_per_epoch).
+
+    If decay_interval is None then the decay will happen at regulary spaced
+    intervals ('decay_steps' decays between iteration indices
+    'remain_steps' and 'iterations').
+
+    Args:
+        optimizer: instance of optimizer
+        iterations (int): total number of training iterations
+        warmup_steps (int): number of warmup iterations
+        remain_steps (int|float): start decay at 'remain_steps' iteration
+        decay_interval (int|float): interval between LR decay steps
+        decay_steps (int): max number of decay steps
+        decay_factor (float): decay factor
     """
 
     def __init__(
@@ -365,28 +383,6 @@ class ExponentialWarmupMultiStepLR(LambdaLR):
         decay_steps=4,
         decay_factor=0.5,
     ):
-        """
-        Constructor of Exponential WarmupMultiStepLR.
-
-        Parameters: warmup_steps, remain_steps and decay_interval accept both
-        integers and floats as an input. Integer input is interpreted as
-        absolute index of iteration, float input is interpreted as a fraction
-        of total training iterations (epochs * steps_per_epoch).
-
-        If decay_interval is None then the decay will happen at regulary spaced
-        intervals ('decay_steps' decays between iteration indices
-        'remain_steps' and 'iterations').
-
-        Args:
-            optimizer: instance of optimizer
-            iterations (int): total number of training iterations
-            warmup_steps (int): number of warmup iterations
-            remain_steps (int|float): start decay at 'remain_steps' iteration
-            decay_interval (int|float): interval between LR decay steps
-            decay_steps (int): max number of decay steps
-            decay_factor (float): decay factor
-        """
-
         # iterations before learning rate reaches base LR
         self.warmup_steps = perhaps_convert_float(warmup_steps, iterations)
 

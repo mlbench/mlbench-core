@@ -7,6 +7,18 @@ from mlbench_core.dataset.translation.pytorch.config import BOS, EOS
 class SequenceGenerator:
     """
     Generator for the autoregressive inference with beam search decoding.
+
+    Beam search decoding supports coverage penalty and length
+    normalization. For details, refer to Section 7 of the GNMT paper
+    (https://arxiv.org/pdf/1609.08144.pdf).
+
+    Args:
+        model: model which implements generate method
+        beam_size (int): decoder beam size
+        max_seq_len (int):  maximum decoder sequence length
+        len_norm_factor (float): length normalization factor
+        len_norm_const (int): length normalization constant
+        cov_penalty_factor (float): coverage penalty factor
     """
 
     def __init__(
@@ -18,21 +30,6 @@ class SequenceGenerator:
         len_norm_const=5,
         cov_penalty_factor=0.1,
     ):
-        """
-        Constructor for the SequenceGenerator.
-
-        Beam search decoding supports coverage penalty and length
-        normalization. For details, refer to Section 7 of the GNMT paper
-        (https://arxiv.org/pdf/1609.08144.pdf).
-
-        Args:
-            model: model which implements generate method
-            beam_size (int): decoder beam size
-            max_seq_len (int):  maximum decoder sequence length
-            len_norm_factor (float): length normalization factor
-            len_norm_const (int): length normalization constant
-            cov_penalty_factor (float): coverage penalty factor
-        """
         self.model = model
         self.beam_size = beam_size
         self.max_seq_len = max_seq_len

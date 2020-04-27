@@ -10,6 +10,16 @@ class BahdanauAttention(nn.Module):
     """
     Bahdanau Attention (https://arxiv.org/abs/1409.0473)
     Implementation is very similar to tf.contrib.seq2seq.BahdanauAttention
+
+    Args:
+        query_size: feature dimension for query
+        key_size: feature dimension for keys
+        num_units: internal feature dimension
+        normalize: whether to normalize energy term
+        batch_first: if True batch size is the 1st dimension, if False
+            the sequence is first and batch size is second
+        init_weight: range for uniform initializer used to initialize
+            Linear key and query transform layers and linear_att vector
     """
 
     def __init__(
@@ -21,19 +31,6 @@ class BahdanauAttention(nn.Module):
         batch_first=False,
         init_weight=0.1,
     ):
-        """
-        Constructor for the BahdanauAttention.
-
-        Args:
-            query_size: feature dimension for query
-            key_size: feature dimension for keys
-            num_units: internal feature dimension
-            normalize: whether to normalize energy term
-            batch_first: if True batch size is the 1st dimension, if False
-                the sequence is first and batch size is second
-            init_weight: range for uniform initializer used to initialize
-                Linear key and query transform layers and linear_att vector
-        """
         super(BahdanauAttention, self).__init__()
 
         self.normalize = normalize

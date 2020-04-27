@@ -10,6 +10,16 @@ from mlbench_core.models.pytorch.gnmt.utils import init_lstm_
 class RecurrentAttention(nn.Module):
     """
     LSTM wrapped with an attention module.
+
+    Args:
+        input_size (int): number of features in input tensor
+        context_size (int): number of features in output from encoder
+        hidden_size (int): internal hidden size
+        num_layers (int): number of layers in LSTM
+        batch_first (bool): if True the model uses (batch,seq,feature)
+            tensors, if false the model uses (seq, batch, feature)
+        dropout (float): probability of dropout (on input to LSTM layer)
+        init_weight (float): range for the uniform initializer
     """
 
     def __init__(
@@ -22,20 +32,6 @@ class RecurrentAttention(nn.Module):
         dropout=0.2,
         init_weight=0.1,
     ):
-        """
-        Constructor for the RecurrentAttention.
-
-        Args:
-            input_size (int): number of features in input tensor
-            context_size (int): number of features in output from encoder
-            hidden_size (int): internal hidden size
-            num_layers (int): number of layers in LSTM
-            batch_first (bool): if True the model uses (batch,seq,feature)
-                tensors, if false the model uses (seq, batch, feature)
-            dropout (float): probability of dropout (on input to LSTM layer)
-            init_weight (float): range for the uniform initializer
-        """
-
         super(RecurrentAttention, self).__init__()
 
         self.rnn = nn.LSTM(
@@ -81,17 +77,14 @@ class RecurrentAttention(nn.Module):
 class Classifier(nn.Module):
     """
     Fully-connected classifier
+
+    Args:
+        in_features (int): number of input features
+        out_features (int): number of output features (size of vocabulary)
+        init_weight (float): range for the uniform initializer
     """
 
     def __init__(self, in_features, out_features, init_weight=0.1):
-        """
-        Constructor for the Classifier.
-
-        Args:
-            in_features (int): number of input features
-            out_features (int): number of output features (size of vocabulary)
-            init_weight (float): range for the uniform initializer
-        """
         super(Classifier, self).__init__()
         self.classifier = nn.Linear(in_features, out_features)
         nn.init.uniform_(self.classifier.weight.data, -init_weight, init_weight)
@@ -124,6 +117,17 @@ class ResidualRecurrentDecoder(nn.Module):
 
     Residual connections are enabled after 3rd LSTM layer, dropout is applied
     on inputs to LSTM layers.
+
+    Args:
+        vocab_size (int): size of vocabulary
+        hidden_size (int): hidden size for LSMT layers
+        num_layers (int): number of LSTM layers
+        dropout (float): probability of dropout (on input to LSTM layers)
+        batch_first (bool): if True the model uses (batch,seq,feature)
+            tensors, if false the model uses (seq, batch, feature)
+        embedder (nn.Embedding): if None constructor will create new
+            embedding layer
+        init_weight (float): range for the uniform initializer
     """
 
     def __init__(
@@ -136,21 +140,6 @@ class ResidualRecurrentDecoder(nn.Module):
         embedder=None,
         init_weight=0.1,
     ):
-        """
-        Constructor of the ResidualRecurrentDecoder.
-
-        Args:
-            vocab_size (int): size of vocabulary
-            hidden_size (int): hidden size for LSMT layers
-            num_layers (int): number of LSTM layers
-            dropout (float): probability of dropout (on input to LSTM layers)
-            batch_first (bool): if True the model uses (batch,seq,feature)
-                tensors, if false the model uses (seq, batch, feature)
-            embedder (nn.Embedding): if None constructor will create new
-                embedding layer
-            init_weight (float): range for the uniform initializer
-        """
-
         super(ResidualRecurrentDecoder, self).__init__()
 
         self.num_layers = num_layers
