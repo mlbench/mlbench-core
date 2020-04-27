@@ -10,6 +10,8 @@ from google.auth.exceptions import DefaultCredentialsError
 
 create_gcloud = cli_group.commands['create-cluster'].commands['gcloud'].main
 delete_gcloud = cli_group.commands['delete-cluster'].commands['gcloud'].main
+get_status = cli_group.commands['status']
+
 
 CREATE_GCLOUD_DEFAULTS = {
     'machine_type'  : 'n1-standard-4',
@@ -115,6 +117,34 @@ def gcloud_mock(mocker, gcloud_auth, sys_mock):
         'pathjoin'          : mocker.patch("os.path.join"),
     }
 
+
+
+
+@pytest.fixture
+def status_mock(mocker, gcloud_mock):
+    return status_mock_helper(mocker, gcloud_mock, 'test-run-name')
+
+
+@pytest.fixture
+def status_mock_no_run(mocker, gcloud_mock):
+    return status_mock_helper(mocker, gcloud_mock, None)
+
+
+def status_mock_helper(mocker, gcloud_mock, run_name):
+    setup = mocker.patch('mlbench_core.cli.cli.setup_client_from_config')
+    setup.return_value = True
+
+    client = gcloud_mock['apiclient']
+    rundict = {
+        'name' : 'none' if run_name is None else run_name,
+        'job_id': '',
+        'job_metadata' : '',
+        'id': 'my-id',
+    }
+
+    client.return_value.get_runs.return_value.result.return_value.json.return_value = [rundict]
+
+    return client, rundict['id'], rundict['name']
 
 def create_gcloud_test_helper(mocker, gcloud_mock, args, option_dict=None):
     container_v1 = gcloud_mock["containerv1"]
@@ -226,5 +256,44 @@ def test_delete_cluster(gcloud_mock):
 
     assert args[0] in delete_cluster.call_args[1]["name"]
     assert delete_cluster.return_value.name in get_operation.call_args[1]["name"]
+
+
+
+def test_status(status_mock):
+    
+    client, rid, name = status_mock
+    url = 'my/test/url'
+
+    # skip reporting
+    client.return_value.get_run_metrics.return_value.result.return_value.status_code = 301
+
+    get_run_metrics = client.return_value.get_run_metrics
+
+    cmd = [name, '-u', url]
+
+    get_status(cmd)
+
+    client.assert_called_once_with(in_cluster=False, url=url, load_config=False)
+    get_run_metrics.assert_called()
+    assert get_run_metrics.mock_calls[0][1][0] == rid
+    assert get_run_metrics.mock_calls[1][1][0] == rid
+
+def test_status_no_run(status_mock_no_run):
+    
+    client, rid, _ = status_mock_no_run
+    get_run_metrics = client.return_value.get_run_metrics
+
+    url = 'my/test/url'
+    name = 'my-test-name'
+    cmd = [name, '-u', url]
+
+    get_status(cmd)
+
+    client.assert_called_once_with(in_cluster=False, url=url, load_config=False)
+    assert not get_run_metrics.called
+    
+
+
+
 
     
