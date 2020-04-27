@@ -60,7 +60,11 @@ class Tracker(object):
         self.cumulative_val_time = []
         self.best_epoch = 0
         self.current_epoch = 0
-        self.best_metric_value = 0
+        self.minimize = minimize
+        if self.minimize:
+            self.best_metric_value = math.inf
+        else:
+            self.best_metric_value = 0
         self.is_training = True
 
         self.communication_steps = []
@@ -296,7 +300,9 @@ class Tracker(object):
             new_metric_value (number): The new value of the metric
         """
 
-        if new_metric_value > self.best_metric_value:
+        if (not self.minimize and new_metric_value > self.best_metric_value) or (
+            self.minimize and new_metric_value < self.best_metric_value
+        ):
             self.best_metric_value = new_metric_value
             self.best_epoch = self.current_epoch
 
