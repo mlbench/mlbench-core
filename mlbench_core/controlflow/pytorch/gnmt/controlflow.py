@@ -63,6 +63,7 @@ class GNMTTrainer:
     def __init__(
         self,
         model,
+        batch_first,
         criterion,
         fp_optimizer,
         scheduler,
@@ -75,7 +76,7 @@ class GNMTTrainer:
         use_cuda,
     ):
         self.model = model
-        self.batch_first = model.batch_first
+        self.batch_first = batch_first
         self.criterion = criterion
         self.epoch = 0
         self.rank = rank
@@ -192,12 +193,12 @@ class GNMTTrainer:
 
         # Opt step
         if update:
-            self.fp_optimizer.step()
+            updated = self.fp_optimizer.step()
             if self.tracker:
                 self.tracker.record_batch_step("opt_step")
 
             # Learning rate scheduler
-            if self.schedule_per == "batch":
+            if self.schedule_per == "batch" and updated:
                 self.scheduler.step()
 
         if self.tracker:
