@@ -17,13 +17,14 @@ class SequenceGenerator:
         beam_size (int): decoder beam size
         max_seq_len (int):  maximum decoder sequence length
         len_norm_factor (float): length normalization factor
-        len_norm_const (int): length normalization constant
+        len_norm_const (float): length normalization constant
         cov_penalty_factor (float): coverage penalty factor
     """
 
     def __init__(
         self,
         model,
+        batch_first,
         beam_size=5,
         max_seq_len=100,
         len_norm_factor=0.6,
@@ -37,7 +38,7 @@ class SequenceGenerator:
         self.len_norm_const = len_norm_const
         self.cov_penalty_factor = cov_penalty_factor
 
-        self.batch_first = self.model.batch_first
+        self.batch_first = batch_first
 
     def greedy_search(self, batch_size, initial_input, initial_context=None):
         """

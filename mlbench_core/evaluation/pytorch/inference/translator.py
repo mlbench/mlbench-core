@@ -15,6 +15,7 @@ class Translator:
     def __init__(
         self,
         model,
+        batch_first,
         trg_tokenizer,
         beam_size=5,
         len_norm_factor=0.6,
@@ -28,11 +29,12 @@ class Translator:
         self.insert_target_start = [BOS]
         self.insert_src_start = [BOS]
         self.insert_src_end = [EOS]
-        self.batch_first = model.batch_first
+        self.batch_first = batch_first
         self.beam_size = beam_size
 
         self.generator = SequenceGenerator(
             model=self.model,
+            batch_first=batch_first,
             beam_size=beam_size,
             max_seq_len=max_seq_len,
             len_norm_factor=len_norm_factor,
