@@ -11,7 +11,7 @@ from google.auth.exceptions import DefaultCredentialsError
 create_gcloud = cli_group.commands['create-cluster'].commands['gcloud'].main
 delete_gcloud = cli_group.commands['delete-cluster'].commands['gcloud'].main
 get_status = cli_group.commands['status']
-
+delete_run = cli_group.commands['delete']
 
 CREATE_GCLOUD_DEFAULTS = {
     'machine_type'  : 'n1-standard-4',
@@ -294,6 +294,30 @@ def test_status_no_run(status_mock_no_run):
     
 
 
+def test_delete_no_run(status_mock_no_run):
+    # Tests deleting a non-existent run
+    client, rid, _ = status_mock_no_run
+    delete_run_client = client.return_value.delete_run
+
+    url = 'my/test/url'
+    name = 'my-test-name'
+    cmd = [name, '-u', url]
+
+    delete_run(cmd)
+    client.assert_called_once_with(in_cluster=False, url=url, load_config=False)
+    assert not delete_run_client.called
 
 
+def test_delete_run(status_mock):
     
+    client, rid, name = status_mock
+    url = 'my/test/url'
+
+    delete_run_client = client.return_value.delete_run
+
+    cmd = [name, '-u', url]
+
+    delete_run(cmd)
+
+    client.assert_called_once_with(in_cluster=False, url=url, load_config=False)
+    delete_run_client.assert_called_once_with(rid)
