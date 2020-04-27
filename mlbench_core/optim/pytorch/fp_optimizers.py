@@ -10,6 +10,7 @@ from mlbench_core.utils.pytorch.distributed import (
 )
 from torch.nn.utils import clip_grad_norm_
 from datetime import datetime
+
 try:
     from apex.optimizers import FusedAdam
     from apex import amp
@@ -178,7 +179,6 @@ class FP16Optimizer:
         end = datetime.now()
         logger.info("Took {} to synchronize".format(end - start))
         norm = clip_grad_norm_([self.fp32_params], self.grad_clip)
-
 
         updated = False
         if math.isfinite(norm):
