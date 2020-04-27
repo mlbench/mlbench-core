@@ -5,7 +5,6 @@
 
 import os
 
-
 def write_if_changed(fname, contents):
 
     try:

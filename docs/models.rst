@@ -1,6 +1,6 @@
 mlbench_core.models
 -------------------
-.. automodule:: mlbench_core.models
+.. autoapimodule:: mlbench_core.models
 .. currentmodule:: mlbench_core.models
 
 pytorch
@@ -11,46 +11,46 @@ neural network models. We use their implementation direclty for
 
 - VGG
 
-.. automodule:: mlbench_core.models.pytorch
+.. autoapimodule:: mlbench_core.models.pytorch
 .. currentmodule:: mlbench_core.models.pytorch
 
 
 linear_models
 +++++++++++++
 
-.. automodule:: mlbench_core.models.pytorch.linear_models
+.. autoapimodule:: mlbench_core.models.pytorch.linear_models
 .. currentmodule:: mlbench_core.models.pytorch.linear_models
 
 
 LogisticRegression
 ''''''''''''''''''
 
-.. autoclass:: LogisticRegression
+.. autoapiclass:: LogisticRegression
     :members:
 
 LinearRegression
 ''''''''''''''''''
 
-.. autoclass:: LinearRegression
+.. autoapiclass:: LinearRegression
     :members:
 
 
 resnet
 ++++++
-.. automodule:: mlbench_core.models.pytorch.resnet
+.. autoapimodule:: mlbench_core.models.pytorch.resnet
 .. currentmodule:: mlbench_core.models.pytorch.resnet
 
 ResNetCIFAR
 '''''''''''
 
-.. autoclass:: ResNetCIFAR
+.. autoapiclass:: ResNetCIFAR
     :members:
 
 
 ResNet18_CIFAR10
 ''''''''''''''''
 
-.. autoclass:: ResNetCIFAR
+.. autoapiclass:: ResNetCIFAR
     :members:
 
 
@@ -63,32 +63,36 @@ ResNet18_CIFAR10
 tensorflow
 ~~~~~~~~~~
 
-.. automodule:: mlbench_core.models.tensorflow
+.. autoapimodule:: mlbench_core.models.tensorflow
 .. currentmodule:: mlbench_core.models.tensorflow
 
 resnet
 ++++++
 
-.. automodule:: mlbench_core.models.tensorflow.resnet_model
+.. autoapimodule:: mlbench_core.models.tensorflow.resnet_model
 .. currentmodule:: mlbench_core.models.tensorflow.resnet_model
 
 
-.. autofunction:: fixed_padding
-.. autofunction:: conv2d_fixed_padding 
-.. autofunction:: block_layer
-.. autofunction:: batch_norm
+.. autoapifunction:: fixed_padding
+
+.. autoapifunction:: conv2d_fixed_padding
+
+.. autoapifunction:: block_layer
+
+.. autoapifunction:: batch_norm
+
 
 Model
 '''''
 
-.. autoclass:: Model
+.. autoapiclass:: Model
     :members:
 
 
 Cifar10Model
 ''''''''''''
 
-.. autoclass:: Cifar10Model
+.. autoapiclass:: Cifar10Model
     :members:
 
 
