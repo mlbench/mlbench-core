@@ -1,9 +1,16 @@
 """Customized Loss Functions."""
 
-import torch.nn.functional as F
-from torch.nn.modules.loss import _WeightedLoss
-from torch import nn
 import torch
+from torch import nn
+import torch.nn.functional as F
+from torch.nn.modules.loss import _Loss, _WeightedLoss
+
+try:
+    from apex.contrib.xentropy import SoftmaxCrossEntropyLoss
+
+    apex_installed = True
+except ImportError as e:
+    apex_installed = False
 
 
 class BCELossRegularized(_WeightedLoss):
@@ -177,3 +184,56 @@ class LabelSmoothing(nn.Module):
         smooth_loss = -logprobs.mean(dim=-1)[non_pad_mask]
         loss = self.confidence * nll_loss + self.smoothing * smooth_loss
         return loss.sum()
+
+
+# Taken from MLPerf
+class LabelSmoothedCrossEntropy(_Loss):
+    def __init__(
+        self, model, eps, padding_idx, sentence_avg=False, fast_xentropy=False
+    ):
+        super(LabelSmoothedCrossEntropy, self).__init__()
+        self.eps = eps
+        self.padding_idx = padding_idx
+        self.sentence_avg = sentence_avg
+
+        if fast_xentropy and apex_installed:
+            self.xentropy_func = SoftmaxCrossEntropyLoss.apply
+        else:
+            self.xentropy_func = None
+
+        self.model = model
+
+    def forward(self, sample, output, reduce=True):
+
+        target = sample["target"]
+        target = target.view(-1, 1)
+        if self.xentropy_func is not None:
+            assert (output[0].dtype == torch.float16) or (
+                output[0].dtype == torch.float32
+            ), "Unsupported data types"
+            output = output[0].view(
+                output[0].size(0) * output[0].size(1), output[0].size(2)
+            )
+            labels = target.view(target.size(0) * target.size(1))
+            losses = self.xentropy_func(
+                output,
+                labels,
+                self.eps,
+                self.padding_idx,
+                output[0].dtype == torch.float16,
+            )
+            loss = losses.sum()
+        else:
+            lprobs = self.model.get_normalized_probs(output, log_probs=True)
+            lprobs = lprobs.view(-1, lprobs.size(-1))
+            non_pad_mask = target.ne(self.padding_idx)
+            nll_loss = -lprobs.gather(dim=-1, index=target)[non_pad_mask]
+            smooth_loss = -lprobs.sum(dim=-1, keepdim=True)[non_pad_mask]
+            if reduce:
+                nll_loss = nll_loss.sum()
+                smooth_loss = smooth_loss.sum()
+            eps_i = self.eps / lprobs.size(-1)
+            loss = (1.0 - self.eps) * nll_loss + eps_i * smooth_loss
+
+        sample_size = target.size(0) if self.sentence_avg else sample["ntokens"]
+        return loss, sample_size
