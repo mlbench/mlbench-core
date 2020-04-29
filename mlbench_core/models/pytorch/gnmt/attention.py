@@ -12,14 +12,17 @@ class BahdanauAttention(nn.Module):
     Implementation is very similar to tf.contrib.seq2seq.BahdanauAttention
 
     Args:
-        query_size: feature dimension for query
-        key_size: feature dimension for keys
-        num_units: internal feature dimension
-        normalize: whether to normalize energy term
-        batch_first: if True batch size is the 1st dimension, if False
-            the sequence is first and batch size is second
-        init_weight: range for uniform initializer used to initialize
-            Linear key and query transform layers and linear_att vector
+        query_size (int): feature dimension for query
+        key_size (int): feature dimension for keys
+        num_units (int): internal feature dimension
+        normalize (bool): whether to normalize energy term.
+            Default: `False`
+        batch_first (bool): if True batch size is the 1st dimension, if False
+            the sequence is first and batch size is second.
+            Default: `False`
+        init_weight (float): range for uniform initializer used to initialize
+            Linear key and query transform layers and linear_att vector.
+            Default: 0.1
     """
 
     def __init__(
@@ -58,6 +61,9 @@ class BahdanauAttention(nn.Module):
     def reset_parameters(self, init_weight):
         """
         Sets initial random values for trainable parameters.
+
+        Args:
+            init_weight (float):
         """
         stdv = 1.0 / math.sqrt(self.num_units)
         self.linear_att.data.uniform_(-init_weight, init_weight)
@@ -72,8 +78,8 @@ class BahdanauAttention(nn.Module):
         ones for inactive context fields, zeros for active context fields
 
         Args:
-            context_len:
-            context: if batch_first: (b x t_k x n) else: (t_k x b x n)
+            context_len (`obj`:torch.Tensor):
+            context (`obj`:torch.Tensor): if batch_first: (b x t_k x n) else: (t_k x b x n)
 
         Returns:
 
@@ -92,8 +98,8 @@ class BahdanauAttention(nn.Module):
         Calculate Bahdanau score
 
         Args:
-            att_query:
-            att_keys:
+            att_query (`obj`:torch.Tensor):
+            att_keys (`obj`:torch.Tensor):
 
         Returns:
 
@@ -120,8 +126,8 @@ class BahdanauAttention(nn.Module):
         """
 
         Args:
-            query: if batch_first: (b x t_q x n) else: (t_q x b x n)
-            keys: if batch_first: (b x t_k x n) else (t_k x b x n)
+            query (`obj`:torch.Tensor): if batch_first: (b x t_q x n) else: (t_q x b x n)
+            keys (`obj`:torch.Tensor): if batch_first: (b x t_k x n) else (t_k x b x n)
 
         Returns:
             (context, scores_normalized)

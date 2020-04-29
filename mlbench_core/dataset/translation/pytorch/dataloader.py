@@ -4,10 +4,10 @@ import torch
 from mlbench_core.dataset.translation.pytorch import config
 from mlbench_core.dataset.translation.pytorch.tokenizer import WMT14Tokenizer
 from mlbench_core.dataset.util.tools import maybe_download_and_extract_tar_gz
-from torchtext.data import Dataset
+from torch.utils.data import Dataset
 
 
-def _construct_filter_pred(min_len, max_len):
+def _construct_filter_pred(min_len, max_len=None):
     """
     Constructs a filter predicate
     Args:
@@ -128,7 +128,7 @@ class WMT14Dataset(Dataset):
     ):
         self.lazy = lazy
 
-        super(WMT14Dataset, self).__init__(examples=[], fields={})
+        super(WMT14Dataset, self).__init__()
         if download:
             url, file_name = self.urls[0]
             maybe_download_and_extract_tar_gz(root, file_name, url)

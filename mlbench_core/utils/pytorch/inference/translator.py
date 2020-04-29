@@ -1,6 +1,6 @@
 import torch
 from mlbench_core.dataset.translation.pytorch.config import BOS, EOS
-from mlbench_core.evaluation.pytorch.inference.beam_search import SequenceGenerator
+from mlbench_core.utils.pytorch.inference.beam_search import SequenceGenerator
 
 
 class Translator:

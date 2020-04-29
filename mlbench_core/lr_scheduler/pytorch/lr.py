@@ -344,10 +344,7 @@ class SQRTTimeDecayLR(LambdaLR):
         return 1.0 / math.sqrt(max(1, iteration))
 
 
-def perhaps_convert_float(param, total):
-    if isinstance(param, float):
-        param = int(param * total)
-    return param
+
 
 
 class ExponentialWarmupMultiStepLR(LambdaLR):
@@ -384,10 +381,10 @@ class ExponentialWarmupMultiStepLR(LambdaLR):
         decay_factor=0.5,
     ):
         # iterations before learning rate reaches base LR
-        self.warmup_steps = perhaps_convert_float(warmup_steps, iterations)
+        self.warmup_steps = self.convert_relative_stepsize(warmup_steps, iterations)
 
         # iteration at which decay starts
-        self.remain_steps = perhaps_convert_float(remain_steps, iterations)
+        self.remain_steps = self.convert_relative_stepsize(remain_steps, iterations)
 
         # number of steps between each decay
         if decay_interval is None:
@@ -396,7 +393,7 @@ class ExponentialWarmupMultiStepLR(LambdaLR):
             self.decay_interval = decay_iterations // decay_steps
             self.decay_interval = max(self.decay_interval, 1)
         else:
-            self.decay_interval = perhaps_convert_float(decay_interval, iterations)
+            self.decay_interval = self.convert_relative_stepsize(decay_interval, iterations)
 
         # multiplicative decay factor
         self.decay_factor = decay_factor
@@ -408,6 +405,12 @@ class ExponentialWarmupMultiStepLR(LambdaLR):
             self.warmup_steps = self.remain_steps
 
         super(ExponentialWarmupMultiStepLR, self).__init__(optimizer, self.f)
+
+    @staticmethod
+    def convert_relative_stepsize(param, total):
+        if isinstance(param, float):
+            param = int(param * total)
+        return param
 
     def f(self, duration):
         factor = 1
