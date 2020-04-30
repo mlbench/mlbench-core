@@ -344,9 +344,6 @@ class SQRTTimeDecayLR(LambdaLR):
         return 1.0 / math.sqrt(max(1, iteration))
 
 
-
-
-
 class ExponentialWarmupMultiStepLR(LambdaLR):
     """
     Learning rate scheduler with exponential warmup and step decay.
@@ -393,7 +390,9 @@ class ExponentialWarmupMultiStepLR(LambdaLR):
             self.decay_interval = decay_iterations // decay_steps
             self.decay_interval = max(self.decay_interval, 1)
         else:
-            self.decay_interval = self.convert_relative_stepsize(decay_interval, iterations)
+            self.decay_interval = self.convert_relative_stepsize(
+                decay_interval, iterations
+            )
 
         # multiplicative decay factor
         self.decay_factor = decay_factor
