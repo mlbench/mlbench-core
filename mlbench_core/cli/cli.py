@@ -369,7 +369,7 @@ def delete_gcloud(name, zone, project):
     if not project:
         project = default_project
 
-    # create cluster
+    # delete cluster
     gclient = container_v1.ClusterManagerClient()
 
     name_path = "projects/{}/locations/{}/".format(project, zone)
@@ -378,7 +378,7 @@ def delete_gcloud(name, zone, project):
 
     response = gclient.delete_cluster(None, None, None, name=cluster_path)
 
-    # wait for cluster to load
+    # wait for operation to complete
     while response.status < response.DONE:
         response = gclient.get_operation(
             None, None, None, name=name_path + "/" + response.name
