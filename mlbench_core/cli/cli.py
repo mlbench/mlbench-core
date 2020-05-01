@@ -404,7 +404,7 @@ def create_cluster():
 @click.option("--disk-size", "-d", default=50, type=int)
 @click.option("--num-cpus", "-c", default=1, type=int)
 @click.option("--num-gpus", "-g", default=0, type=int)
-@click.option("--gpu-type", default="nvidia-tesla-p100", type=str)
+@click.option("--gpu-type", default="nvidia-tesla-k80", type=str)
 @click.option("--zone", "-z", default="europe-west1-b", type=str)
 @click.option("--project", "-p", default=None, type=str)
 @click.option("--preemptible", "-e", is_flag=True)
