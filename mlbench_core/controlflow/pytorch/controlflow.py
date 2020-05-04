@@ -1,19 +1,19 @@
 r"""Control flow for pytorch applications."""
 import logging
 
+import torch
+import torch.distributed as dist
+
 from mlbench_core.utils import AverageMeter, Tracker
 from mlbench_core.utils.pytorch.distributed import global_average
 from mlbench_core.utils.pytorch.helpers import iterate_dataloader
-
-import torch
-import torch.distributed as dist
 
 logger = logging.getLogger("mlbench")
 
 LOG_EVERY_N_BATCHES = 25
 
 
-def _record_train_batch_stats(
+def record_train_batch_stats(
     batch_idx, loss, output, target, metrics, tracker, num_batches_per_device_train
 ):
     r"""Record the stats in a training batch.
@@ -77,7 +77,7 @@ def train_round(
         metrics (list): List of metrics to track
         scheduler (`obj`:torch.optim.lr_scheduler): Learning Rate scheduler
         dtype (str): The datatype to use, one of `fp32`or `fp64`
-        scheduler_per (str): Learning Rate scheduler mode, one of `batch` or `epoch`
+        schedule_per (str): Learning Rate scheduler mode, one of `batch` or `epoch`
         transform_target_type (str): Datatype to convert data to, default: `None`
         use_cuda (bool): Whether to use GPU for training, default: `False`
         max_batch_per_epoch (int): Maximum number of batches tot rain for per epoch,
@@ -102,27 +102,27 @@ def train_round(
         # Clear gradients in the optimizer.
         optimizer.zero_grad()
         if tracker:
-            tracker.record_batch_step("init")
+            tracker.record_batch_init()
 
         # Compute the output
         output = model(data)
         if tracker:
-            tracker.record_batch_step("fwd_pass")
+            tracker.record_batch_fwd_pass()
 
         # Compute the loss
         loss = loss_function(output, target)
         if tracker:
-            tracker.record_batch_step("comp_loss")
+            tracker.record_batch_comp_loss()
 
         # Backprop
         loss.backward()
         if tracker:
-            tracker.record_batch_step("backprop")
+            tracker.record_batch_backprop()
 
         # Aggregate gradients/parameters from all workers and apply updates to model
         optimizer.step()
         if tracker:
-            tracker.record_batch_step("opt_step")
+            tracker.record_batch_opt_step()
 
         if schedule_per == "batch":
             scheduler.step()
@@ -130,7 +130,7 @@ def train_round(
         if tracker:
             tracker.batch_end()
 
-        _record_train_batch_stats(
+        record_train_batch_stats(
             batch_idx,
             loss.item(),
             output,
@@ -156,14 +156,14 @@ def _validate(
     """Evaluate the model on the test dataset.
 
     Args:
-        dataloader (:obj:`torch.utils.data.DataLoader`): The validation set
+        dataloader (`obj`:torch.utils.data.DataLoader): The validation set
         model (`obj`:torch.nn.Module): The model to train
         loss_function (`obj`:torch.nn.Module): The loss function
         metrics (list): List of metrics to track
         dtype (str): The datatype to use, one of `fp32`or `fp64`
-        transform_target_type (str): Datatype to convert data to, default: `None`
+        transform_target_type (str | None): Datatype to convert data to, default: `None`
         use_cuda (bool): Whether to use GPU for training, default: `False`
-        max_batch_per_epoch (int): Maximum number of batches tot rain for per epoch,
+        max_batch_per_epoch (int | None): Maximum number of batches tot rain for per epoch,
                                    default: `None` (all batches)
         """
     # Initialize the accumulators for loss and metrics
