@@ -1,8 +1,9 @@
 import torch.nn as nn
+from torch.nn.functional import log_softmax
+
+from mlbench_core.dataset.nlp.pytorch.translation import wmt14_config
 from mlbench_core.models.pytorch.gnmt.decoder import ResidualRecurrentDecoder
 from mlbench_core.models.pytorch.gnmt.encoder import ResidualRecurrentEncoder
-from mlbench_core.dataset.translation.pytorch import config
-from torch.nn.functional import log_softmax
 
 
 class Seq2Seq(nn.Module):
@@ -102,7 +103,9 @@ class GNMT(Seq2Seq):
         super(GNMT, self).__init__(batch_first=batch_first)
 
         if share_embedding:
-            embedder = nn.Embedding(vocab_size, hidden_size, padding_idx=config.PAD)
+            embedder = nn.Embedding(
+                vocab_size, hidden_size, padding_idx=wmt14_config.PAD
+            )
             nn.init.uniform_(embedder.weight.data, -0.1, 0.1)
         else:
             embedder = None

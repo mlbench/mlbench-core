@@ -1,8 +1,9 @@
 import itertools
 
-import mlbench_core.dataset.translation.pytorch.config as config
 import torch
 import torch.nn as nn
+
+import mlbench_core.dataset.nlp.pytorch.translation.wmt14_config as config
 from mlbench_core.models.pytorch.gnmt import BahdanauAttention
 from mlbench_core.models.pytorch.gnmt.utils import init_lstm_
 

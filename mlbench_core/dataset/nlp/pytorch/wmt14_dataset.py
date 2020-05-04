@@ -1,10 +1,11 @@
 import os
 
 import torch
-from mlbench_core.dataset.translation.pytorch import config
-from mlbench_core.dataset.translation.pytorch.tokenizer import WMT14Tokenizer
-from mlbench_core.dataset.util.tools import maybe_download_and_extract_tar_gz
 from torch.utils.data import Dataset
+
+from mlbench_core.dataset.util.tools import maybe_download_and_extract_tar_gz
+
+from .translation import WMT14Tokenizer, wmt14_config
 
 
 def _construct_filter_pred(min_len, max_len=None):
@@ -51,7 +52,7 @@ def build_collate_fn(batch_first, sort):
         batch_length = max(lengths)
 
         shape = (len(seq), batch_length)
-        seq_tensor = torch.full(shape, config.PAD, dtype=torch.int64)
+        seq_tensor = torch.full(shape, wmt14_config.PAD, dtype=torch.int64)
 
         for i, s in enumerate(seq):
             end_seq = lengths[i]
@@ -143,9 +144,9 @@ class WMT14Dataset(Dataset):
         self.min_len = min_len
 
         if train:
-            path = os.path.join(root, config.TRAIN_FNAME)
+            path = os.path.join(root, wmt14_config.TRAIN_FNAME)
         elif validation:
-            path = os.path.join(root, config.VAL_FNAME)
+            path = os.path.join(root, wmt14_config.VAL_FNAME)
         else:
             raise NotImplementedError()
 
@@ -169,7 +170,9 @@ class WMT14Dataset(Dataset):
         Returns:
             List: The list of examples
         """
-        src_path, trg_path = tuple(os.path.expanduser(path + x) for x in config.EXTS)
+        src_path, trg_path = tuple(
+            os.path.expanduser(path + x) for x in wmt14_config.EXTS
+        )
         examples = []
         src_lengths = []
         with open(src_path, mode="r", encoding="utf-8") as src_file, open(

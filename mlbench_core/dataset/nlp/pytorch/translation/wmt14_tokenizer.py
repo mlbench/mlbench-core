@@ -5,7 +5,8 @@ from functools import partial
 import sacremoses
 import subword_nmt.apply_bpe
 import torch
-from mlbench_core.dataset.translation.pytorch import config
+
+from . import wmt14_config
 
 
 def _pad_vocabulary(vocab, math):
@@ -45,14 +46,19 @@ def _parse_vocab(vocab_fname, math_precision):
     Returns:
         list, dict, dict: List of words, id-to-token and token-to-id dictionaries
     """
-    vocab = [config.PAD_TOKEN, config.UNK_TOKEN, config.BOS_TOKEN, config.EOS_TOKEN]
+    vocab = [
+        wmt14_config.PAD_TOKEN,
+        wmt14_config.UNK_TOKEN,
+        wmt14_config.BOS_TOKEN,
+        wmt14_config.EOS_TOKEN,
+    ]
     with open(vocab_fname, encoding="utf-8") as vfile:
         for line in vfile:
             vocab.append(line.strip())
 
     vocab = _pad_vocabulary(vocab, math_precision)
 
-    tok2idx = defaultdict(partial(int, config.UNK))
+    tok2idx = defaultdict(partial(int, wmt14_config.UNK))
     for idx, token in enumerate(vocab):
         tok2idx[token] = idx
 
@@ -80,8 +86,8 @@ class WMT14Tokenizer:
         self.lang = lang
 
         # base_dir = os.path.join(base_dir, "wmt14")
-        bpe_fname = os.path.join(base_dir, config.BPE_CODES)
-        vocab_fname = os.path.join(base_dir, config.VOCAB_FNAME)
+        bpe_fname = os.path.join(base_dir, wmt14_config.BPE_CODES)
+        vocab_fname = os.path.join(base_dir, wmt14_config.VOCAB_FNAME)
 
         if bpe_fname:
             with open(bpe_fname, "r", encoding="utf-8") as bpe_codes:
@@ -111,7 +117,7 @@ class WMT14Tokenizer:
             list representing tokenized sentence
         """
         entry = [self.tok2idx[i] for i in line]
-        entry = [config.BOS] + entry + [config.EOS]
+        entry = [wmt14_config.BOS] + entry + [wmt14_config.EOS]
         return entry
 
     def detokenize_bpe(self, inp, delim=" "):
@@ -129,9 +135,9 @@ class WMT14Tokenizer:
         detok = detok.replace(self.separator + " ", "")
         detok = detok.replace(self.separator, "")
 
-        detok = detok.replace(config.BOS_TOKEN, "")
-        detok = detok.replace(config.EOS_TOKEN, "")
-        detok = detok.replace(config.PAD_TOKEN, "")
+        detok = detok.replace(wmt14_config.BOS_TOKEN, "")
+        detok = detok.replace(wmt14_config.EOS_TOKEN, "")
+        detok = detok.replace(wmt14_config.PAD_TOKEN, "")
         detok = detok.strip()
         return detok
 
