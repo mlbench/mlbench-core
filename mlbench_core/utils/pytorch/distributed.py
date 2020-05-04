@@ -131,7 +131,7 @@ class Aggregation(object):
         """
         # Pack all layers
         packed, indices, sizes = pack_tensors(
-            [t.data for t in model.parameters()], use_cuda=self.use_cuda
+            [t for t in model.parameters()], use_cuda=self.use_cuda
         )
         aggregated = self._agg(packed, op=op)
 
@@ -148,9 +148,8 @@ class Aggregation(object):
             op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
         """
         # Pack all layers
-
         packed, indices, sizes = pack_tensors(
-            [t.grad.data for t in model.parameters()], use_cuda=self.use_cuda
+            [t.grad for t in model.parameters()], use_cuda=self.use_cuda
         )
         aggregated = self._agg(packed, op=op)
 
