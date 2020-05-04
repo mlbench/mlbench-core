@@ -3,6 +3,7 @@ import logging
 import torch
 import torch.optim
 import torch.utils.data
+
 from mlbench_core.utils import AverageMeter
 from mlbench_core.utils.pytorch.distributed import global_average
 
@@ -111,14 +112,6 @@ class GNMTTrainer:
             output = self.model(src[0], src[1], trg[0][:-1])
 
         return output
-
-    def set_tracker(self, tracker):
-        """ Sets the trainer's tracker
-
-        Args:
-            tracker (`obj`:mlbench_core.utils.Tracker): Tracker object to use.
-        """
-        self.tracker = tracker
 
     def compute_loss(self, src, trg, output):
         """ Computes the Loss of a given input and output
