@@ -12,22 +12,19 @@ class Seq2Seq(nn.Module):
     Args:
         encoder (Encoder): Model encoder
         decoder (Decoder): Model decoder
-        batch_first (bool): Batch as first dim
     """
 
-    def __init__(self, encoder=None, decoder=None, batch_first=False):
+    def __init__(self, encoder=None, decoder=None):
         super(Seq2Seq, self).__init__()
         self.encoder = encoder
         self.decoder = decoder
-        self.batch_first = batch_first
 
     def encode(self, inputs, lengths):
         """
         Applies the encoder to inputs with a given input sequence lengths.
 
         Args:
-            inputs (torch.tensor): tensor with inputs (batch, seq_len) if
-                'batch_first' else (seq_len, batch)
+            inputs (torch.tensor): tensor with inputs (seq_len, batch)
             lengths: vector with sequence lengths (excluding padding)
 
         Returns:
@@ -40,8 +37,7 @@ class Seq2Seq(nn.Module):
         Applies the decoder to inputs, given the context from the encoder.
 
         Args:
-            inputs (torch.tensor): tensor with inputs (batch, seq_len) if
-                'batch_first' else (seq_len, batch)
+            inputs (torch.tensor): tensor with inputs (seq_len, batch)
             context: context from the encoder
             inference: if True inference mode, if False training mode
 
@@ -85,7 +81,6 @@ class GNMT(Seq2Seq):
         num_layers (int): number of layers, applies to both encoder and
             decoder
         dropout (float): probability of dropout (in encoder and decoder)
-        batch_first (bool): if True the model uses (batch,seq,feature)
             tensors, if false the model uses (seq, batch, feature)
         share_embedding (bool): if True embeddings are shared between
             encoder and decoder
@@ -97,10 +92,9 @@ class GNMT(Seq2Seq):
         hidden_size=1024,
         num_layers=4,
         dropout=0.2,
-        batch_first=False,
         share_embedding=True,
     ):
-        super(GNMT, self).__init__(batch_first=batch_first)
+        super(GNMT, self).__init__()
 
         if share_embedding:
             embedder = nn.Embedding(
@@ -111,11 +105,11 @@ class GNMT(Seq2Seq):
             embedder = None
 
         self.encoder = ResidualRecurrentEncoder(
-            vocab_size, hidden_size, num_layers, dropout, batch_first, embedder
+            vocab_size, hidden_size, num_layers, dropout, embedder
         )
 
         self.decoder = ResidualRecurrentDecoder(
-            vocab_size, hidden_size, num_layers, dropout, batch_first, embedder
+            vocab_size, hidden_size, num_layers, dropout, embedder
         )
 
     def forward(self, input_encoder, input_enc_len, input_decoder):

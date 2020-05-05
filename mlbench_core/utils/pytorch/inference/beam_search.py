@@ -24,7 +24,6 @@ class SequenceGenerator:
     def __init__(
         self,
         model,
-        batch_first,
         beam_size=5,
         max_seq_len=100,
         len_norm_factor=0.6,
@@ -37,8 +36,6 @@ class SequenceGenerator:
         self.len_norm_factor = len_norm_factor
         self.len_norm_const = len_norm_const
         self.cov_penalty_factor = cov_penalty_factor
-
-        self.batch_first = batch_first
 
     def greedy_search(self, batch_size, initial_input, initial_context=None):
         """
@@ -68,12 +65,8 @@ class SequenceGenerator:
         translation[:, 0] = BOS
         words, context = initial_input, initial_context
 
-        if self.batch_first:
-            word_view = (-1, 1)
-            ctx_batch_dim = 0
-        else:
-            word_view = (1, -1)
-            ctx_batch_dim = 1
+        word_view = (1, -1)
+        ctx_batch_dim = 1
 
         counter = 0
         for idx in range(1, max_seq_len):
@@ -149,34 +142,17 @@ class SequenceGenerator:
 
         words, context = initial_input, initial_context
 
-        if self.batch_first:
-            word_view = (-1, 1)
-            ctx_batch_dim = 0
-            attn_query_dim = 1
-        else:
-            word_view = (1, -1)
-            ctx_batch_dim = 1
-            attn_query_dim = 0
+        word_view = (1, -1)
+        ctx_batch_dim = 1
+        attn_query_dim = 0
 
         # replicate context
-        if self.batch_first:
-            # context[0] (encoder state): (batch, seq, feature)
-            _, seq, feature = context[0].shape
-            context[0].unsqueeze_(1)
-            context[0] = context[0].expand(-1, beam_size, -1, -1)
-            context[0] = (
-                context[0].contiguous().view(batch_size * beam_size, seq, feature)
-            )
-            # context[0]: (batch * beam, seq, feature)
-        else:
-            # context[0] (encoder state): (seq, batch, feature)
-            seq, _, feature = context[0].shape
-            context[0].unsqueeze_(2)
-            context[0] = context[0].expand(-1, -1, beam_size, -1)
-            context[0] = (
-                context[0].contiguous().view(seq, batch_size * beam_size, feature)
-            )
-            # context[0]: (seq, batch * beam,  feature)
+        # context[0] (encoder state): (seq, batch, feature)
+        seq, _, feature = context[0].shape
+        context[0].unsqueeze_(2)
+        context[0] = context[0].expand(-1, -1, beam_size, -1)
+        context[0] = context[0].contiguous().view(seq, batch_size * beam_size, feature)
+        # context[0]: (seq, batch * beam,  feature)
 
         # context[1] (encoder seq length): (batch)
         context[1].unsqueeze_(1)

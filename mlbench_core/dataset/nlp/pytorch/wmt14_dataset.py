@@ -27,11 +27,10 @@ def _construct_filter_pred(min_len, max_len=None):
     return filter_pred
 
 
-def build_collate_fn(batch_first, sort):
+def build_collate_fn(sort):
     """Builds the collate function that adds the lengths of each datapoint to the batch
 
     Args:
-        batch_first (bool): Whether to put the batch as first dimension
         sort (bool): Sort within each batch
 
     Returns:
@@ -58,8 +57,7 @@ def build_collate_fn(batch_first, sort):
             end_seq = lengths[i]
             seq_tensor[i, :end_seq].copy_(s[:end_seq])
 
-        if not batch_first:
-            seq_tensor = seq_tensor.t()
+        seq_tensor = seq_tensor.t()
 
         return seq_tensor, lengths
 

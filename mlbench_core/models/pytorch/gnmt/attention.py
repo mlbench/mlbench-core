@@ -17,27 +17,17 @@ class BahdanauAttention(nn.Module):
         num_units (int): internal feature dimension
         normalize (bool): whether to normalize energy term.
             Default: `False`
-        batch_first (bool): if True batch size is the 1st dimension, if False
-            the sequence is first and batch size is second.
-            Default: `False`
         init_weight (float): range for uniform initializer used to initialize
             Linear key and query transform layers and linear_att vector.
             Default: 0.1
     """
 
     def __init__(
-        self,
-        query_size,
-        key_size,
-        num_units,
-        normalize=False,
-        batch_first=False,
-        init_weight=0.1,
+        self, query_size, key_size, num_units, normalize=False, init_weight=0.1,
     ):
         super(BahdanauAttention, self).__init__()
 
         self.normalize = normalize
-        self.batch_first = batch_first
         self.num_units = num_units
 
         self.linear_q = nn.Linear(query_size, num_units, bias=False)
@@ -79,16 +69,12 @@ class BahdanauAttention(nn.Module):
 
         Args:
             context_len (`obj`:torch.Tensor):
-            context (`obj`:torch.Tensor): if batch_first: (b x t_k x n) else: (t_k x b x n)
+            context (`obj`:torch.Tensor): (t_k x b x n)
 
         Returns:
 
         """
-
-        if self.batch_first:
-            max_len = context.size(1)
-        else:
-            max_len = context.size(0)
+        max_len = context.size(0)
 
         indices = torch.arange(0, max_len, dtype=torch.int64, device=context.device)
         self.mask = indices >= (context_len.unsqueeze(1))
@@ -126,21 +112,20 @@ class BahdanauAttention(nn.Module):
         """
 
         Args:
-            query (`obj`:torch.Tensor): if batch_first: (b x t_q x n) else: (t_q x b x n)
-            keys (`obj`:torch.Tensor): if batch_first: (b x t_k x n) else (t_k x b x n)
+            query (`obj`:torch.Tensor): (t_q x b x n)
+            keys (`obj`:torch.Tensor): (t_k x b x n)
 
         Returns:
             (context, scores_normalized)
-        context: if batch_first: (b x t_q x n) else (t_q x b x n)
-        scores_normalized: if batch_first (b x t_q x t_k) else (t_q x b x t_k)
+        context: (t_q x b x n)
+        scores_normalized: (t_q x b x t_k)
 
         """
 
         # first dim of keys and query has to be 'batch', it's needed for bmm
-        if not self.batch_first:
-            keys = keys.transpose(0, 1)
-            if query.dim() == 3:
-                query = query.transpose(0, 1)
+        keys = keys.transpose(0, 1)
+        if query.dim() == 3:
+            query = query.transpose(0, 1)
 
         if query.dim() == 2:
             single_query = True
@@ -175,7 +160,7 @@ class BahdanauAttention(nn.Module):
         if single_query:
             context = context.squeeze(1)
             scores_normalized = scores_normalized.squeeze(1)
-        elif not self.batch_first:
+        else:
             context = context.transpose(0, 1)
             scores_normalized = scores_normalized.transpose(0, 1)
 

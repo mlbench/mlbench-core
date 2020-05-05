@@ -20,8 +20,6 @@ class ResidualRecurrentEncoder(nn.Module):
         hidden_size: hidden size for LSTM layers
         num_layers: number of LSTM layers, 1st layer is bidirectional
         dropout: probability of dropout (on input to LSTM layers)
-        batch_first: if True the model uses (batch,seq,feature) tensors,
-            if false the model uses (seq, batch, feature)
         embedder: instance of nn.Embedding, if None constructor will
             create new embedding layer
         init_weight: range for the uniform initializer
@@ -33,12 +31,10 @@ class ResidualRecurrentEncoder(nn.Module):
         hidden_size=1024,
         num_layers=4,
         dropout=0.2,
-        batch_first=False,
         embedder=None,
         init_weight=0.1,
     ):
         super(ResidualRecurrentEncoder, self).__init__()
-        self.batch_first = batch_first
         self.rnn_layers = nn.ModuleList()
         # 1st LSTM layer, bidirectional
         self.rnn_layers.append(
@@ -47,7 +43,7 @@ class ResidualRecurrentEncoder(nn.Module):
                 hidden_size,
                 num_layers=1,
                 bias=True,
-                batch_first=batch_first,
+                batch_first=False,
                 bidirectional=True,
             )
         )
@@ -59,7 +55,7 @@ class ResidualRecurrentEncoder(nn.Module):
                 hidden_size,
                 num_layers=1,
                 bias=True,
-                batch_first=batch_first,
+                batch_first=False,
             )
         )
 
@@ -71,7 +67,7 @@ class ResidualRecurrentEncoder(nn.Module):
                     hidden_size,
                     num_layers=1,
                     bias=True,
-                    batch_first=batch_first,
+                    batch_first=False,
                 )
             )
 
@@ -104,9 +100,9 @@ class ResidualRecurrentEncoder(nn.Module):
 
         # bidirectional layer
         x = self.dropout(x)
-        x = pack_padded_sequence(x, lengths, batch_first=self.batch_first)
+        x = pack_padded_sequence(x, lengths, batch_first=False)
         x, _ = self.rnn_layers[0](x)
-        x, _ = pad_packed_sequence(x, batch_first=self.batch_first)
+        x, _ = pad_packed_sequence(x, batch_first=False)
 
         # 1st unidirectional layer
         x = self.dropout(x)

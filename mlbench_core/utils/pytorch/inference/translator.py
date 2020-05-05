@@ -16,7 +16,6 @@ class Translator:
     def __init__(
         self,
         model,
-        batch_first,
         trg_tokenizer,
         beam_size=5,
         len_norm_factor=0.6,
@@ -30,12 +29,10 @@ class Translator:
         self.insert_target_start = [BOS]
         self.insert_src_start = [BOS]
         self.insert_src_end = [EOS]
-        self.batch_first = batch_first
         self.beam_size = beam_size
 
         self.generator = SequenceGenerator(
             model=self.model,
-            batch_first=batch_first,
             beam_size=beam_size,
             max_seq_len=max_seq_len,
             len_norm_factor=len_norm_factor,
@@ -45,14 +42,9 @@ class Translator:
 
     def get_detokenized_target(self, trg, batch_size):
         targets = []
-        if self.batch_first:
-            for i in range(batch_size):
-                t = trg[i]
-                targets.append(self.tokenizer.detokenize(t.tolist()))
-        else:
-            for i in range(batch_size):
-                t = trg[:, i]
-                targets.append(self.tokenizer.detokenize(t.tolist()))
+        for i in range(batch_size):
+            t = trg[:, i]
+            targets.append(self.tokenizer.detokenize(t.tolist()))
 
         return targets
 
@@ -71,17 +63,10 @@ class Translator:
         trg, trg_len = trg
         device = next(self.model.parameters()).device
 
-        if self.batch_first:
-            batch_size = src.shape[0]
-        else:
-            batch_size = src.shape[1]
+        batch_size = src.shape[1]
 
         bos = [self.insert_target_start] * (batch_size * self.beam_size)
-        bos = torch.tensor(bos, dtype=torch.int64, device=device)
-        if self.batch_first:
-            bos = bos.view(-1, 1)
-        else:
-            bos = bos.view(1, -1)
+        bos = torch.tensor(bos, dtype=torch.int64, device=device).view(1, -1)
 
         if self.beam_size == 1:
             generator = self.generator.greedy_search

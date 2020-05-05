@@ -17,8 +17,6 @@ class RecurrentAttention(nn.Module):
         context_size (int): number of features in output from encoder
         hidden_size (int): internal hidden size
         num_layers (int): number of layers in LSTM
-        batch_first (bool): if True the model uses (batch,seq,feature)
-            tensors, if false the model uses (seq, batch, feature)
         dropout (float): probability of dropout (on input to LSTM layer)
         init_weight (float): range for the uniform initializer
     """
@@ -29,23 +27,18 @@ class RecurrentAttention(nn.Module):
         context_size=1024,
         hidden_size=1024,
         num_layers=1,
-        batch_first=False,
         dropout=0.2,
         init_weight=0.1,
     ):
         super(RecurrentAttention, self).__init__()
 
         self.rnn = nn.LSTM(
-            input_size, hidden_size, num_layers, bias=True, batch_first=batch_first
+            input_size, hidden_size, num_layers, bias=True, batch_first=False
         )
         init_lstm_(self.rnn, init_weight)
 
         self.attn = BahdanauAttention(
-            hidden_size,
-            context_size,
-            context_size,
-            normalize=True,
-            batch_first=batch_first,
+            hidden_size, context_size, context_size, normalize=True,
         )
 
         self.dropout = nn.Dropout(dropout)
@@ -124,8 +117,6 @@ class ResidualRecurrentDecoder(nn.Module):
         hidden_size (int): hidden size for LSMT layers
         num_layers (int): number of LSTM layers
         dropout (float): probability of dropout (on input to LSTM layers)
-        batch_first (bool): if True the model uses (batch,seq,feature)
-            tensors, if false the model uses (seq, batch, feature)
         embedder (nn.Embedding): if None constructor will create new
             embedding layer
         init_weight (float): range for the uniform initializer
@@ -137,7 +128,6 @@ class ResidualRecurrentDecoder(nn.Module):
         hidden_size=1024,
         num_layers=4,
         dropout=0.2,
-        batch_first=False,
         embedder=None,
         init_weight=0.1,
     ):
@@ -146,12 +136,7 @@ class ResidualRecurrentDecoder(nn.Module):
         self.num_layers = num_layers
 
         self.att_rnn = RecurrentAttention(
-            hidden_size,
-            hidden_size,
-            hidden_size,
-            num_layers=1,
-            batch_first=batch_first,
-            dropout=dropout,
+            hidden_size, hidden_size, hidden_size, num_layers=1, dropout=dropout,
         )
 
         self.rnn_layers = nn.ModuleList()
@@ -162,7 +147,7 @@ class ResidualRecurrentDecoder(nn.Module):
                     hidden_size,
                     num_layers=1,
                     bias=True,
-                    batch_first=batch_first,
+                    batch_first=False,
                 )
             )
 
