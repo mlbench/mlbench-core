@@ -5,9 +5,9 @@ import logging
 from torch import distributed as dist
 
 from mlbench_core.utils import Tracker
-from mlbench_core.utils.pytorch.helpers import iterate_dataloader
 
 from . import record_train_batch_stats, record_validation_stats, validation_round
+from .helpers import iterate_dataloader
 
 logger = logging.getLogger("mlbench")
 

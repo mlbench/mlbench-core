@@ -3,37 +3,13 @@ import logging
 
 import torch
 
+from mlbench_core.controlflow.pytorch.helpers import iterate_dataloader
 from mlbench_core.utils import AverageMeter
 from mlbench_core.utils.pytorch.distributed import global_average
-from mlbench_core.utils.pytorch.helpers import convert_dtype, maybe_range
 
 logger = logging.getLogger("mlbench")
 
 LOG_EVERY_N_BATCHES = 25
-
-
-def prepare_batch(data, target, dtype, transform_target_dtype=False, use_cuda=False):
-    """Prepares a batch for training by changing the type and sending to cuda
-    if necessary
-
-    Args:
-        data (`obj`:torch.Tensor): The input tensor
-        target (`obj`:torch.Tensor): The target tensor
-        dtype (str): One of `fp32` or `fp64`, data type to transform input and/or target
-        transform_target_dtype (bool): Transform target to `dtype` too
-        use_cuda (bool): Send tensors to GPU
-
-    Returns:
-        (`obj`:torch.Tensor, `obj`:torch.Tensor): Input and target tensors
-    """
-    data = convert_dtype(dtype, data)
-    if transform_target_dtype:
-        target = convert_dtype(dtype, target)
-
-    if use_cuda:
-        data, target = data.cuda(), target.cuda()
-
-    return data, target
 
 
 def record_train_batch_stats(
@@ -117,10 +93,10 @@ def validation_round(
     # Each worker computer their own losses and metrics
     with torch.no_grad():
 
-        for _, (data, target) in zip(maybe_range(max_batches), dataloader):
-            data, target = prepare_batch(
-                data, target, dtype, transform_target_type, use_cuda
-            )
+        data_iter = iterate_dataloader(
+            dataloader, dtype, max_batches, use_cuda, transform_target_type
+        )
+        for data, target in data_iter:
             # Inference
             output = model(data)
 
