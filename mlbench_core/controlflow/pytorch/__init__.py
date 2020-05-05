@@ -1,15 +1,15 @@
 from .checkpoints_evaluation import CheckpointsEvaluationControlFlow
 from .controlflow import (
-    TrainValidation,
+    prepare_batch,
     record_train_batch_stats,
-    train_round,
+    record_validation_stats,
     validation_round,
 )
 
 __all__ = [
-    "TrainValidation",
     "CheckpointsEvaluationControlFlow",
-    "train_round",
-    "validation_round",
+    "prepare_batch",
+    "record_validation_stats",
     "record_train_batch_stats",
+    "validation_round",
 ]

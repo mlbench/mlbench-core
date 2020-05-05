@@ -3,18 +3,17 @@
 
 """Tests for `mlbench_core.controlflow.pytorch` package."""
 
-import pytest
+import random
 
+import pytest
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-import random
 
-from mlbench_core.controlflow.pytorch import TrainValidation
+from mlbench_core.controlflow.pytorch.train_validation import TrainValidation
 from mlbench_core.evaluation.pytorch.metrics import TopKAccuracy
 from mlbench_core.lr_scheduler.pytorch import multistep_learning_rates_with_warmup
-from mlbench_core.utils.pytorch.distributed import AllReduceAggregation
 
 
 @pytest.fixture
@@ -52,7 +51,7 @@ def scheduler(optimizer):
 
 
 def test_instantiation(mocker, model, optimizer, loss_function, metrics, scheduler):
-    mocker.patch("mlbench_core.controlflow.pytorch.controlflow.dist")
+    mocker.patch("mlbench_core.controlflow.pytorch.train_validation.dist")
 
     batch_size = 2
 
@@ -74,7 +73,7 @@ def test_instantiation(mocker, model, optimizer, loss_function, metrics, schedul
 
 
 def test_training(mocker, model, optimizer, loss_function, metrics, scheduler):
-    mocker.patch("mlbench_core.controlflow.pytorch.controlflow.dist")
+    mocker.patch("mlbench_core.controlflow.pytorch.train_validation.dist")
     mocker.patch("mlbench_core.utils.pytorch.distributed.dist")
     mocker.patch("mlbench_core.utils.tracker.LogMetrics")
 
