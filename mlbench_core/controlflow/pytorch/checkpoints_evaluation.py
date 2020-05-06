@@ -1,11 +1,10 @@
 """Evaluate training/validation set using models in checkpoints"""
 import logging
 
-from mlbench_core.utils.pytorch.distributed import AllReduceAggregation
-from mlbench_core.utils.pytorch.distributed import global_average
-from mlbench_core.utils.pytorch.helpers import iterate_dataloader
-
 import torch
+
+from mlbench_core.controlflow.pytorch.helpers import iterate_dataloader
+from mlbench_core.utils.pytorch.distributed import AllReduceAggregation, global_average
 
 logger = logging.getLogger("mlbench")
 

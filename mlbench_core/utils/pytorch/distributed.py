@@ -1,28 +1,6 @@
 import torch
 import torch.distributed as dist
 
-# TODO: those 3 funtions are never used, maybe delete them ?
-
-
-def broadcast(tensor, src):
-    return dist.broadcast(tensor, src=src)
-
-
-def elementwise_min(tensor):
-    dist.all_reduce(tensor, op=dist.ReduceOp.MIN)
-    return tensor
-
-
-def aggregate_gradients(model, world_size, average_models=False):
-    """Average gradients of models across all processes."""
-    # all_reduce the gradients.
-    for ind, param in enumerate(model.parameters()):
-        # all reduce.
-        dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
-
-        if average_models:
-            param.grad.data /= world_size
-
 
 def global_average(sum, count):
     def helper(array):
@@ -191,7 +169,7 @@ class Aggregation(object):
 
 
 class AllReduceAggregation(Aggregation):
-    """Aggregate udpates / models from different processes."""
+    """Aggregate udpates / models from different processes using all-reduce aggregation"""
 
     def __init__(self, world_size, use_cuda=False):
         self.world_size = world_size
