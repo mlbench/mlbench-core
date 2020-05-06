@@ -63,7 +63,7 @@ class Seq2Seq(nn.Module):
             logprobs: log probabilities of topK tokens
             scores: scores from the attention module (for coverage penalty)
             new_context: new decoder context, includes new hidden states for
-                decoder RNN cells
+            decoder RNN cells
         """
         logits, scores, new_context = self.decode(inputs, context, True)
         logprobs = log_softmax(logits, dim=-1)
