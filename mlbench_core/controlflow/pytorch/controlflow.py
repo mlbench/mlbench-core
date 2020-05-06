@@ -80,11 +80,10 @@ def validation_round(
     """
 
     model.eval()
-
     if tracker:
         tracker.validation()
-
         tracker.validation_start()
+
     # Initialize the accumulators for loss and metrics
     losses = AverageMeter()
     for metric in metrics:
@@ -114,6 +113,9 @@ def validation_round(
     # Aggregate metrics and loss for all workers
     metrics_averages = {metric: metric.average().item() for metric in metrics}
     loss_average = global_average(losses.sum, losses.count).item()
+
+    if tracker:
+        tracker.validation_end()
     return metrics_averages, loss_average
 
 
