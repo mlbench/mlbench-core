@@ -189,10 +189,15 @@ class LabelSmoothing(nn.Module):
 # Taken from MLPerf
 class LabelSmoothedCrossEntropy(_Loss):
     def __init__(
-        self, model, eps, padding_idx, sentence_avg=False, fast_xentropy=False
+        self,
+        model,
+        label_smoothing,
+        padding_idx,
+        sentence_avg=False,
+        fast_xentropy=False,
     ):
         super(LabelSmoothedCrossEntropy, self).__init__()
-        self.eps = eps
+        self.eps = label_smoothing
         self.padding_idx = padding_idx
         self.sentence_avg = sentence_avg
 

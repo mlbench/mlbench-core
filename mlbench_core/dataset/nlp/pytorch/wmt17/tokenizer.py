@@ -1,8 +1,15 @@
+import re
 from collections import Counter
 
 import torch
 
-from mlbench_core.dataset.translation.pytorch.transformer.utils import tokenize_line
+SPACE_NORMALIZER = re.compile("\s+")
+
+
+def tokenize_line(line):
+    line = SPACE_NORMALIZER.sub(" ", line)
+    line = line.strip()
+    return line.split()
 
 
 class Tokenizer:
