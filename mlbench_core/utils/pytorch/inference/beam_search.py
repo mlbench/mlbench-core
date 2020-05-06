@@ -1,7 +1,7 @@
 # Taken from https://github.com/NVIDIA/DeepLearningExamples/tree/master/PyTorch/Translation/GNMT
 import torch
 
-from mlbench_core.dataset.nlp.pytorch.translation.wmt14_config import BOS, EOS
+from mlbench_core.dataset.nlp.pytorch.wmt14.wmt14_config import BOS, EOS
 
 
 class SequenceGenerator:

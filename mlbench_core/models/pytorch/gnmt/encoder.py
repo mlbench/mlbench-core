@@ -1,7 +1,7 @@
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
-import mlbench_core.dataset.nlp.pytorch.translation.wmt14_config as config
+import mlbench_core.dataset.nlp.pytorch.wmt14.wmt14_config as config
 from mlbench_core.models.pytorch.gnmt.utils import init_lstm_
 
 

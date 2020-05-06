@@ -1,6 +1,6 @@
 import torch
 
-from mlbench_core.dataset.nlp.pytorch.translation.wmt14_config import BOS, EOS
+from mlbench_core.dataset.nlp.pytorch.wmt14.wmt14_config import BOS, EOS
 from mlbench_core.utils.pytorch.inference.beam_search import SequenceGenerator
 
 

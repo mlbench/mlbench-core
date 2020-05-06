@@ -5,7 +5,7 @@ from torch.utils.data import Dataset
 
 from mlbench_core.dataset.util.tools import maybe_download_and_extract_tar_gz
 
-from .translation import WMT14Tokenizer, wmt14_config
+from .wmt14 import WMT14Tokenizer, wmt14_config
 
 
 def _construct_filter_pred(min_len, max_len=None):

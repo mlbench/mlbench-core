@@ -1,7 +1,7 @@
 import torch.nn as nn
 from torch.nn.functional import log_softmax
 
-from mlbench_core.dataset.nlp.pytorch.translation import wmt14_config
+from mlbench_core.dataset.nlp.pytorch.wmt14 import wmt14_config
 from mlbench_core.models.pytorch.gnmt.decoder import ResidualRecurrentDecoder
 from mlbench_core.models.pytorch.gnmt.encoder import ResidualRecurrentEncoder
 
