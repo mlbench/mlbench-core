@@ -1,6 +1,11 @@
 import torch
 import torch.distributed as dist
 
+try:
+    import horovod.torch as hvd
+except ImportError as e:
+    pass
+
 
 def global_average(sum, count):
     def helper(array):
