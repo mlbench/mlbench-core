@@ -58,8 +58,8 @@ translation
 pytorch
 +++++++
 
-.. autoapimodule:: mlbench_core.dataset.translation.pytorch
-.. currentmodule:: mlbench_core.dataset.translation.pytorch
+.. autoapimodule:: mlbench_core.dataset.nlp.pytorch
+.. currentmodule:: mlbench_core.dataset.nlp.pytorch
 
 WMT14
 '''''
@@ -67,7 +67,7 @@ WMT14
 .. autoapiclass:: WMT14Dataset
     :members:
 
-.. autoapiclass:: mlbench_core.dataset.translation.pytorch.tokenizer.WMT14Tokenizer
+.. autoapimodule:: mlbench_core.dataset.nlp.pytorch.wmt14.wmt14_tokenizer
     :members:
 
 tensorflow

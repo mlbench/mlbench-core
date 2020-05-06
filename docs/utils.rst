@@ -58,6 +58,26 @@ Distributed
 
 .. autoapifunction:: unpack_tensors
 
+
+Inference
+'''''''''
+
+.. autoapimodule:: mlbench_core.utils.pytorch.inference
+.. currentmodule:: mlbench_core.utils.pytorch.inference
+
+Translator
+++++++++++
+
+.. autoapiclass:: Translator
+    :members:
+
+BeamSearch
+++++++++++
+
+.. autoapimodule:: mlbench_core.utils.pytorch.inference.beam_search
+    :members:
+
+
 tensorflow
 ~~~~~~~~~~
 

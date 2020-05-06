@@ -45,25 +45,6 @@ TopKAccuracy
 
     .. autoapimethod:: __call__
 
-
-inference
-+++++++++
-
-.. autoapimodule:: mlbench_core.evaluation.pytorch.inference
-.. currentmodule:: mlbench_core.evaluation.pytorch.inference
-
-Translator
-''''''''''
-
-.. autoapiclass:: Translator
-    :members:
-
-BeamSearch
-''''''''''
-
-.. autoapiclass:: mlbench_core.evaluation.pytorch.inference.beam_search.SequenceGenerator
-    :members:
-
 tensorflow
 ~~~~~~~~~~
 
