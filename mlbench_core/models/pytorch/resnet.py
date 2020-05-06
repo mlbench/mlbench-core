@@ -22,7 +22,7 @@ for image net. Here we only implemented the remaining models
 for CIFAR-10 dataset. Besides, their implementation uses projection shortcut by default.
 
 """
-from mlbench_core.utils.pytorch.helpers import convert_dtype
+from mlbench_core.controlflow.pytorch.helpers import convert_dtype
 
 import torch
 import torch.nn as nn

@@ -3,6 +3,9 @@ from collections import defaultdict
 
 from .log_metrics import LogMetrics
 
+_DEFAULT_COMM_STEPS = ["opt_step"]
+_DEFAULT_COMPUTE_STEPS = ["fwd_pass", "comp_loss", "backprop"]
+
 
 class AverageMeter(object):
     """Computes and stores the average and current value."""
@@ -42,8 +45,8 @@ class Tracker(object):
         run_id,
         rank,
         goal=None,
-        communication_steps=["opt_step"],
-        compute_steps=["fwd_pass", "comp_loss", "backprop"],
+        communication_steps=None,
+        compute_steps=None,
     ):
         self.batch_times = []
         self.validation_times = []
@@ -76,10 +79,16 @@ class Tracker(object):
 
         self.primary_metric = metrics[0]
 
+        if communication_steps is None:
+            communication_steps = _DEFAULT_COMM_STEPS
+
         if not isinstance(communication_steps, list):
             communication_steps = [communication_steps]
 
         self.communication_steps = communication_steps
+
+        if compute_steps is None:
+            compute_steps = _DEFAULT_COMPUTE_STEPS
 
         if not isinstance(compute_steps, list):
             compute_steps = [compute_steps]
@@ -338,3 +347,23 @@ class Tracker(object):
         )
 
         return " | ".join(str_builder)
+
+    def record_batch_init(self):
+        """Records the time taken for initializing batch"""
+        self.record_batch_step("init")
+
+    def record_batch_fwd_pass(self):
+        """Records time taken for forward pass"""
+        self.record_batch_step("fwd_pass")
+
+    def record_batch_comp_loss(self):
+        """Records time taken for loss computation"""
+        self.record_batch_step("comp_loss")
+
+    def record_batch_backprop(self):
+        """Record time taken for backpropagation"""
+        self.record_batch_step("backprop")
+
+    def record_batch_opt_step(self):
+        """Records time taken for optimization"""
+        self.record_batch_step("opt_step")

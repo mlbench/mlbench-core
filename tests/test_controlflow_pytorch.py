@@ -2,19 +2,23 @@
 # -*- coding: utf-8 -*-
 
 """Tests for `mlbench_core.controlflow.pytorch` package."""
+import itertools
+import random
 
 import pytest
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-import random
 
-from mlbench_core.controlflow.pytorch import TrainValidation
+from mlbench_core.controlflow.pytorch.helpers import (
+    convert_dtype,
+    iterate_dataloader,
+    maybe_range,
+)
+from mlbench_core.controlflow.pytorch.train_validation import TrainValidation
 from mlbench_core.evaluation.pytorch.metrics import TopKAccuracy
 from mlbench_core.lr_scheduler.pytorch import multistep_learning_rates_with_warmup
-from mlbench_core.utils.pytorch.distributed import AllReduceAggregation
 
 
 @pytest.fixture
@@ -52,7 +56,7 @@ def scheduler(optimizer):
 
 
 def test_instantiation(mocker, model, optimizer, loss_function, metrics, scheduler):
-    mocker.patch("mlbench_core.controlflow.pytorch.controlflow.dist")
+    mocker.patch("mlbench_core.controlflow.pytorch.train_validation.dist")
 
     batch_size = 2
 
@@ -74,7 +78,7 @@ def test_instantiation(mocker, model, optimizer, loss_function, metrics, schedul
 
 
 def test_training(mocker, model, optimizer, loss_function, metrics, scheduler):
-    mocker.patch("mlbench_core.controlflow.pytorch.controlflow.dist")
+    mocker.patch("mlbench_core.controlflow.pytorch.train_validation.dist")
     mocker.patch("mlbench_core.utils.pytorch.distributed.dist")
     mocker.patch("mlbench_core.utils.tracker.LogMetrics")
 
@@ -124,3 +128,56 @@ def test_training(mocker, model, optimizer, loss_function, metrics, scheduler):
     assert tv.tracker.current_epoch == 10
     assert tv.tracker.best_epoch > -1
     assert tv.tracker.best_metric_value > 50.0
+
+
+def test_maybe_range():
+    r = maybe_range(10)
+
+    assert len(r) == 10
+    assert r == range(10)
+
+    r = maybe_range(None)
+
+    assert isinstance(r, itertools.count)
+    assert next(r) == 0
+    assert next(r) == 1
+
+
+def test_convert_dtype():
+    t = torch.IntTensor([0])
+
+    tt = convert_dtype("fp32", t)
+
+    assert tt.dtype == torch.float32
+
+    tt2 = convert_dtype("fp64", t)
+
+    assert tt2.dtype == torch.float64
+
+    with pytest.raises(NotImplementedError):
+        tt3 = convert_dtype("int", t)
+
+
+def test_iterate_dataloader(mocker):
+    dataloader = [
+        (torch.IntTensor([0]), torch.IntTensor([1])),
+        (torch.IntTensor([2]), torch.IntTensor([3])),
+    ]
+
+    it = iterate_dataloader(
+        dataloader, "fp32", max_batch_per_epoch=2, transform_target_type=True
+    )
+
+    first = next(it)
+
+    assert first[0].dtype == torch.float32
+    assert first[1].dtype == torch.float32
+    assert first[0].data.item() == 0.0
+    assert first[1].item() == 1.0
+
+    second = next(it)
+
+    assert second[0].dtype == torch.float32
+    assert second[1].dtype == torch.float32
+    assert second[0].data.item() == 2.0
+    assert second[1].item() == 3.0

@@ -10,26 +10,39 @@ pytorch
 .. autoapimodule:: mlbench_core.controlflow.pytorch
 .. currentmodule:: mlbench_core.controlflow.pytorch
 
-TrainValidation
-+++++++++++++++
+Controlflow
++++++++++++
 
-.. autoapiclass:: TrainValidation
+.. autoapifunction:: validation_round
+
+.. autoapifunction:: record_train_batch_stats
+
+.. autoapifunction:: record_validation_stats
+
+CheckpointsEvaluationControlFlow
+++++++++++++++++++++++++++++++++
+
+.. autoapiclass:: CheckpointsEvaluationControlFlow
+    :members:
+
+TrainValidation (Deprecated)
+++++++++++++++++++++++++++++
+
+.. autoapiclass:: mlbench_core.controlflow.pytorch.train_validation.TrainValidation
     :members:
 
     .. autoapimethod:: __call__
 
-pytorch.gnmt
-~~~~~~~~~~~~
+Helpers
++++++++
 
-.. autoapimodule:: mlbench_core.controlflow.pytorch.gnmt
-.. currentmodule:: mlbench_core.controlflow.pytorch.gnmt
+.. autoapimodule:: mlbench_core.controlflow.pytorch.helpers
+.. currentmodule:: mlbench_core.controlflow.pytorch.helpers
 
-GNMTTrainer
-+++++++++++
-
-
-.. autoapiclass:: GNMTTrainer
-    :members:
+.. autoapifunction:: maybe_range
+.. autoapifunction:: convert_dtype
+.. autoapifunction:: prepare_batch
+.. autoapifunction:: iterate_dataloader
 
 
 tensorflow
