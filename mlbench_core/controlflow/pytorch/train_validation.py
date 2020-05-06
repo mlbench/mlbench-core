@@ -2,6 +2,7 @@
 
 import logging
 
+import deprecation
 from torch import distributed as dist
 
 from mlbench_core.utils import Tracker
@@ -12,6 +13,7 @@ from .helpers import iterate_dataloader
 logger = logging.getLogger("mlbench")
 
 
+@deprecation.deprecated()
 class TrainValidation(object):
     r"""Train and validate a model.
 
