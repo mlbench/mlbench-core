@@ -4,15 +4,13 @@
 """Tests for `mlbench_core.cli` package."""
 
 import pytest
+from click.testing import CliRunner
 from mlbench_core.cli import cli_group
 from google.auth.exceptions import DefaultCredentialsError
 
-# import click
+########################## GLOBALS #################################
 
-create_gcloud = cli_group.commands["create-cluster"].commands["gcloud"].main
-delete_gcloud = cli_group.commands["delete-cluster"].commands["gcloud"].main
-get_status = cli_group.commands["status"]
-delete_run = cli_group.commands["delete"]
+runner = CliRunner()
 
 CREATE_GCLOUD_DEFAULTS = {
     "machine_type": "n1-standard-4",
@@ -24,6 +22,8 @@ CREATE_GCLOUD_DEFAULTS = {
     "preemptible": False,
 }
 
+
+########################## HELPERS #################################
 
 def get_gcloud_cmd_line(args, option_dict=None):
     """
@@ -61,10 +61,92 @@ def get_gcloud_cmd_line(args, option_dict=None):
             str(elem) for option in options for elem in get_array(option)
         ]
 
-        return args + cmd_line_options
+        return cmd_line_options + args
 
     return args
 
+
+def status_mock_helper(mocker, gcloud_mock, run_name):
+    setup = mocker.patch("mlbench_core.cli.cli.setup_client_from_config")
+    setup.return_value = True
+
+    client = gcloud_mock["apiclient"]
+    rundict = {
+        "name": "none" if run_name is None else run_name,
+        "job_id": "",
+        "job_metadata": "",
+        "id": "my-id",
+    }
+
+    client.return_value.get_runs.return_value.result.return_value.json.return_value = [
+        rundict
+    ]
+
+    return client, rundict["id"], rundict["name"]
+
+
+def create_gcloud_test_helper(mocker, gcloud_mock, args, option_dict=None):
+    container_v1 = gcloud_mock["containerv1"]
+    tiller = gcloud_mock["tiller"]
+    auth = gcloud_mock["auth"]
+
+    cluster = container_v1.types.Cluster
+    get_operation = container_v1.ClusterManagerClient.return_value.get_operation
+    nodeconfig = container_v1.types.NodeConfig
+    accelerator = container_v1.types.AcceleratorConfig
+
+    install_release = tiller.return_value.install_release
+
+    if option_dict is not None and "project" in option_dict:
+        project = option_dict["project"]
+    else:
+        _, project = auth()
+
+    cmd_line = get_gcloud_cmd_line(args, option_dict)
+
+    if option_dict is None:
+        option_dict = CREATE_GCLOUD_DEFAULTS
+    else:
+        for k in CREATE_GCLOUD_DEFAULTS:  # add missing defaults
+            if k not in option_dict:
+                option_dict[k] = CREATE_GCLOUD_DEFAULTS[k]
+
+    runner.invoke(cli_group, ["create-cluster", "gcloud"] + cmd_line)
+
+    cluster.assert_called_once()
+    assert cluster.call_args[1]["initial_node_count"] == args[0]  # num_workers
+
+    nodeconfig.assert_called_once()
+    assert nodeconfig.call_args[1]["machine_type"] == option_dict["machine_type"]
+    assert nodeconfig.call_args[1]["disk_size_gb"] == option_dict["disk_size"]
+    assert nodeconfig.call_args[1]["preemptible"] == option_dict["preemptible"]
+
+    tiller.assert_called_once()
+    install_release.assert_called_once()
+
+    assert install_release.call_args[1]["values"]["limits"]["workers"] == args[0] - 1
+    assert (
+        install_release.call_args[1]["values"]["limits"]["gpu"]
+        == option_dict["num_gpus"]
+    )
+    assert (
+        install_release.call_args[1]["values"]["limits"]["cpu"]
+        == option_dict["num_cpus"]
+    )
+
+    get_operation.assert_called()
+    assert option_dict["zone"] in get_operation.call_args[1]["name"]
+    assert project in get_operation.call_args[1]["name"]
+
+    if option_dict["num_gpus"] > 0:
+        num_gpus = option_dict["num_gpus"]
+        gpu_type = option_dict["gpu_type"]
+        accelerator.assert_called_once_with(
+            accelerator_count=num_gpus, accelerator_type=gpu_type
+        )
+
+
+########################## FIXTURES #################################
 
 @pytest.fixture
 def gcloud_auth(mocker):
@@ -132,90 +214,11 @@ def status_mock_no_run(mocker, gcloud_mock):
     return status_mock_helper(mocker, gcloud_mock, None)
 
 
-def status_mock_helper(mocker, gcloud_mock, run_name):
-    setup = mocker.patch("mlbench_core.cli.cli.setup_client_from_config")
-    setup.return_value = True
-
-    client = gcloud_mock["apiclient"]
-    rundict = {
-        "name": "none" if run_name is None else run_name,
-        "job_id": "",
-        "job_metadata": "",
-        "id": "my-id",
-    }
-
-    client.return_value.get_runs.return_value.result.return_value.json.return_value = [
-        rundict
-    ]
-
-    return client, rundict["id"], rundict["name"]
-
-
-def create_gcloud_test_helper(mocker, gcloud_mock, args, option_dict=None):
-    container_v1 = gcloud_mock["containerv1"]
-    tiller = gcloud_mock["tiller"]
-    auth = gcloud_mock["auth"]
-
-    cluster = container_v1.types.Cluster
-    get_operation = container_v1.ClusterManagerClient.return_value.get_operation
-    nodeconfig = container_v1.types.NodeConfig
-    accelerator = container_v1.types.AcceleratorConfig
-
-    install_release = tiller.return_value.install_release
-
-    if option_dict is not None and "project" in option_dict:
-        project = option_dict["project"]
-    else:
-        _, project = auth()
-
-    cmd_line = get_gcloud_cmd_line(args, option_dict)
-
-    if option_dict is None:
-        option_dict = CREATE_GCLOUD_DEFAULTS
-    else:
-        for k in CREATE_GCLOUD_DEFAULTS:  # add missing defaults
-            if k not in option_dict:
-                option_dict[k] = CREATE_GCLOUD_DEFAULTS[k]
-
-    create_gcloud(cmd_line)
-
-    cluster.assert_called_once()
-    assert cluster.call_args[1]["initial_node_count"] == args[0]  # num_workers
-
-    nodeconfig.assert_called_once()
-    assert nodeconfig.call_args[1]["machine_type"] == option_dict["machine_type"]
-    assert nodeconfig.call_args[1]["disk_size_gb"] == option_dict["disk_size"]
-    assert nodeconfig.call_args[1]["preemptible"] == option_dict["preemptible"]
-
-    tiller.assert_called_once()
-    install_release.assert_called_once()
-
-    assert install_release.call_args[1]["values"]["limits"]["workers"] == args[0] - 1
-    assert (
-        install_release.call_args[1]["values"]["limits"]["gpu"]
-        == option_dict["num_gpus"]
-    )
-    assert (
-        install_release.call_args[1]["values"]["limits"]["cpu"]
-        == option_dict["num_cpus"]
-    )
-
-    get_operation.assert_called()
-    assert option_dict["zone"] in get_operation.call_args[1]["name"]
-    assert project in get_operation.call_args[1]["name"]
-
-    if option_dict["num_gpus"] > 0:
-        num_gpus = option_dict["num_gpus"]
-        gpu_type = option_dict["gpu_type"]
-        accelerator.assert_called_once_with(
-            accelerator_count=num_gpus, accelerator_type=gpu_type
-        )
-
+########################## TESTS #################################
 
 def test_invalid_num_workers(mocker, gcloud_auth):
-
-    with pytest.raises(AssertionError):
-        create_gcloud(["1", "test"])
+    res = runner.invoke(cli_group, ["create-cluster", "gcloud", "1", "test"])
+    assert type(res.exception) == AssertionError
 
 
 def test_create_cluster_default(mocker, gcloud_mock):
@@ -257,7 +260,7 @@ def test_delete_cluster(gcloud_mock):
 
     cmd = get_gcloud_cmd_line(args, opts)
 
-    delete_gcloud(cmd)
+    runner.invoke(cli_group, ["delete-cluster", "gcloud"] + cmd)
 
     delete_cluster.assert_called_once()
     get_operation.assert_called_once()
@@ -282,9 +285,9 @@ def test_status(status_mock):
 
     get_run_metrics = client.return_value.get_run_metrics
 
-    cmd = [name, "-u", url]
+    cmd = ["status", name, "-u", url]
 
-    get_status(cmd)
+    runner.invoke(cli_group, cmd)
 
     client.assert_called_once_with(in_cluster=False, url=url, load_config=False)
     get_run_metrics.assert_called()
@@ -299,9 +302,9 @@ def test_status_no_run(status_mock_no_run):
 
     url = "my/test/url"
     name = "my-test-name"
-    cmd = [name, "-u", url]
+    cmd = ["status", name, "-u", url]
 
-    get_status(cmd)
+    runner.invoke(cli_group, cmd)
 
     client.assert_called_once_with(in_cluster=False, url=url, load_config=False)
     assert not get_run_metrics.called
@@ -314,9 +317,10 @@ def test_delete_no_run(status_mock_no_run):
 
     url = "my/test/url"
     name = "my-test-name"
-    cmd = [name, "-u", url]
+    cmd = ["delete", name, "-u", url]
 
-    delete_run(cmd)
+    runner.invoke(cli_group, cmd)
+
     client.assert_called_once_with(in_cluster=False, url=url, load_config=False)
     assert not delete_run_client.called
 
@@ -328,9 +332,9 @@ def test_delete_run(status_mock):
 
     delete_run_client = client.return_value.delete_run
 
-    cmd = [name, "-u", url]
+    cmd = ["delete", name, "-u", url]
 
-    delete_run(cmd)
+    runner.invoke(cli_group, cmd)
 
     client.assert_called_once_with(in_cluster=False, url=url, load_config=False)
     delete_run_client.assert_called_once_with(rid)
