@@ -25,6 +25,7 @@ CREATE_GCLOUD_DEFAULTS = {
 
 ########################## HELPERS #################################
 
+
 def get_gcloud_cmd_line(args, option_dict=None):
     """
     args: (list) command-line arguments
@@ -148,6 +149,7 @@ def create_gcloud_test_helper(mocker, gcloud_mock, args, option_dict=None):
 
 ########################## FIXTURES #################################
 
+
 @pytest.fixture
 def gcloud_auth(mocker):
     m = mocker.patch("google.auth.default")
@@ -216,27 +218,31 @@ def status_mock_no_run(mocker, gcloud_mock):
 
 ########################## TESTS #################################
 
+
 def test_invalid_num_workers(mocker, gcloud_auth):
     res = runner.invoke(cli_group, ["create-cluster", "gcloud", "1", "test"])
     assert type(res.exception) == AssertionError
 
 
 @pytest.mark.parametrize(
-    "args,option_dict", 
+    "args,option_dict",
     [
-        ([3, "test"], None), # default
-        ([3, "test"], {     # non-default
-            "machine_type": "my-custom-type",
-            "disk_size": 20,
-            "num_cpus": 5,
-            "num_gpus": 0,
-            "gpu_type": "my-nvidia-tesla-p100",
-            "zone": "my-europe-west1-b",
-            "preemptible": True,
-            "project": "myproj",
-        }),
-        ([10, "test"], {"num_gpus" : 3}) # with gpu
-    ]
+        ([3, "test"], None),  # default
+        (                     # non-default
+            [3, "test"],
+            {
+                "machine_type": "my-custom-type",
+                "disk_size": 20,
+                "num_cpus": 5,
+                "num_gpus": 0,
+                "gpu_type": "my-nvidia-tesla-p100",
+                "zone": "my-europe-west1-b",
+                "preemptible": True,
+                "project": "myproj",
+            },
+        ),
+        ([10, "test"], {"num_gpus": 3}),  # with gpu
+    ],
 )
 def test_create_cluster(mocker, gcloud_mock, args, option_dict):
     create_gcloud_test_helper(mocker, gcloud_mock, args, option_dict)
