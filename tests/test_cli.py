@@ -117,7 +117,6 @@ def create_gcloud_test_helper(mocker, gcloud_mock, args, option_dict=None):
                             missing options are substituted with the defaults.
     """
 
-
     container_v1 = gcloud_mock["containerv1"]
     tiller = gcloud_mock["tiller"]
     auth = gcloud_mock["auth"]
@@ -184,12 +183,11 @@ def create_gcloud_test_helper(mocker, gcloud_mock, args, option_dict=None):
 @pytest.fixture
 def gcloud_auth(mocker):
     """Patches google.auth.default to bypass authentication"""
-    
+
     m = mocker.patch("google.auth.default")
     m.return_value = (m.credentials, "test_project")
 
     return m
-
 
 
 @pytest.fixture
@@ -272,7 +270,7 @@ def test_invalid_num_workers(mocker, gcloud_auth):
     "args,option_dict",
     [
         ([3, "test"], None),  # default
-        (                     # non-default
+        (  # non-default
             [3, "test"],
             {
                 "machine_type": "my-custom-type",
