@@ -1,16 +1,13 @@
-import torch.distributed as dist
-from .helpers import config_logging
-from .helpers import config_pytorch
-from .helpers import config_path
-from .helpers import Timeit
-from .topology import FCGraph
-
+import os
 from contextlib import contextmanager
 
-import os
 import torch
+import torch.distributed as dist
 
-__all__ = ["initialize_backends", "Timeit", "FCGraph"]
+from .helpers import config_logging, config_path, config_pytorch
+from .topology import FCGraph
+
+__all__ = ["initialize_backends", "FCGraph"]
 
 
 @contextmanager
