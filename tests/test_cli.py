@@ -221,32 +221,24 @@ def test_invalid_num_workers(mocker, gcloud_auth):
     assert type(res.exception) == AssertionError
 
 
-def test_create_cluster_default(mocker, gcloud_mock):
-    args = [3, "test"]
-    create_gcloud_test_helper(mocker, gcloud_mock, args)
-
-
-def test_create_cluster_non_default(mocker, gcloud_mock):
-
-    args = [3, "test"]
-    option_dict = {
-        "machine_type": "my-custom-type",
-        "disk_size": 20,
-        "num_cpus": 5,
-        "num_gpus": 0,
-        "gpu_type": "my-nvidia-tesla-p100",
-        "zone": "my-europe-west1-b",
-        "preemptible": True,
-        "project": "myproj",
-    }
-
-    create_gcloud_test_helper(mocker, gcloud_mock, args, option_dict)
-
-
-def test_create_cluster_gpu(mocker, gcloud_mock):
-    args = [10, "test"]
-    option_dict = {"num_gpus": 3}
-
+@pytest.mark.parametrize(
+    "args,option_dict", 
+    [
+        ([3, "test"], None), # default
+        ([3, "test"], {     # non-default
+            "machine_type": "my-custom-type",
+            "disk_size": 20,
+            "num_cpus": 5,
+            "num_gpus": 0,
+            "gpu_type": "my-nvidia-tesla-p100",
+            "zone": "my-europe-west1-b",
+            "preemptible": True,
+            "project": "myproj",
+        }),
+        ([10, "test"], {"num_gpus" : 3}) # with gpu
+    ]
+)
+def test_create_cluster(mocker, gcloud_mock, args, option_dict):
     create_gcloud_test_helper(mocker, gcloud_mock, args, option_dict)
 
 
