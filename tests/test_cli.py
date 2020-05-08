@@ -158,14 +158,9 @@ def gcloud_auth(mocker):
     return m
 
 
-@pytest.fixture
-def sys_mock(mocker):
-    # Avoid error on SystemExit
-    mocker.patch("mlbench_core.cli.cli.sys.exit")
-
 
 @pytest.fixture
-def gcloud_mock(mocker, gcloud_auth, sys_mock):
+def gcloud_mock(mocker, gcloud_auth):
 
     # One response loop
     container_v1 = mocker.patch("google.cloud.container_v1")
