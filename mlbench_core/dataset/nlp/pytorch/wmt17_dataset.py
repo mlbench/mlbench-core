@@ -266,7 +266,7 @@ class WMT17Dataset(Dataset):
         ignored = []
         for idx in self.ordered_indices(seed=1):
             if not self.valid_size(idx, self._get_max_positions()):
-                # logger.info("Skipped sample {}".format(idx))
+                ignored.append(idx)
                 continue
 
             sample_lens.append(self.num_tokens(idx))
