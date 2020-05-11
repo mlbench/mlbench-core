@@ -2,11 +2,15 @@ import os
 from collections import defaultdict
 from functools import partial
 
-import sacremoses
-import subword_nmt.apply_bpe
 import torch
 
 from . import wmt14_config
+
+try:
+    import sacremoses
+    import subword_nmt.apply_bpe
+except ImportError as e:
+    pass
 
 
 def _pad_vocabulary(vocab, math):
