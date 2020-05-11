@@ -180,7 +180,7 @@ class AllReduceAggregation(Aggregation):
         self.world_size = world_size
         super(AllReduceAggregation, self).__init__(use_cuda=use_cuda)
 
-    def _agg(self, data, op):
+    def _agg(self, data, op, denom=None):
         """Aggregate data using `op` operation.
 
         Args:
@@ -190,25 +190,31 @@ class AllReduceAggregation(Aggregation):
         Returns:
             :obj:`torch.Tensor`: An aggregated tensor.
         """
+        dist.all_reduce(data, op=dist.ReduceOp.SUM)
         if op == "avg":
-            dist.all_reduce(data, op=dist.ReduceOp.SUM)
-            data /= self.world_size
+            data.div_(self.world_size)
+        elif op == "avg_batch" and denom is not None:
+            data.div_(denom)
         else:
             raise NotImplementedError
         return data
 
 
 class AllReduceAggregationHVD(AllReduceAggregation):
-    def _agg(self, data, op):
+    def _agg(self, data, op, denom=None):
         """Aggregate data using `op` operation. Uses horovod library for reduction
         Args:
             data (:obj:`torch.Tensor`): A Tensor to be aggregated (Should be `torch.float16`)
             op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
+            denom (float, optional): Custom denominator to divide
         Returns:
             :obj:`torch.Tensor`: An aggregated tensor.
         """
+        data = hvd.allreduce(data, op=hvd.Sum)
         if op == "avg":
-            data = hvd.allreduce(data, op=hvd.Sum) / self.world_size
+            data.div_(self.world_size)
+        elif op == "avg_batch" and denom is not None:
+            data.div_(denom)
         else:
             raise NotImplementedError
         return data
