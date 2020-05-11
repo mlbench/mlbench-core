@@ -1,7 +1,7 @@
 import bz2
-import math
 import os
 import sys
+import tarfile
 from urllib.request import urlretrieve
 
 
@@ -15,14 +15,14 @@ def progress_download(url, dest):
 
     def _progress(count, block_size, total_size):
         percentage = float(count * block_size) / float(total_size) * 100.0
-        if 0 <= math.floor(percentage % 10) <= 0.2:
+        if percentage % 25 == 0:
             sys.stdout.write(
                 "\r>> Downloading %s %.1f%%" % (os.path.basename(dest), percentage)
             )
             sys.stdout.flush()
 
     urlretrieve(url, dest, _progress)
-    print("Downloaded {} to {}".format(url, dest))
+    print("\nDownloaded {} to {}\n".format(url, dest))
 
 
 def extract_bz2_file(source, dest, delete=True):
@@ -89,3 +89,19 @@ def maybe_download_and_extract_bz2(root, file_name, data_url):
         extract_bz2_file(file_path, extracted_fpath, delete=True)
         file_path = extracted_fpath
     return file_path
+
+
+def maybe_download_and_extract_tar_gz(root, file_name, data_url):
+    if not os.path.exists(root):
+        os.makedirs(root)
+
+    file_path = os.path.join(root, file_name)
+
+    # Download file if not present
+    if len([x for x in os.listdir(root) if x == file_name]) == 0:
+        progress_download(data_url, file_path)
+
+    if file_name.endswith(".tar.gz"):
+        with tarfile.open(file_path, "r:gz") as tar:
+            dirs = [member for member in tar.getmembers()]
+            tar.extractall(path=root, members=dirs)

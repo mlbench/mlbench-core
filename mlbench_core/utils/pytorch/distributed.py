@@ -1,6 +1,11 @@
 import torch
 import torch.distributed as dist
 
+try:
+    import horovod.torch as hvd
+except ImportError as e:
+    pass
+
 
 def global_average(sum, count):
     def helper(array):
@@ -38,6 +43,7 @@ def pack_tensors(tensors, use_cuda=False):
     vec = torch.empty(
         indices[-1],
         device=tensors[0].device if tensors[0].is_cuda and use_cuda else "cpu",
+        dtype=tensors[0].dtype,
     )
 
     for tensor, start_idx, end_idx in zip(tensors, indices[:-1], indices[1:]):
@@ -86,7 +92,7 @@ class Aggregation(object):
         """Aggregate data using `op` operation.
 
         Args:
-            data (:obj:`torch.Tensor`): A Tensor to be aggragated.
+            data (:obj:`torch.Tensor`): A Tensor to be aggregated.
             op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
 
         Returns:
@@ -103,7 +109,7 @@ class Aggregation(object):
         """
         # Pack all layers
         packed, indices, sizes = pack_tensors(
-            [t.data for t in model.parameters()], use_cuda=self.use_cuda
+            [t for t in model.parameters()], use_cuda=self.use_cuda
         )
         aggregated = self._agg(packed, op=op)
 
@@ -120,9 +126,8 @@ class Aggregation(object):
             op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
         """
         # Pack all layers
-
         packed, indices, sizes = pack_tensors(
-            [t.grad.data for t in model.parameters()], use_cuda=self.use_cuda
+            [t.grad for t in model.parameters()], use_cuda=self.use_cuda
         )
         aggregated = self._agg(packed, op=op)
 
@@ -188,6 +193,22 @@ class AllReduceAggregation(Aggregation):
         if op == "avg":
             dist.all_reduce(data, op=dist.ReduceOp.SUM)
             data /= self.world_size
+        else:
+            raise NotImplementedError
+        return data
+
+
+class AllReduceAggregationHVD(AllReduceAggregation):
+    def _agg(self, data, op):
+        """Aggregate data using `op` operation. Uses horovod library for reduction
+        Args:
+            data (:obj:`torch.Tensor`): A Tensor to be aggregated (Should be `torch.float16`)
+            op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
+        Returns:
+            :obj:`torch.Tensor`: An aggregated tensor.
+        """
+        if op == "avg":
+            data = hvd.allreduce(data, op=hvd.Sum) / self.world_size
         else:
             raise NotImplementedError
         return data

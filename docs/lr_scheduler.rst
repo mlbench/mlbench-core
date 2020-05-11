@@ -26,6 +26,7 @@ cyclical_learning_rates
 
 .. autoapifunction:: cyclical_learning_rates
 
+
 multistep_learning_rates_with_warmup
 ++++++++++++++++++++++++++++++++++++
 
@@ -38,6 +39,11 @@ multistep_learning_rates_with_warmup
 .. bibliography:: lr_scheduler.bib
    :cited:
 
+ExponentialWarmupMultiStepLR
+++++++++++++++++++++++++++++
+
+.. autoapiclass:: ExponentialWarmupMultiStepLR
+    :members:
 
 tensorflow
 ~~~~~~~~~~

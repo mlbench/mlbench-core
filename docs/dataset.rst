@@ -49,6 +49,27 @@ Imagenet
 .. autoapiclass:: Imagenet
     :members:
 
+translation
+~~~~~~~~~~~
+
+.. autoapimodule:: mlbench_core.dataset.translation
+.. currentmodule:: mlbench_core.dataset.translation
+
+pytorch
++++++++
+
+.. autoapimodule:: mlbench_core.dataset.nlp.pytorch
+.. currentmodule:: mlbench_core.dataset.nlp.pytorch
+
+WMT14
+'''''
+
+.. autoapiclass:: WMT14Dataset
+    :members:
+
+.. autoapimodule:: mlbench_core.dataset.nlp.pytorch.wmt14.wmt14_tokenizer
+    :members:
+
 tensorflow
 ++++++++++
 

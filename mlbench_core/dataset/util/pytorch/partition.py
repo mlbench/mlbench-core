@@ -34,6 +34,9 @@ class Partition(object):
         data_idx = self.indices[index]
         return self.data[data_idx]
 
+    def __getattr__(self, item):
+        return self.data.__dict__[item]
+
 
 class Partitioner(object):
     """Use a partition of dataset."""
@@ -44,9 +47,9 @@ class Partitioner(object):
             random.shuffle(indices)
 
         # broadcast.
-        indices = torch.IntTensor(indices)
+        indices = get_backend_tensor(torch.IntTensor(indices))
 
-        dist.broadcast(get_backend_tensor(indices), src=0)
+        dist.broadcast(indices, src=0)
 
         return list(indices)
 
