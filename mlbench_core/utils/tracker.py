@@ -47,6 +47,7 @@ class Tracker(object):
         goal=None,
         communication_steps=None,
         compute_steps=None,
+        minimize=False,
     ):
         self.batch_times = []
         self.validation_times = []
