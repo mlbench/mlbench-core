@@ -4,9 +4,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from mlbench_core.models.pytorch.transformer import utils
 from mlbench_core.models.pytorch.transformer.modules import (
-    AdaptiveSoftmax,
     PositionalEmbedding,
     SinusoidalPositionalEmbedding,
     TransformerDecoderLayer,
@@ -62,16 +60,8 @@ class TransformerDecoder(nn.Module):
                 for _ in range(args.decoder_layers)
             ]
         )
-        self.adaptive_softmax = None
 
-        if args.adaptive_softmax_cutoff is not None:
-            self.adaptive_softmax = AdaptiveSoftmax(
-                len(dictionary),
-                args.decoder_embed_dim,
-                utils.eval_str_list(args.adaptive_softmax_cutoff, type=int),
-                dropout=args.dropout,
-            )
-        elif not self.share_input_output_embed:
+        if not self.share_input_output_embed:
             self.embed_out = nn.Parameter(torch.Tensor(len(dictionary), embed_dim))
             nn.init.normal_(self.embed_out, mean=0, std=embed_dim ** -0.5)
         self.normalize = args.decoder_normalize_before
@@ -121,12 +111,11 @@ class TransformerDecoder(nn.Module):
         # T x B x C -> B x T x C
         x = x.transpose(0, 1)
 
-        if self.adaptive_softmax is None:
-            # project back to size of vocabulary
-            if self.share_input_output_embed:
-                x = F.linear(x, self.embed_tokens.weight)
-            else:
-                x = F.linear(x, self.embed_out)
+        # project back to size of vocabulary
+        if self.share_input_output_embed:
+            x = F.linear(x, self.embed_tokens.weight)
+        else:
+            x = F.linear(x, self.embed_out)
 
         return x, attn
 
@@ -189,12 +178,6 @@ class TransformerDecoder(nn.Module):
 
     def get_normalized_probs(self, net_output, log_probs, sample):
         """Get normalized probabilities (or log probs) from a net's output."""
-
-        if hasattr(self, "adaptive_softmax") and self.adaptive_softmax is not None:
-            assert sample is not None and "target" in sample
-            out = self.adaptive_softmax.get_log_prob(net_output[0], sample["target"])
-            return out.exp_() if not log_probs else out
-
         logits = net_output[0]
         if log_probs:
             return F.log_softmax(logits, dim=-1, dtype=torch.float32)

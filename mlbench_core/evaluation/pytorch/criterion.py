@@ -1,7 +1,6 @@
 """Customized Loss Functions."""
 
 import torch
-from torch import nn
 import torch.nn.functional as F
 from torch.nn.modules.loss import _Loss, _WeightedLoss
 
@@ -157,12 +156,12 @@ class MSELossRegularized(_WeightedLoss):
         return output
 
 
-class LabelSmoothing(nn.Module):
+class LabelSmoothing(_Loss):
     """
     NLL loss with label smoothing.
     """
 
-    def __init__(self, padding_idx, smoothing=0.0):
+    def __init__(self, padding_idx, smoothing=0.0, fast_xentropy=False):
         """
         Constructor for the LabelSmoothing module.
 
@@ -174,71 +173,27 @@ class LabelSmoothing(nn.Module):
         self.padding_idx = padding_idx
         self.confidence = 1.0 - smoothing
         self.smoothing = smoothing
-
-    def forward(self, x, target):
-        logprobs = torch.nn.functional.log_softmax(x, dim=-1).type(torch.float32)
-
-        non_pad_mask = target != self.padding_idx
-        nll_loss = -logprobs.gather(dim=-1, index=target.unsqueeze(1))
-        nll_loss = nll_loss.squeeze(1)[non_pad_mask]
-        smooth_loss = -logprobs.mean(dim=-1)[non_pad_mask]
-        loss = self.confidence * nll_loss + self.smoothing * smooth_loss
-        return loss.sum()
-
-
-# Taken from MLPerf
-class LabelSmoothedCrossEntropy(_Loss):
-    def __init__(
-        self,
-        model,
-        label_smoothing,
-        padding_idx,
-        sentence_avg=False,
-        fast_xentropy=False,
-    ):
-        super(LabelSmoothedCrossEntropy, self).__init__()
-        self.eps = label_smoothing
-        self.padding_idx = padding_idx
-        self.sentence_avg = sentence_avg
+        self.fast_xentropy = fast_xentropy
 
         if fast_xentropy and apex_installed:
             self.xentropy_func = SoftmaxCrossEntropyLoss.apply
         else:
             self.xentropy_func = None
 
-        self.model = model
-
-    def forward(self, sample, output, reduce=True):
-
-        target = sample["target"]
-        target = target.view(-1, 1)
-        if self.xentropy_func is not None:
-            assert (output[0].dtype == torch.float16) or (
-                output[0].dtype == torch.float32
+    def forward(self, x, target):
+        if self.fast_xentropy:
+            assert (x.dtype == torch.float16) or (
+                x.dtype == torch.float32
             ), "Unsupported data types"
-            output = output[0].view(
-                output[0].size(0) * output[0].size(1), output[0].size(2)
+            loss = self.xentropy_func(
+                x, target, self.smoothing, self.padding_idx, x.dtype == torch.float16,
             )
-            labels = target.view(target.size(0) * target.size(1))
-            losses = self.xentropy_func(
-                output,
-                labels,
-                self.eps,
-                self.padding_idx,
-                output[0].dtype == torch.float16,
-            )
-            loss = losses.sum()
-        else:
-            lprobs = self.model.get_normalized_probs(output, log_probs=True)
-            lprobs = lprobs.view(-1, lprobs.size(-1))
-            non_pad_mask = target.ne(self.padding_idx)
-            nll_loss = -lprobs.gather(dim=-1, index=target)[non_pad_mask]
-            smooth_loss = -lprobs.sum(dim=-1, keepdim=True)[non_pad_mask]
-            if reduce:
-                nll_loss = nll_loss.sum()
-                smooth_loss = smooth_loss.sum()
-            eps_i = self.eps / lprobs.size(-1)
-            loss = (1.0 - self.eps) * nll_loss + eps_i * smooth_loss
 
-        sample_size = target.size(0) if self.sentence_avg else sample["ntokens"]
-        return loss, sample_size
+        else:
+            logprobs = torch.nn.functional.log_softmax(x, dim=-1).type(torch.float32)
+            non_pad_mask = target != self.padding_idx
+            nll_loss = -logprobs.gather(dim=-1, index=target.unsqueeze(1))
+            nll_loss = nll_loss.squeeze(1)[non_pad_mask]
+            smooth_loss = -logprobs.mean(dim=-1)[non_pad_mask]
+            loss = self.confidence * nll_loss + self.smoothing * smooth_loss
+        return loss.sum()
