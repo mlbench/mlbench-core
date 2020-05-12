@@ -502,10 +502,10 @@ def delete_gcloud(name, zone, project):
 
 
 @delete_cluster.command("kind")
-@click.option("--cluster_name", "-n", default="kind", type=str)
-def delete_gcloud(cluster_name):
+@click.argument("name", type=str)
+def delete_kind(name):
     p = subprocess.Popen(
-        ["kind", "delete", "cluster", "--name", cluster_name],
+        ["kind", "delete", "cluster", "--name", name],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
@@ -815,22 +815,18 @@ def create_gcloud(
 @click.argument("num_workers", type=int, metavar="num-workers")
 @click.argument("release", type=str)
 @click.argument("mlbench_helm_path", type=str)
-@click.option("--cluster_name", "-n", default="kind", type=str)
 @click.option("--registry_name", "-r", default="kind-registry", type=str)
 @click.option("--registry_port", "-p", default="5000", type=str)
 @click.option("--num-cpus", "-c", default=1, type=int)
 @click.option("--num-gpus", "-g", default=0, type=int)
-@click.option("--custom-value", "-v", multiple=True)
 def create_kind(
     num_workers,
     release,
     mlbench_helm_path,
-    cluster_name,
     registry_name,
     registry_port,
     num_cpus,
     num_gpus,
-    custom_value,
 ):
     # check if local registry exists
     p = subprocess.Popen(
@@ -896,7 +892,9 @@ def create_kind(
             )
         )
 
-    click.echo("Creating cluster {}".format((cluster_name)))
+    name = "{}-{}".format(release, num_workers)
+
+    click.echo("Creating cluster {}".format((name)))
 
     p = subprocess.Popen(
         [
@@ -904,7 +902,7 @@ def create_kind(
             "create",
             "cluster",
             "--name",
-            cluster_name,
+            name,
             "--config",
             kind_config_file_location,
         ],
@@ -1004,7 +1002,7 @@ def create_kind(
             "--timeout",
             "900s",
             "--install",
-            release,
+            name,
             mlbench_helm_path,
         ],
         stdout=subprocess.PIPE,
