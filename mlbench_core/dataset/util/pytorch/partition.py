@@ -1,7 +1,8 @@
 r"""Partition PyTorch datasets."""
+import logging
+
 # -*- coding: utf-8 -*-
 import random
-import logging
 
 import numpy as np
 import torch
@@ -35,7 +36,7 @@ class Partition(object):
         return self.data[data_idx]
 
     def __getattr__(self, item):
-        return self.data.__dict__[item]
+        return self.data.__getattribute__(item)
 
 
 class Partitioner(object):
@@ -51,7 +52,7 @@ class Partitioner(object):
 
         dist.broadcast(indices, src=0)
 
-        return list(indices)
+        return indices.tolist()
 
 
 class DataPartitioner(Partitioner):
