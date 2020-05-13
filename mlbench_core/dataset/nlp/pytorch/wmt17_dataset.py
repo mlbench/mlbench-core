@@ -17,59 +17,6 @@ from mlbench_core.dataset.util.tools import maybe_download_and_extract_tar_gz
 logger = logging.getLogger("mlbench")
 
 
-def collate(
-    samples,
-    pad_idx,
-    eos_idx,
-    left_pad_source=True,
-    left_pad_target=False,
-    bsz_mult=8,
-    seq_len_multiple=1,
-):
-    if len(samples) == 0:
-        return {}
-
-    def merge(key, left_pad, move_eos_to_beginning=False):
-        return collate_tokens(
-            [s[key] for s in samples],
-            pad_idx,
-            eos_idx,
-            left_pad,
-            move_eos_to_beginning,
-            bsz_mult,
-            seq_len_multiple,
-        )
-
-    id = torch.LongTensor([s["id"] for s in samples])
-    src_tokens = merge("source", left_pad=left_pad_source)
-    # sort by descending source length
-    src_lengths = torch.LongTensor([s["source"].numel() for s in samples])
-
-    prev_output_tokens = None
-    target = None
-    if samples[0].get("target", None) is not None:
-        target = merge("target", left_pad=left_pad_target)
-        # we create a shifted version of targets for feeding the
-        # previous output token(s) into the next decoder step
-        prev_output_tokens = merge(
-            "target", left_pad=left_pad_target, move_eos_to_beginning=True,
-        )
-        ntokens = sum(len(s["target"]) for s in samples)
-    else:
-        ntokens = sum(len(s["source"]) for s in samples)
-
-    return {
-        "id": id,
-        "ntokens": ntokens,
-        "net_input": {
-            "src_tokens": src_tokens,
-            "src_lengths": src_lengths,
-            "prev_output_tokens": prev_output_tokens,
-        },
-        "target": target,
-    }
-
-
 class WMT17Dataset(Dataset):
     urls = [
         (
@@ -131,7 +78,7 @@ class WMT17Dataset(Dataset):
             root, "{}.{}-{}.{}".format(self.prefix, src_lang, trg_lang, trg_lang)
         )
 
-        assert self.exists()
+        assert self._exists()
 
         self.src_data = IndexedDataset(self.src_path)
         self.trg_data = IndexedDataset(self.trg_path)
@@ -148,7 +95,7 @@ class WMT17Dataset(Dataset):
     def __len__(self):
         return len(self.src_data)
 
-    def exists(self):
+    def _exists(self):
 
         return (
             os.path.exists(index_file_path(self.src_path))
@@ -166,7 +113,7 @@ class WMT17Dataset(Dataset):
 
     def collater(self, samples):
         """Merge a list of samples to form a mini-batch."""
-        return collate(
+        return _collate(
             samples,
             pad_idx=self.src_dict.pad(),
             eos_idx=self.src_dict.eos(),
@@ -203,48 +150,21 @@ class WMT17Dataset(Dataset):
             ]
         )
 
-    def num_tokens(self, index):
-        """Return an example's length (number of tokens), used for batching.
-
-        Args:
-            index: points to the sequence pair
-        """
-        n_tok_per_seq = max(
-            self.src_sizes[index],
-            self.trg_sizes[index] if self.trg_sizes is not None else 0,
-        )
-
-        assert self.seq_len_multiple > 0, "Padding multiple has to be greater than 0"
-        # Padded seq len, rounded up to next multiple
-        n_tok_per_seq = (
-            (n_tok_per_seq + self.seq_len_multiple - 1)
-            // self.seq_len_multiple
-            * self.seq_len_multiple
-        )
-
-        return n_tok_per_seq
-
-    def ordered_indices(self, seed=None, epoch=1):
+    def ordered_indices(self, partition_indices=None, seed=None):
         """Ordered indices for batching."""
         if self.shuffle:
-            indices = np.random.RandomState(seed + epoch).permutation(len(self))
+            indices = np.random.RandomState(seed).permutation(
+                len(self) if partition_indices is None else partition_indices
+            )
         else:
-            indices = np.arange(len(self))
+            indices = (
+                np.arange(len(self)) if partition_indices is None else partition_indices
+            )
 
         if self.trg_sizes is not None:
             indices = indices[np.argsort(self.trg_sizes[indices], kind="mergesort")]
 
         return indices[np.argsort(self.src_sizes[indices], kind="mergesort")]
-
-    def valid_size(self, index, max_positions):
-        """Check if an example's size is valid according to max_positions."""
-        max_source_positions, max_target_positions = self._get_max_positions(
-            max_positions
-        )
-
-        return self.src_sizes[index] <= max_source_positions and (
-            self.trg_sizes is None or self.trg_sizes[index] <= max_target_positions
-        )
 
     def _get_max_positions(self, max_positions=None):
         if max_positions is None:
@@ -259,45 +179,63 @@ class WMT17Dataset(Dataset):
             min(self.max_target_positions, max_tgt_pos),
         )
 
-    def batch_generator(self, max_tokens, max_sentences=None, bsz_mult=8):
-        batch = []
-        sample_len = 0
-        sample_lens = []
-        ignored = []
-        for idx in self.ordered_indices(seed=1):
-            if not self.valid_size(idx, self._get_max_positions()):
-                ignored.append(idx)
-                continue
 
-            sample_lens.append(self.num_tokens(idx))
-            sample_len = max(sample_len, sample_lens[-1])
-            num_tokens = (len(batch) + 1) * sample_len
+def _collate(
+    samples,
+    pad_idx,
+    eos_idx,
+    left_pad_source=True,
+    left_pad_target=False,
+    bsz_mult=8,
+    seq_len_multiple=1,
+):
+    if len(samples) == 0:
+        return {}
 
-            if is_batch_full(batch, num_tokens, max_tokens, max_sentences):
-                mod_len = max(
-                    bsz_mult * (len(batch) // bsz_mult), len(batch) % bsz_mult,
-                )
-                yield batch[:mod_len]
-                batch = batch[mod_len:]
-                sample_lens = sample_lens[mod_len:]
-                sample_len = max(sample_lens) if len(sample_lens) > 0 else 0
+    def merge(key, left_pad, move_eos_to_beginning=False):
+        return collate_tokens(
+            [s[key] for s in samples],
+            pad_idx,
+            eos_idx,
+            left_pad,
+            move_eos_to_beginning,
+            bsz_mult,
+            seq_len_multiple,
+        )
 
-            batch.append(idx)
+    id = torch.LongTensor([s["id"] for s in samples])
+    src_tokens = merge("source", left_pad=left_pad_source)
+    # sort by descending source length
+    src_lengths = torch.LongTensor([s["source"].numel() for s in samples])
 
-        if len(batch) > 0:
-            yield batch
+    prev_output_tokens = None
+    target = None
+    if samples[0].get("target", None) is not None:
+        target = merge("target", left_pad=left_pad_target)
+        # we create a shifted version of targets for feeding the
+        # previous output token(s) into the next decoder step
+        prev_output_tokens = merge(
+            "target", left_pad=left_pad_target, move_eos_to_beginning=True,
+        )
+        ntokens = sum(len(s["target"]) for s in samples)
+    else:
+        ntokens = sum(len(s["source"]) for s in samples)
 
-        if len(ignored) > 0:
-            print(
-                (
-                    "| WARNING: {} samples have invalid sizes and will be skipped, max_positions={}, first few sample ids={}"
-                ).format(len(ignored), self._get_max_positions(), ignored[:10])
-            )
+    return {
+        "id": id,
+        "ntokens": ntokens,
+        "net_input": {
+            "src_tokens": src_tokens,
+            "src_lengths": src_lengths,
+            "prev_output_tokens": prev_output_tokens,
+        },
+        "target": target,
+    }
 
 
 def collater_isolated(samples, seq_len_multiple, left_pad_source, left_pad_target):
     """Merge a list of samples to form a mini-batch."""
-    return collate(
+    return _collate(
         samples,
         pad_idx=1,
         eos_idx=2,
@@ -306,19 +244,6 @@ def collater_isolated(samples, seq_len_multiple, left_pad_source, left_pad_targe
         bsz_mult=8,
         seq_len_multiple=seq_len_multiple,
     )
-
-
-def is_batch_full(batch, num_tokens, max_tokens, max_sentences):
-    if len(batch) == 0:
-        return False
-
-    if max_sentences is not None and len(batch) == max_sentences:
-        return True
-
-    if num_tokens > max_tokens:
-        return True
-
-    return False
 
 
 def get_dummy_batch_isolated(max_tokens_per_batch, max_positions, seq_len_multiple):

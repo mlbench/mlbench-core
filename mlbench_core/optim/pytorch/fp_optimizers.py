@@ -1,22 +1,48 @@
-# import ctypes
 import logging
-import math
 
 import torch
-import torch.distributed as dist
-from mlbench_core.utils.pytorch.distributed import (
-    AllReduceAggregationHVD,
-    AllReduceAggregation,
-)
 from torch.nn.utils import clip_grad_norm_
 
+from mlbench_core.utils.pytorch.distributed import (
+    AllReduceAggregation,
+    AllReduceAggregationHVD,
+)
+
 try:
-    from apex.optimizers import FusedAdam
     from apex import amp
 except ImportError as e:
     pass
 
 logger = logging.getLogger("mlbench")
+
+
+class DynamicLossScaler:
+    def __init__(
+        self, init_scale=2.0 ** 15, scale_factor=2.0, scale_window=2000, max_scale=None
+    ):
+        self.loss_scale = init_scale
+        self.scale_factor = scale_factor
+        self.scale_window = scale_window
+        self._iter = 0
+        self._last_overflow_iter = -1
+        self.max_scale = max_scale
+
+    def update_scale(self, overflow):
+        if overflow:
+            self.loss_scale /= self.scale_factor
+            self._last_overflow_iter = self._iter
+        elif (self._iter - self._last_overflow_iter) % self.scale_window == 0:
+            self.loss_scale *= self.scale_factor
+            if self.max_scale is not None:
+                self.loss_scale = min(self.loss_scale, self.max_scale)
+        self._iter += 1
+
+    @staticmethod
+    def has_overflow(grad_norm):
+        # detect inf and nan
+        if grad_norm == float("inf") or grad_norm != grad_norm:
+            return True
+        return False
 
 
 class FP16Optimizer:
@@ -31,11 +57,13 @@ class FP16Optimizer:
         use_horovod (bool): Use Horovod for aggregation
         by_layer (bool): Aggregate by layer
         grad_clip (float): coefficient for gradient clipping, max L2 norm of the gradients
-        loss_scale (int):  initial loss scale
-        dls_downscale (int): loss downscale factor, loss scale is divided by this factor when NaN/INF occurs in the gradients
-        dls_upscale (int): loss upscale factor, loss scale is multiplied by this factor if previous dls_upscale_interval batches finished successfully
-        dls_upscale_interval (int): interval for loss scale upscaling
+        init_scale (int):  initial loss scale
+        scale_factor (float): Factor for upscale/dowscale
+        scale_window (int): interval for loss scale upscaling
         average_models (bool): Average the models
+        average_batch (bool): Divide gradients by given denominator at each step, instead
+            of `world_size`
+        divide_before (bool): Divide gradients before reduction (default: False)
     """
 
     def __init__(
@@ -46,37 +74,44 @@ class FP16Optimizer:
         use_horovod=False,
         by_layer=False,
         grad_clip=float("inf"),
-        loss_scale=1024,
-        dls_downscale=2,
-        dls_upscale=2,
-        dls_upscale_interval=128,
-        average_models=True,
+        init_scale=1024,
+        scale_factor=2,
+        scale_window=128,
+        max_scale=None,  # TODO max scale for GNMT is 8192.0
+        min_scale=1e-4,
+        average_models=False,
+        average_batch=False,
+        divide_before=False,
     ):
         self.use_cuda = use_cuda
 
         self.fp16_model = fp16_model
-        self.fp16_params, self.fp32_params = self.initialize_flat_fp32_weight()
-        self.since_last_invalid = 0
-        self.loss_scale = loss_scale
-        self.dls_downscale = dls_downscale
-        self.dls_upscale = dls_upscale
-        self.dls_upscale_interval = dls_upscale_interval
+        self.fp32_params = self.initialize_flat_fp32_weight()
+
+        self.loss_scaler = DynamicLossScaler(
+            init_scale=init_scale,
+            scale_factor=scale_factor,
+            scale_window=scale_window,
+            max_scale=max_scale,
+        )
+        self.min_scale = min_scale
         self.grad_clip = grad_clip
-        self.world_size = dist.get_world_size()
 
         self.optimizer = None
 
         if use_horovod:
             self.agg = AllReduceAggregationHVD(
-                world_size=world_size, use_cuda=use_cuda
+                world_size=world_size, use_cuda=use_cuda, divide_before=divide_before
             ).agg_grad(by_layer=by_layer)
         else:
             self.agg = AllReduceAggregation(
-                world_size=world_size, use_cuda=use_cuda
+                world_size=world_size, use_cuda=use_cuda, divide_before=divide_before
             ).agg_grad(by_layer=by_layer)
 
         if average_models:
             self.agg_mode = "avg"
+        elif average_batch:
+            self.agg_mode = "avg_batch"
         else:
             raise NotImplementedError("Only average model is supported right now.")
 
@@ -85,48 +120,30 @@ class FP16Optimizer:
 
     # Flattening master weight
     def initialize_flat_fp32_weight(self):
-        """ Initializes the model's parameters in fp32 and fp16
+        """ Initializes the model's parameters in fp32
 
         Returns:
-            (torch.Tensor, torch.Tensor): The Parametrs in fp16 and fp32
+            (`obj`:torch.Tensor): The Parameters in fp32
         """
-        # Set all gradients to None
-        for p in self.fp16_model.parameters():
-            p.grad = None
+        # Get all params that require gradient
+        params = [p for p in self.fp16_model.parameters() if p.requires_grad]
+        total_param_size = sum(p.data.numel() for p in params)
 
-        # Count number of parameters per layer
-        nelem = 0
-        for p in self.fp16_model.parameters():
-            nelem += p.numel()
-        fp32_params = torch.empty(
-            nelem,
-            dtype=torch.float32,
-            device=torch.device("cuda" if self.use_cuda else "cpu"),
-        )
-        fp16_params = torch.empty(
-            nelem,
-            dtype=torch.float16,
-            device=torch.device("cuda" if self.use_cuda else "cpu"),
-        )
-
-        pointer = 0
-        for p in self.fp16_model.parameters():
-            nelem = p.numel()
-            fp32_params[pointer : pointer + nelem].copy_(p.data.view(-1))
-            fp16_params[pointer : pointer + nelem].copy_(p.data.view(-1))
-            pointer += nelem
+        # Create new fp32 params
+        fp32_params = params[0].new(0).float().new(total_param_size)
+        offset = 0
+        for p in params:
+            numel = p.data.numel()
+            fp32_params[offset : offset + numel].copy_(p.data.view(-1))
+            offset += numel
 
         fp32_params = torch.nn.Parameter(fp32_params, requires_grad=True)
+
         fp32_params.grad = torch.autograd.Variable(
             fp32_params.data.new(*fp32_params.size())
         )
 
-        fp16_params = torch.nn.Parameter(fp16_params, requires_grad=True)
-        fp16_params.grad = torch.autograd.Variable(
-            fp16_params.data.new(*fp16_params.size())
-        )
-
-        return fp16_params, fp32_params
+        return fp32_params
 
     @staticmethod
     def fp16_to_fp32_flat_grad(fp32_params, fp16_model):
@@ -137,14 +154,13 @@ class FP16Optimizer:
             fp16_model (torch.nn.Module): Model in fp16
 
         """
-        pointer = 0
-        for p in fp16_model.parameters():
-            nelem = p.numel()
-            fp32_params.grad.data[pointer : pointer + nelem].copy_(p.grad.data.view(-1))
-            pointer += nelem
+        flat_grads = torch.cat(
+            [p.grad.data.view(-1) for p in fp16_model.parameters() if p.requires_grad]
+        )
+        fp32_params.grad = flat_grads.to(torch.float32)
 
     @staticmethod
-    def fp32_to_fp16_grads(fp16_model, fp32_params):
+    def fp32_to_fp16_weights(fp16_model, fp32_params):
         """ Copies the parameters in `fp32_params` into `fp16_model` in-place
 
          Args:
@@ -152,11 +168,16 @@ class FP16Optimizer:
              fp32_params (torch.Tensor): Parameters in fp32
 
          """
-        pointer = 0
-        for p in fp16_model.parameters():
-            nelem = p.numel()
-            p.data.view(-1).copy_(fp32_params.data[pointer : pointer + nelem])
-            pointer += nelem
+        with torch.no_grad():
+            pointer = 0
+            for p in fp16_model.parameters():
+                if not p.requires_grad:
+                    continue
+                nelem = p.numel()
+                p.data.copy_(
+                    fp32_params.data[pointer : pointer + nelem].view_as(p.data)
+                )
+                pointer += nelem
 
     def backward_loss(self, loss):
         """ Scales and performs backward on the given loss
@@ -165,10 +186,10 @@ class FP16Optimizer:
             loss (torch.nn.Module): The loss
 
         """
-        loss *= self.loss_scale
+        loss *= self.loss_scaler.loss_scale
         loss.backward()
 
-    def step(self, closure=None):
+    def step(self, closure=None, multiplier=1, denom=None):
         """
         Performs one step of the optimizer.
         Applies loss scaling, computes gradients in fp16, converts gradients to
@@ -180,42 +201,47 @@ class FP16Optimizer:
 
         Args:
             closure (callable, optional): A closure that reevaluates the model and returns the loss.
+            multiplier (float): Multiplier for gradient scaling. Gradient will be scaled using
+                `scaled_grad = reduced_grad / (loss_scaler * multiplier)`
+            denom (:obj:`torch.Tensor`, optional): Custom denominator to average by
+                Use with `average_batch`. (default: `None`)
         """
 
-        scaling_factor = self.loss_scale
+        scaling_factor = self.loss_scaler.loss_scale * multiplier
 
         # Aggregate gradients
-        self.agg(self.fp16_model, self.agg_mode)
-        # Cast fp16 params to fp32 for optimizer
+        self.agg(self.fp16_model, self.agg_mode, denom=denom)
+
+        # Cast fp16 grads to fp32 for optimizer
         self.fp16_to_fp32_flat_grad(self.fp32_params, self.fp16_model)
 
+        # UnScale gradients
         if scaling_factor != 1.0:
-            self.fp32_params.grad.data /= scaling_factor
-        norm = clip_grad_norm_([self.fp32_params], self.grad_clip)
+            self.fp32_params.grad.data.div_(scaling_factor)
 
+        # Clip and compute gradient norm
+        norm = clip_grad_norm_([self.fp32_params], self.grad_clip)
         updated = False
-        if math.isfinite(norm):
+        overflow = self.loss_scaler.has_overflow(norm)
+        self.loss_scaler.update_scale(overflow)
+
+        if not overflow:
             self.optimizer.step(closure=closure)
-            self.fp32_to_fp16_grads(self.fp16_model, self.fp32_params)
-            self.since_last_invalid += 1
+            self.fp32_to_fp16_weights(self.fp16_model, self.fp32_params)
             updated = True
         else:
-            self.loss_scale /= self.dls_downscale
-            self.since_last_invalid = 0
-            logger.info(f"Skipped batch, new scale: {self.loss_scale}")
-
-        if self.since_last_invalid >= self.dls_upscale_interval:
-            self.loss_scale *= self.dls_upscale
-            self.loss_scale = min(self.loss_scale, 8192.0)
-            self.since_last_invalid = 0
-
-        for p in self.fp16_model.parameters():
-            p.grad = None
+            if self.loss_scaler.loss_scale <= self.min_scale:
+                raise Exception(
+                    "Minimum loss scale ({}) reached".format(self.min_scale)
+                )
+            logger.info(f"Skipped batch, new scale: {self.loss_scaler.loss_scale}")
 
         return updated
 
     def zero_grad(self):
+        """Resets the gradients of the optimizer and fp16_model"""
         self.optimizer.zero_grad()
+        self.fp16_model.zero_grad()
 
 
 class FP32Optimizer:
@@ -229,6 +255,9 @@ class FP32Optimizer:
         by_layer (bool): Aggregate by layer
         grad_clip (float): coefficient for gradient clipping, max L2 norm of the gradients
         average_models (bool): Average the models
+        average_batch (bool): Divide gradients by given denominator at each step, instead
+            of `world_size`
+        divide_before (bool): Divide gradients before reduction (default: False)
     """
 
     def __init__(
@@ -237,31 +266,45 @@ class FP32Optimizer:
         world_size,
         use_cuda=False,
         by_layer=False,
-        grad_clip=None,
-        average_models=True,
+        grad_clip=float("inf"),
+        average_models=False,
+        average_batch=False,
+        divide_before=False,
     ):
         self.model = model
         self.grad_clip = grad_clip
         self.optimizer = None
-        self.agg = AllReduceAggregation(
-            world_size=world_size, use_cuda=use_cuda
-        ).agg_grad(by_layer=by_layer)
+
         if average_models:
             self.agg_mode = "avg"
+        elif average_batch:
+            self.agg_mode = "avg_batch"
         else:
             raise NotImplementedError("Only average model is supported right now.")
+
+        self.agg = AllReduceAggregation(
+            world_size=world_size, use_cuda=use_cuda, divide_before=divide_before
+        ).agg_grad(by_layer=by_layer)
 
     def set_optimizer(self, optimizer):
         self.optimizer = optimizer
 
-    def step(self, closure=None):
+    def step(self, closure=None, denom=None):
         """
         Performs one step of the optimizer.
+
+        Args:
+            closure (callable): Optimizer closure argument
+            denom (:obj:`torch.Tensor`, optional): Custom denominator to reduce by
         """
+        # Aggregate gradients
+        self.agg(self.model, self.agg_mode, denom=denom)
+
+        # Clip norm
         if self.grad_clip != float("inf"):
             clip_grad_norm_(self.model.parameters(), self.grad_clip)
 
-        self.agg(self.model, self.agg_mode)
+        # Optimizer step
         self.optimizer.step(closure=closure)
         return True
 
