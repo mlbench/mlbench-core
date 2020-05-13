@@ -29,7 +29,10 @@ from collections import Counter
 
 import torch
 
-from . import indexed_dataset, sub_tokenizer
+from mlbench_core.dataset.nlp.pytorch.wmt17.preprocess import (
+    indexed_dataset,
+    sub_tokenizer,
+)
 
 # Data sources for training/evaluating the transformer translation model.
 # If any of the training sources are changed, then either:
@@ -522,9 +525,10 @@ def main():
 
     # Copy test files to data_dir
     test_files = [
-        os.path.join(curr_dir, "newtest2014.en"),
-        os.path.join(curr_dir, "newtest2014.de"),
+        os.path.join(curr_dir, "newstest2014.en"),
+        os.path.join(curr_dir, "newstest2014.de"),
     ]
+
     for t in test_files:
         shutil.copy(t, FLAGS.data_dir)
 
