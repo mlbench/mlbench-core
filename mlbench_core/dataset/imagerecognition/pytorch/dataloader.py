@@ -1,4 +1,3 @@
-r""" Create dataset and dataloader in PyTorch. """
 import logging
 import os
 

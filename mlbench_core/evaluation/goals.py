@@ -138,3 +138,25 @@ def task3_time_to_preplexity_light_goal(metric_name, value, tracker):
         return result
 
     return None
+
+
+def task4_time_to_bleu_goal(threshold=24):
+    """Time to BLEU-score goal for benchmark task 4: GNMT machine translation"""
+
+    def _time_to_bleu_goal(metric_name, value, tracker):
+        if metric_name != "val_global_BLEU-Score":
+            return None
+
+        if value >= threshold:
+            duration = tracker.get_total_train_time()
+            result = "Validation BLEU-Score of {0} reached in {1:.3f} seconds".format(
+                threshold, duration
+            )
+
+            result = _add_detailed_times(result, tracker)
+
+            return result
+
+        return None
+
+    return _time_to_bleu_goal

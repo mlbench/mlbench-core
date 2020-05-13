@@ -3,27 +3,10 @@ import torch.distributed as dist
 import numpy as np
 from mlbench_core.utils.pytorch.utils import orthogonalize
 
-# TODO: those 3 funtions are never used, maybe delete them ?
-
-
-def broadcast(tensor, src):
-    return dist.broadcast(tensor, src=src)
-
-
-def elementwise_min(tensor):
-    dist.all_reduce(tensor, op=dist.ReduceOp.MIN)
-    return tensor
-
-
-def aggregate_gradients(model, world_size, average_models=False):
-    """Average gradients of models across all processes."""
-    # all_reduce the gradients.
-    for ind, param in enumerate(model.parameters()):
-        # all reduce.
-        dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
-
-        if average_models:
-            param.grad.data /= world_size
+try:
+    import horovod.torch as hvd
+except ImportError as e:
+    pass
 
 
 def global_average(sum, count):
@@ -58,16 +41,14 @@ def pack_tensors(tensors, use_cuda=False):
         indices.append(new_end)
 
     tensor_sizes = [t.size() for t in tensors]
-    pointers = [0]
-    for tensor in tensors:
-        pointers.append(pointers[-1] + tensor.nelement())
 
     vec = torch.empty(
-        pointers[-1],
+        indices[-1],
         device=tensors[0].device if tensors[0].is_cuda and use_cuda else "cpu",
+        dtype=tensors[0].dtype,
     )
 
-    for tensor, start_idx, end_idx in zip(tensors, pointers[:-1], pointers[1:]):
+    for tensor, start_idx, end_idx in zip(tensors, indices[:-1], indices[1:]):
         vec[start_idx:end_idx] = tensor.data.view(-1)
 
     return vec, indices, tensor_sizes
@@ -113,7 +94,7 @@ class Aggregation(object):
         """Aggregate data using `op` operation.
 
         Args:
-            data (:obj:`torch.Tensor`): A Tensor to be aggragated.
+            data (:obj:`torch.Tensor`): A Tensor to be aggregated.
             op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
 
         Returns:
@@ -130,7 +111,7 @@ class Aggregation(object):
         """
         # Pack all layers
         packed, indices, sizes = pack_tensors(
-            [t.data for t in model.parameters()], use_cuda=self.use_cuda
+            [t for t in model.parameters()], use_cuda=self.use_cuda
         )
         aggregated = self._agg(packed, op=op)
 
@@ -147,9 +128,8 @@ class Aggregation(object):
             op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
         """
         # Pack all layers
-
         packed, indices, sizes = pack_tensors(
-            [t.grad.data for t in model.parameters()], use_cuda=self.use_cuda
+            [t.grad for t in model.parameters()], use_cuda=self.use_cuda
         )
         aggregated = self._agg(packed, op=op)
 
@@ -196,7 +176,7 @@ class Aggregation(object):
 
 
 class AllReduceAggregation(Aggregation):
-    """Aggregate udpates / models from different processes."""
+    """Aggregate udpates / models from different processes using all-reduce aggregation"""
 
     def __init__(self, world_size, use_cuda=False):
         self.world_size = world_size
@@ -215,6 +195,22 @@ class AllReduceAggregation(Aggregation):
         if op == "avg":
             dist.all_reduce(data, op=dist.ReduceOp.SUM)
             data /= self.world_size
+        else:
+            raise NotImplementedError
+        return data
+
+
+class AllReduceAggregationHVD(AllReduceAggregation):
+    def _agg(self, data, op):
+        """Aggregate data using `op` operation. Uses horovod library for reduction
+        Args:
+            data (:obj:`torch.Tensor`): A Tensor to be aggregated (Should be `torch.float16`)
+            op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
+        Returns:
+            :obj:`torch.Tensor`: An aggregated tensor.
+        """
+        if op == "avg":
+            data = hvd.allreduce(data, op=hvd.Sum) / self.world_size
         else:
             raise NotImplementedError
         return data
