@@ -2,9 +2,9 @@ import math
 
 import torch
 import torch.nn.functional as F
+from apex.normalization.fused_layer_norm import FusedLayerNorm
 from torch import nn
 
-# from apex.normalization.fused_layer_norm import FusedLayerNorm
 from mlbench_core.models.pytorch.transformer.modules import (
     PositionalEmbedding,
     SinusoidalPositionalEmbedding,
@@ -12,7 +12,6 @@ from mlbench_core.models.pytorch.transformer.modules import (
 )
 
 
-# Copied from mlperf
 class TransformerEncoder(nn.Module):
     """
     Transformer encoder consisting of *args.encoder_layers* layers. Each layer
@@ -49,18 +48,18 @@ class TransformerEncoder(nn.Module):
             else None
         )
 
-        self.layers = nn.ModuleList([])
-        self.layers.extend(
+        self.layers = nn.ModuleList(
             [TransformerEncoderLayer(args) for i in range(args.encoder_layers)]
         )
 
         self.normalize = args.encoder_normalize_before
         if self.normalize:
-            self.layer_norm = nn.LayerNorm(embed_dim)  # TODO Change to FusedLayernorm
+            self.layer_norm = FusedLayerNorm(embed_dim)  # nn.LayerNorm(embed_dim)
 
     def forward(self, src_tokens, src_lengths):
         # embed tokens and positions
         x = self.embed_scale * self.embed_tokens(src_tokens)
+
         if self.embed_positions is not None:
             x += self.embed_positions(src_tokens)
         x = F.dropout(x, p=self.dropout, training=self.training)

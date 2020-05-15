@@ -1,17 +1,6 @@
 import torch
-import torch.nn.functional as F
-from torch import nn
 
 
-# Copied from mlperf
-def Embedding(num_embeddings, embedding_dim, padding_idx):
-    m = nn.Embedding(num_embeddings, embedding_dim, padding_idx=padding_idx)
-    nn.init.normal_(m.weight, mean=0, std=embedding_dim ** -0.5)
-    nn.init.constant_(m.weight[padding_idx], 0)
-    return m
-
-
-# copied from mlperf
 def parse_embedding(embed_path):
     """Parse embedding text file into a dictionary of word and embedding tensors.
 
@@ -34,7 +23,6 @@ def parse_embedding(embed_path):
     return embed_dict
 
 
-# Copied from mlperf
 def load_embedding(embed_dict, vocab, embedding):
     for idx in range(len(vocab)):
         token = vocab[idx]
@@ -43,7 +31,6 @@ def load_embedding(embed_dict, vocab, embedding):
     return embedding
 
 
-# Copied from mlperf
 def eval_str_list(x, type=float):
     if x is None:
         return None
@@ -55,7 +42,6 @@ def eval_str_list(x, type=float):
         return [type(x)]
 
 
-# copied from mlperf
 def make_positions(tensor, padding_idx, left_pad):
     """Replace non-padding symbols with their position numbers.
 

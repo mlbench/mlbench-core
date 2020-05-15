@@ -1,5 +1,3 @@
-import torch
-import torch.nn.functional as F
 from torch import nn
 
 from mlbench_core.models.pytorch.transformer import utils
@@ -10,11 +8,18 @@ DEFAULT_MAX_SOURCE_POSITIONS = 256
 DEFAULT_MAX_TARGET_POSITIONS = 256
 
 
+def Embedding(num_embeddings, embedding_dim, padding_idx):
+    m = nn.Embedding(num_embeddings, embedding_dim, padding_idx=padding_idx)
+    nn.init.normal_(m.weight, mean=0, std=embedding_dim ** -0.5)
+    nn.init.constant_(m.weight[padding_idx], 0)
+    return m
+
+
 def build_embedding(dictionary, embed_dim, path=None):
     num_embeddings = len(dictionary)
     padding_idx = dictionary.pad()
 
-    emb = utils.Embedding(num_embeddings, embed_dim, padding_idx)
+    emb = Embedding(num_embeddings, embed_dim, padding_idx)
     # if provided, load from preloaded dictionaries
     if path:
         embed_dict = utils.parse_embedding(path)
@@ -22,7 +27,6 @@ def build_embedding(dictionary, embed_dim, path=None):
     return emb
 
 
-# copied from mlperf
 class TransformerModel(nn.Module):
     """Transformer model TODO add link
     Args:
@@ -31,7 +35,6 @@ class TransformerModel(nn.Module):
         trg_dict: Target dictionary
     """
 
-    # adapted from mlperf
     def __init__(self, args, src_dict, trg_dict):
         super().__init__()
         self._is_generation_fast = False
@@ -69,7 +72,6 @@ class TransformerModel(nn.Module):
         self.encoder = TransformerEncoder(args, src_dict, encoder_embed_tokens)
         self.decoder = TransformerDecoder(args, trg_dict, decoder_embed_tokens)
 
-    # adapted from mlperf
     def forward(
         self, src_tokens, src_lengths, prev_output_tokens,
     ):
@@ -88,17 +90,14 @@ class TransformerModel(nn.Module):
         decoder_out = self.decoder(prev_output_tokens, encoder_out=encoder_out)
         return decoder_out
 
-    # copied from mlperf
     def max_positions(self):
         """Maximum length supported by the model."""
         return self.encoder.max_positions(), self.decoder.max_positions()
 
-    # copied from mlperf
     def get_normalized_probs(self, net_output, log_probs, sample=None):
         """Get normalized probabilities (or log probs) from a net's output."""
         return self.decoder.get_normalized_probs(net_output, log_probs, sample)
 
-    # copied from mlperf
     def max_decoder_positions(self):
         """Maximum length supported by the decoder.
 

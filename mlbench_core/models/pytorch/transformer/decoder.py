@@ -2,6 +2,7 @@ import math
 
 import torch
 import torch.nn.functional as F
+from apex.normalization.fused_layer_norm import FusedLayerNorm
 from torch import nn
 
 from mlbench_core.models.pytorch.transformer.modules import (
@@ -10,10 +11,7 @@ from mlbench_core.models.pytorch.transformer.modules import (
     TransformerDecoderLayer,
 )
 
-# from apex.normalization.fused_layer_norm import FusedLayerNorm
 
-
-# Copied from mlperf.
 class TransformerDecoder(nn.Module):
     """
     Transformer decoder consisting of *args.decoder_layers* layers. Each layer
@@ -53,8 +51,7 @@ class TransformerDecoder(nn.Module):
             else None
         )
 
-        self.layers = nn.ModuleList([])
-        self.layers.extend(
+        self.layers = nn.ModuleList(
             [
                 TransformerDecoderLayer(args, no_encoder_attn)
                 for _ in range(args.decoder_layers)
@@ -67,7 +64,7 @@ class TransformerDecoder(nn.Module):
         self.normalize = args.decoder_normalize_before
 
         if self.normalize:
-            self.layer_norm = nn.LayerNorm(embed_dim)  # TODO change to FUsedLayerNorm
+            self.layer_norm = FusedLayerNorm(embed_dim)  # nn.LayerNorm(embed_dim)
 
     def forward(self, prev_output_tokens, encoder_out=None, incremental_state=None):
         # embed positions

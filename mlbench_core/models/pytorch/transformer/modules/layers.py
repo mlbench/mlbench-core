@@ -1,28 +1,30 @@
 import torch.nn.functional as F
-
-# from apex.normalization.fused_layer_norm import FusedLayerNorm
+from apex.normalization.fused_layer_norm import FusedLayerNorm
 from torch import nn
-from torch.nn.modules import Linear
 from torch.nn.modules.activation import MultiheadAttention
 
-
-# TODO change all Layernorm to FusedLayerNorm
 # TODO try using custom MultiHeadAttention with softmax type
-# copied from mlperf
+
+
+def Linear(in_features, out_features, bias=True):
+    m = nn.Linear(in_features, out_features, bias)
+    nn.init.xavier_uniform_(m.weight)
+    nn.init.constant_(m.bias, 0.0)
+    return m
+
+
 def dropout_add(x, residual, prob, is_training):
     out = F.dropout(x, p=prob, training=is_training)
     out = residual + out
     return out
 
 
-# copied from mlperf
 def relu_dropout(x, prob, is_training):
     out = F.threshold(x, 0.0, 0.0)
     out = F.dropout(out, p=prob, training=is_training)
     return out
 
 
-# copied from mlperf
 class TransformerEncoderLayer(nn.Module):
     """Encoder layer block.
 
@@ -45,7 +47,8 @@ class TransformerEncoderLayer(nn.Module):
             embed_dim=self.embed_dim,
             num_heads=args.encoder_attention_heads,
             dropout=args.attention_dropout,
-            # TODO add softmax type
+            bias=False,
+            # softmax_type=args.softmax_type
         )
         self.dropout = args.dropout
         self.relu_dropout = args.relu_dropout
@@ -53,7 +56,7 @@ class TransformerEncoderLayer(nn.Module):
         self.fc1 = Linear(self.embed_dim, args.encoder_ffn_embed_dim)
         self.fc2 = Linear(args.encoder_ffn_embed_dim, self.embed_dim)
         self.layer_norms = nn.ModuleList(
-            [nn.LayerNorm(self.embed_dim) for _ in range(2)]
+            [FusedLayerNorm(self.embed_dim) for _ in range(2)]
         )
 
     def forward(self, x, encoder_padding_mask):
@@ -116,12 +119,16 @@ class TransformerDecoderLayer(nn.Module):
             embed_dim=self.embed_dim,
             num_heads=args.decoder_attention_heads,
             dropout=args.attention_dropout,
+            bias=False,
+            # softmax_type=args.softmax_type
         )
         self.dropout = args.dropout
         self.relu_dropout = args.relu_dropout
         self.normalize_before = args.decoder_normalize_before
 
-        self.self_attn_layer_norm = nn.LayerNorm(self.embed_dim)
+        self.self_attn_layer_norm = FusedLayerNorm(
+            self.embed_dim
+        )  # nn.LayerNorm(self.embed_dim)
 
         if no_encoder_attn:
             self.encoder_attn = None
@@ -131,13 +138,17 @@ class TransformerDecoderLayer(nn.Module):
                 embed_dim=self.embed_dim,
                 num_heads=args.decoder_attention_heads,
                 dropout=args.attention_dropout,
+                # softmax_type=args.softmax_type,
+                bias=False,
             )
             self.encoder_attn_layer_norm = nn.LayerNorm(self.embed_dim)
 
         self.fc1 = Linear(self.embed_dim, args.decoder_ffn_embed_dim)
         self.fc2 = Linear(args.decoder_ffn_embed_dim, self.embed_dim)
 
-        self.final_layer_norm = nn.LayerNorm(self.embed_dim)
+        self.final_layer_norm = FusedLayerNorm(
+            self.embed_dim
+        )  # nn.LayerNorm(self.embed_dim)
         self.need_attn = True
 
     def forward(self, x, encoder_out, encoder_padding_mask, incremental_state=None):
