@@ -803,19 +803,19 @@ def create_gcloud(
 @create_cluster.command("kind")
 @click.argument("num_workers", type=int, metavar="num-workers")
 @click.argument("release", type=str)
-@click.argument("mlbench_helm_path", type=str)
 @click.option("--registry_name", "-r", default="kind-registry", type=str)
 @click.option("--registry_port", "-p", default="5000", type=str)
 @click.option("--num-cpus", "-c", default=1, type=int)
 @click.option("--num-gpus", "-g", default=0, type=int)
+@click.option("--custom-value", "-v", multiple=True)
 def create_kind(
     num_workers,
     release,
-    mlbench_helm_path,
     registry_name,
     registry_port,
     num_cpus,
     num_gpus,
+    custom_value,
 ):
     # check if local registry exists
     p = subprocess.Popen(
@@ -911,6 +911,8 @@ def create_kind(
 
     configuration = client.Configuration()
 
+    click.echo("host: " + configuration.host)
+
     click.echo("Creating service account")
 
     # create tiller service account
@@ -952,7 +954,7 @@ def create_kind(
         "kube-system", tiller_dep
     )
 
-    sleep(1)
+    sleep(3)
 
     pods = client.CoreV1Api().list_namespaced_pod(
         namespace="kube-system", label_selector="app=helm"
@@ -969,42 +971,99 @@ def create_kind(
             break
         sleep(5)
 
-    helm_config_file_location = os.path.join(config_dir_location, "helm_values.yml")
-
-    with open(helm_config_file_location, "w") as f:
-        f.write(
-            HELM_VALUES.format(
-                num_workers=num_workers, num_cpus=num_cpus, num_gpus=num_gpus
-            )
-        )
-
-    click.echo("Deploying MLBench")
-
-    p = subprocess.Popen(
+    ports = 44134
+    with subprocess.Popen(
         [
-            "helm",
-            "upgrade",
-            "--wait",
-            "--recreate-pods",
-            "-f",
-            helm_config_file_location,
-            "--timeout",
-            "900s",
-            "--install",
-            name,
-            mlbench_helm_path,
-        ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
+            "kubectl",
+            "port-forward",
+            "--namespace={}".format(tiller_pod.metadata.namespace),
+            tiller_pod.metadata.name,
+            "{0}:{0}".format(ports),
+            "--insecure-skip-tls-verify=true",
+        ]
+    ) as portforward:
 
-    output, error = p.communicate()
-    if p.returncode != 0:
-        raise click.UsageError(
-            "Failed to deploy MLBench with the following error:\n {}".format(
-                error.decode()
-            )
+        sleep(5)
+        # install chart
+        tiller = Tiller("localhost")
+        chart = ChartBuilder(
+            {
+                "name": "mlbench-helm",
+                "source": {
+                    "type": "git",
+                    "location": "https://github.com/mlbench/mlbench-helm",
+                },
+            }
         )
+
+        values = {
+            "limits": {"workers": num_workers - 1, "gpu": num_gpus, "cpu": num_cpus}
+        }
+
+        if custom_value:
+            # merge custom values with values
+            for cv in custom_value:
+                key, v = cv.split("=", 1)
+
+                current = values
+                key_path = key.split(".")
+
+                for k in key_path[:-1]:
+                    if k not in current:
+                        current[k] = {}
+
+                    current = current[k]
+
+                current[key_path[-1]] = v
+
+        click.echo("Installing release")
+        tiller.install_release(
+            chart.get_helm_chart(),
+            name=name,
+            wait=True,
+            dry_run=False,
+            namespace="default",
+            values=values,
+        )
+
+        portforward.terminate()
+
+    # helm_config_file_location = os.path.join(config_dir_location, "helm_values.yml")
+
+    # with open(helm_config_file_location, "w") as f:
+    #     f.write(
+    #         HELM_VALUES.format(
+    #             num_workers=num_workers, num_cpus=num_cpus, num_gpus=num_gpus
+    #         )
+    #     )
+
+    # click.echo("Deploying MLBench")
+
+    # p = subprocess.Popen(
+    #     [
+    #         "helm",
+    #         "upgrade",
+    #         "--wait",
+    #         "--recreate-pods",
+    #         "-f",
+    #         helm_config_file_location,
+    #         "--timeout",
+    #         "900s",
+    #         "--install",
+    #         name,
+    #         mlbench_helm_path,
+    #     ],
+    #     stdout=subprocess.PIPE,
+    #     stderr=subprocess.PIPE,
+    # )
+
+    # output, error = p.communicate()
+    # if p.returncode != 0:
+    #     raise click.UsageError(
+    #         "Failed to deploy MLBench with the following error:\n {}".format(
+    #             error.decode()
+    #         )
+    #     )
 
     configuration = get_config()
 
