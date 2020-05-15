@@ -874,11 +874,7 @@ def create_kind(
     output, error = p.communicate()
     reg_ip = output.decode().strip().replace("'", "")
 
-    workers_config = ""
-
-    for i in range(num_workers - 1):
-        workers_config += "- role: worker\n"
-    workers_config = workers_config[:-1]
+    workers_config = "\n".join(["- role: worker"] * (num_workers - 1))
 
     config_dir_location = os.path.join(os.environ["HOME"], ".local", "share", "mlbench")
     Path(config_dir_location).mkdir(parents=True, exist_ok=True)
@@ -921,8 +917,6 @@ def create_kind(
     config.load_kube_config()
 
     configuration = client.Configuration()
-
-    click.echo("host: " + configuration.host)
 
     click.echo("Creating service account")
 
@@ -1038,43 +1032,6 @@ def create_kind(
         )
 
         portforward.terminate()
-
-    # helm_config_file_location = os.path.join(config_dir_location, "helm_values.yml")
-
-    # with open(helm_config_file_location, "w") as f:
-    #     f.write(
-    #         HELM_VALUES.format(
-    #             num_workers=num_workers, num_cpus=num_cpus, num_gpus=num_gpus
-    #         )
-    #     )
-
-    # click.echo("Deploying MLBench")
-
-    # p = subprocess.Popen(
-    #     [
-    #         "helm",
-    #         "upgrade",
-    #         "--wait",
-    #         "--recreate-pods",
-    #         "-f",
-    #         helm_config_file_location,
-    #         "--timeout",
-    #         "900s",
-    #         "--install",
-    #         name,
-    #         mlbench_helm_path,
-    #     ],
-    #     stdout=subprocess.PIPE,
-    #     stderr=subprocess.PIPE,
-    # )
-
-    # output, error = p.communicate()
-    # if p.returncode != 0:
-    #     raise click.UsageError(
-    #         "Failed to deploy MLBench with the following error:\n {}".format(
-    #             error.decode()
-    #         )
-    #     )
 
     configuration = get_config()
 
