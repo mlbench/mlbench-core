@@ -523,7 +523,7 @@ class PowerSGD(SGD):
     def __init__(
         self,
         model=None,
-        lr=0.1,
+        lr=0.11,
         momentum=0,
         weight_decay=0,
         dampening=0,
