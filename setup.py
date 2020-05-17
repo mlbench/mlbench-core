@@ -43,7 +43,12 @@ test_requirements = [
     "black==19.10b0",
     "pytest-black==0.3.8",
     "pre-commit",
+    "coverage",
 ]
+
+extras = {
+    'test' : test_requirements
+}
 
 setup(
     author="Ralf Grubenmann",
@@ -72,7 +77,9 @@ setup(
     setup_requires=setup_requirements,
     test_suite="tests",
     tests_require=test_requirements,
+    extras_require=extras,
     url="https://github.com/mlbench/mlbench_core",
     version="2.4.0-dev158",
+
     zip_safe=False,
 )

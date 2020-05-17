@@ -45,7 +45,6 @@ TopKAccuracy
 
     .. autoapimethod:: __call__
 
-
 tensorflow
 ~~~~~~~~~~
 
