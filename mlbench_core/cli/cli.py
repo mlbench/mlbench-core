@@ -5,6 +5,7 @@ import configparser
 import json
 import os
 import pickle
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -12,6 +13,7 @@ from time import sleep
 from urllib import request
 
 import click
+import matplotlib.pyplot as plt
 import urllib3
 import yaml
 from appdirs import user_data_dir
@@ -292,6 +294,93 @@ def status(name, dashboard_url):
         )
     else:
         click.echo("No Validation Precision Data yet")
+
+
+@cli_group.command()
+@click.argument("folder", type=click.Path(exists=False, file_okay=False, dir_okay=True))
+@click.option("--dashboard-url", "-u", default=None, type=str)
+def summary(folder, dashboard_url):
+    """Get the summary results of benchmark runs"""
+    folder = Path(folder)
+    if not folder.exists():
+        folder.mkdir(parents=True)
+    loaded = setup_client_from_config()
+
+    client = ApiClient(in_cluster=False, url=dashboard_url, load_config=not loaded)
+
+    ret = client.get_runs()
+    runs = ret.result().json()
+    runs = [r for r in runs if r["state"] == "finished"]
+
+    options = {i: r for i, r in enumerate(runs, start=0)}
+
+    if len(options) < 2:
+        click.echo("At least two finished runs are needed to create a summary")
+        return
+
+    prompt = 'Select the runs to generate a summary for (e.g. "0 1 2"): \n\t{}'.format(
+        "\n\t".join("{} [{}]".format(r["name"], i) for i, r in options.items())
+    )
+
+    choice = click.prompt(
+        prompt,
+        default=0,
+        type=click.Choice([options.keys()]),
+        show_choices=False,
+        value_proc=lambda x: [options[int(i)] for i in x.split(" ")],
+    )
+
+    if len(choice) < 2:
+        click.echo("At least two finished runs are needed to create a summary")
+        return
+
+    results = []
+
+    for run in choice:
+        r = (
+            client.get_run_metrics(run["id"], metric_filter="TaskResult @ 0", last_n=1)
+            .result()
+            .json()
+        )
+        r = r["TaskResult @ 0"][0]["value"]
+        match = re.search(
+            "Compute: ([\d.]+) seconds, Communication: ([\d.]+) seconds", r
+        )
+
+        if not match:
+            click.echo("Could not get result for run {}".format(run["name"]))
+            return
+
+        compute = float(match.group(1))
+        communicate = float(match.group(2))
+
+        results.append((run["name"], compute, communicate, str(run["num_workers"])))
+
+    results = sorted(results, key=lambda x: x[3])
+
+    width = 0.35
+    fig, ax = plt.subplots()
+    names, compute, communicate, num_workers = zip(*results)
+
+    ax.bar(num_workers, compute, width, label="Compute")
+    ax.bar(num_workers, communicate, width, label="Communcation")
+
+    ax.set_ylabel("Time (s)")
+    ax.set_title("Total time by number of workers")
+    ax.legend()
+    plt.savefig(folder / "total_time.png", dpi=150)
+
+    fig, ax = plt.subplots()
+
+    combined = [c + r for _, c, r, _ in results]
+
+    speedup = [combined[0] / c for c in combined]
+
+    ax.bar(num_workers, speedup, width)
+
+    ax.set_ylabel("Speedup factor")
+    ax.set_title("Speedup")
+    plt.savefig(folder / "speedup.png", dpi=150)
 
 
 @cli_group.command()
