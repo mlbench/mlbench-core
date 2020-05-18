@@ -3,7 +3,7 @@
 
 """The setup script."""
 
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 with open("README.md") as readme_file:
     readme = readme_file.read()
@@ -19,6 +19,7 @@ requirements = [
     "tabulate>=0.8.5",
     "dill==0.2.8.2",
     "grpcio==1.26.0",
+    "matplotlib==3.2.1",
     "pyhelm==2.14.5",
     "appdirs==1.4.3",
     "google-api-python-client==1.7.11",
@@ -46,9 +47,7 @@ test_requirements = [
     "coverage",
 ]
 
-extras = {
-    'test' : test_requirements
-}
+extras = {"test": test_requirements}
 
 setup(
     author="Ralf Grubenmann",
