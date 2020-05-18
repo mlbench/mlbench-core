@@ -372,6 +372,8 @@ def summary(folder, dashboard_url):
     ax.set_title("Speedup")
     plt.savefig(folder / "speedup.png", dpi=150)
 
+    click.echo("Summary created in {}".format(folder))
+
 
 @cli_group.command()
 def get_dashboard_url():
