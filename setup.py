@@ -3,7 +3,7 @@
 
 """The setup script."""
 
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 with open("README.md") as readme_file:
     readme = readme_file.read()
@@ -46,9 +46,7 @@ test_requirements = [
     "coverage",
 ]
 
-extras = {
-    'test' : test_requirements
-}
+extras = {"test": test_requirements}
 
 setup(
     author="Ralf Grubenmann",
@@ -66,7 +64,7 @@ setup(
         "Programming Language :: Python :: 3.6",
     ],
     description="A public and reproducible collection of reference implementations and benchmark suite for distributed machine learning systems.",
-    entry_points={"console_scripts": ["mlbench=mlbench_core.cli:cli",],},
+    entry_points={"console_scripts": ["mlbench=mlbench_core.cli:cli_group",],},
     install_requires=requirements,
     license="Apache Software License 2.0",
     long_description=readme + "\n\n" + history,
