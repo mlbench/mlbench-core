@@ -1,10 +1,15 @@
 """Utilities for measuring the performance of a model."""
 
-import torch
+from abc import abstractmethod
 
+import torch
 from mlbench_core.utils import AverageMeter
 from mlbench_core.utils.pytorch.distributed import global_average
-from abc import abstractmethod
+
+try:
+    import sacrebleu
+except ImportError as e:
+    pass
 
 
 class MLBenchMetric(object):
@@ -174,3 +179,32 @@ class F1Score(MLBenchMetric):
     @property
     def name(self):
         return "F1-Score"
+
+
+class BLEUScore(MLBenchMetric):
+    def __init__(self):
+        """ Bilingual Evaluation Understudy score"""
+        super(BLEUScore, self).__init__()
+
+    def __call__(self, loss, output, target):
+        """ Computes the BLEU score of a translation task
+
+        Args:
+            loss (:obj:`torch.Tensor`): Not Used
+            output (:obj:`torch.Tensor`): Translated output (not tokenized)
+            target (:obj:`torch.Tensor`): Target labels
+
+        Returns:
+            float: BLEU score
+        """
+        return torch.tensor(
+            [
+                sacrebleu.corpus_bleu(
+                    output, [target], tokenize="intl", lowercase=True
+                ).score
+            ]
+        )
+
+    @property
+    def name(self):
+        return "BLEU-Score"

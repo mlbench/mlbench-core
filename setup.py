@@ -3,7 +3,7 @@
 
 """The setup script."""
 
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 with open("README.md") as readme_file:
     readme = readme_file.read()
@@ -43,7 +43,10 @@ test_requirements = [
     "black==19.10b0",
     "pytest-black==0.3.8",
     "pre-commit",
+    "coverage",
 ]
+
+extras = {"test": test_requirements}
 
 setup(
     author="Ralf Grubenmann",
@@ -61,7 +64,7 @@ setup(
         "Programming Language :: Python :: 3.6",
     ],
     description="A public and reproducible collection of reference implementations and benchmark suite for distributed machine learning systems.",
-    entry_points={"console_scripts": ["mlbench=mlbench_core.cli:cli",],},
+    entry_points={"console_scripts": ["mlbench=mlbench_core.cli:cli_group",],},
     install_requires=requirements,
     license="Apache Software License 2.0",
     long_description=readme + "\n\n" + history,
@@ -72,7 +75,9 @@ setup(
     setup_requires=setup_requirements,
     test_suite="tests",
     tests_require=test_requirements,
+    extras_require=extras,
     url="https://github.com/mlbench/mlbench_core",
-    version="2.4.0",
+    version="2.4.0-dev158",
+
     zip_safe=False,
 )

@@ -52,3 +52,22 @@ CentralizedAdam
 
 .. autoapiclass:: CentralizedAdam
     :members:
+
+
+fp_optimizers
++++++++++++++
+
+.. autoapimodule:: mlbench_core.optim.pytorch.optim.fp_optimizers
+.. currentmodule:: mlbench_core.optim.pytorch.optim.fp_optimizers
+
+FP16Optimizer
+'''''''''''''
+
+.. autoapiclass:: FP16Optimizer
+    :members:
+
+.. autoapiclass:: FP32Optimizer
+    :members:
+
+.. autoapiclass:: AMPOptimizer
+    :members:

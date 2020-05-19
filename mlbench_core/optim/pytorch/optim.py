@@ -1,9 +1,13 @@
-from mlbench_core.utils.pytorch.distributed import AllReduceAggregation
-from mlbench_core.utils.pytorch.distributed import DecentralizedAggregation
-
+from mlbench_core.utils.pytorch.distributed import (
+    AllReduceAggregation,
+    DecentralizedAggregation,
+    PowerAggregation,
+)
 import numpy as np
 import torch
 import torch.distributed as dist
+from mlbench_core.utils.pytorch.distributed import AllReduceAggregation
+from mlbench_core.utils.pytorch.distributed import DecentralizedAggregation
 from torch.optim import SGD, Adam
 from torch.optim.optimizer import Optimizer, required
 
@@ -499,12 +503,76 @@ class CentralizedAdam(Adam):
         return loss
 
 
+class PowerSGD(SGD):
+    r"""Implements PowerSGD with error feedback (optionally with momentum).
+
+        Args:
+            model (:obj:`nn.Module`): Model which contains parameters for SGD
+            lr (float): learning rate
+            momentum (float, optional): momentum factor (default: 0)
+            weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
+            dampening (float, optional): dampening for momentum (default: 0)
+            nesterov (bool, optional): enables Nesterov momentum (default: False)
+            average_models (bool): Whether to average models together. (default: `True`)
+            use_cuda (bool): Whether to use cuda tensors for aggregation
+            by_layer (bool): Aggregate by layer instead of all layers at once
+            reuse_query (bool): Whether to use warm start to initialize the power iteration
+            rank (int): The rank of the gradient approximation
+        """
+
+    def __init__(
+        self,
+        model=None,
+        lr=0.1,
+        momentum=0,
+        weight_decay=0,
+        dampening=0,
+        nesterov=False,
+        average_models=True,
+        use_cuda=False,
+        by_layer=False,
+        reuse_query=False,
+        rank=1,
+    ):
+        if not model:
+            raise ValueError('"model" not set for optimizer')
+        if lr is not required and lr < 0.0:
+            raise ValueError("Invalid learning rate: {}".format(lr))
+        if weight_decay < 0.0:
+            raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
+
+        super(PowerSGD, self).__init__(
+            model.parameters(), lr, momentum, dampening, weight_decay, nesterov
+        )
+        if average_models:
+            self.agg_mode = "avg"
+        else:
+            raise NotImplementedError("Only average model is supported right now.")
+
+        self.model = model
+        self.agg = PowerAggregation(
+            model=model, use_cuda=use_cuda, reuse_query=reuse_query, rank=rank
+        ).agg_grad(by_layer=by_layer)
+
+    def step(self, closure=None):
+        """Performs a single optimization step.
+
+        Arguments:
+            closure (callable, optional): A closure that reevaluates the model
+                and returns the loss.
+        """
+        self.agg(self.model, self.agg_mode)
+        loss = super(PowerSGD, self).step(closure=closure)
+        return loss
+
+
 optimizers = {
     "centralized_sparsified_sgd": CentralizedSparsifiedSGD,
     "decentralized_sgd": DecentralizedSGD,
     "centralized_sgd": CentralizedSGD,
     "sign_sgd": SignSGD,
     "centralized_adam": CentralizedAdam,
+    "power_sgd": PowerSGD,
 }
 
 

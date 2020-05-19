@@ -9,6 +9,8 @@ from freezegun import freeze_time
 from mlbench_core.evaluation.goals import task1_time_to_accuracy_light_goal
 from mlbench_core.evaluation.pytorch.metrics import TopKAccuracy
 from mlbench_core.utils import Tracker
+import torch
+from mlbench_core.utils.pytorch.utils import orthogonalize
 
 
 def test_tracker():
@@ -103,3 +105,16 @@ def test_tracker_goal_times(mocker):
 
         assert tracker.goal_reached
         assert any(filter(lambda c: c[1][3] == "TaskResult", patched.method_calls))
+
+
+def test_orthogonalize():
+    m = torch.rand(2, 2)
+    identity = torch.eye(2)
+
+    orthogonalize(m)
+
+    # check if m'*m = I
+    assert torch.allclose(torch.matmul(m.t(), m), identity, atol=1e-04)
+
+
+

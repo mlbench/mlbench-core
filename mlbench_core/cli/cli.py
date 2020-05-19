@@ -123,12 +123,12 @@ nodes:
 """
 
 @click.group()
-def cli(args=None):
+def cli_group(args=None):
     """Console script for mlbench_cli."""
     return 0
 
 
-@cli.command()
+@cli_group.command()
 @click.argument("name", type=str)
 @click.argument("num_workers", nargs=-1, type=int, metavar="num-workers")
 @click.option("--gpu", "-g", default=False, type=bool, is_flag=True)
@@ -251,9 +251,9 @@ def run(name, num_workers, gpu, light, dashboard_url):
         click.echo("Run started with name {}".format(act_result.json()["name"]))
 
 
-@cli.command()
+@cli_group.command()
 @click.argument("name", type=str)
-@click.option("--dashboard-url", "--u", default=None, type=str)
+@click.option("--dashboard-url", "-u", default=None, type=str)
 def status(name, dashboard_url):
     """Get the status of a benchmark run"""
     loaded = setup_client_from_config()
@@ -304,7 +304,7 @@ def status(name, dashboard_url):
         click.echo("No Validation Precision Data yet")
 
 
-@cli.command()
+@cli_group.command()
 def get_dashboard_url():
     """Returns the dashboard URL of the current cluster"""
     loaded = setup_client_from_config()
@@ -318,9 +318,9 @@ def get_dashboard_url():
     click.echo(client.endpoint.replace("api/", ""))
 
 
-@cli.command()
+@cli_group.command()
 @click.argument("name", type=str)
-@click.option("--dashboard-url", "--u", default=None, type=str)
+@click.option("--dashboard-url", "-u", default=None, type=str)
 def delete(name, dashboard_url):
     """Delete a benchmark run"""
     loaded = setup_client_from_config()
@@ -342,7 +342,7 @@ def delete(name, dashboard_url):
     client.delete_run(run["id"])
 
 
-@cli.command()
+@cli_group.command()
 @click.argument("name", type=str)
 @click.option("--output", "-o", default="results.zip", type=str)
 @click.option("--dashboard-url", "-u", default=None, type=str)
@@ -363,7 +363,7 @@ def download(name, output, dashboard_url):
         f.write(ret.result().content)
 
 
-@cli.group("delete-cluster")
+@cli_group.group("delete-cluster")
 def delete_cluster():
     pass
 
@@ -411,7 +411,7 @@ def delete_gcloud(name, zone, project):
 
     click.echo("Cluster deleted.")
 
-
+    
 @delete_cluster.command("kind")
 @click.argument("name", type=str)
 def delete_kind(name):
@@ -1004,4 +1004,4 @@ def setup_gke_client_from_config(config):
 
 
 if __name__ == "__main__":
-    sys.exit(cli())  # pragma: no cover
+    sys.exit(cli_group())  # pragma: no cover
