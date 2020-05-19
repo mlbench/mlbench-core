@@ -122,6 +122,7 @@ nodes:
 {workers_config}
 """
 
+
 @click.group()
 def cli_group(args=None):
     """Console script for mlbench_cli."""
@@ -746,22 +747,32 @@ def create_kind(
     docker_client = docker.from_env()
 
     # check if local registry exists
-    existing_containers = [container.name for container in docker_client.containers.list()]
+    existing_containers = [
+        container.name for container in docker_client.containers.list()
+    ]
     registry_exists = registry_name in existing_containers
 
     if not registry_exists:
         # create local registry
         click.echo("Creating registry {}".format((registry_name)))
-        docker_client.containers.run(image="registry:2", name = registry_name, restart_policy={"Name": "always"}, ports={registry_port: host_port}, detach=True)
-        while docker_client.containers.get(registry_name).status != 'running':
+        docker_client.containers.run(
+            image="registry:2",
+            name=registry_name,
+            restart_policy={"Name": "always"},
+            ports={registry_port: host_port},
+            detach=True,
+        )
+        while docker_client.containers.get(registry_name).status != "running":
             pass
-    
-    reg_ip = docker_client.containers.get(registry_name).attrs['NetworkSettings']['IPAddress']
+
+    reg_ip = docker_client.containers.get(registry_name).attrs["NetworkSettings"][
+        "IPAddress"
+    ]
 
     # create cluster
     with tempfile.TemporaryDirectory() as temp_directory:
         kind_config_file_location = os.path.join(temp_directory, "kind_config.yml")
-        
+
         with open(kind_config_file_location, "w") as f:
             workers_config = "\n".join(["- role: worker"] * (num_workers - 1))
             f.write(
@@ -769,7 +780,7 @@ def create_kind(
                     reg_port=registry_port, reg_ip=reg_ip, workers_config=workers_config
                 )
             )
-            
+
         click.echo("Creating cluster {}".format((name)))
 
         p = subprocess.Popen(
