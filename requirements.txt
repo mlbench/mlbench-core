@@ -18,3 +18,4 @@ torchtext==0.5.0
 spacy==2.2.3
 sklearn==0.0
 numpy==1.16.6
+docker==4.2.0
