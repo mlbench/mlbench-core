@@ -20,6 +20,8 @@ from pyhelm.tiller import Tiller
 from tabulate import tabulate
 import pickle
 from pathlib import Path
+import docker
+import tempfile
 
 GCLOUD_NVIDIA_DAEMONSET = (
     "https://raw.githubusercontent.com/"
@@ -119,86 +121,6 @@ nodes:
 - role: control-plane
 {workers_config}
 """
-
-
-HELM_VALUES = """
-weave:
-  enabled: false
-
-nvidiaDevicePlugin:
-  enabled: true
-
-master:
-  enabled: true
-
-  name: master
-
-  image:
-    repository: mlbench/mlbench_master
-    tag: latest
-    pullPolicy: Always
-
-  service:
-    type: NodePort
-    port: 80
-
-
-worker:
-  enabled: true
-
-  name: worker
-
-  image:
-    repository: mlbench/mlbench_worker
-    tag: latest
-    pullPolicy: Always
-
-  service:
-    type: ClusterIP
-    port: 22
-
-  sshKey:
-    id_rsa: |
-      -----BEGIN RSA PRIVATE KEY-----
-      MIIEowIBAAKCAQEAo9N88wScRCnfTE5HMV1ydPq/Clv1gSRu68/Q3NHDJD17LwT2
-      PDWpYZ1Q88JKI2tuvjYsuff+zi1yzHCu2r0NtDTaY2iBU4EAyAf6vIf3qtHCMZyt
-      Ow3RGtMg6a2CYBtDiAowm4GIwERrvOzKnri4YZ7wHs2JE+paiPU4/Oc4O2BbKF7y
-      /ougWVgubnsz2pffQTznpKcxRLz9NPco+ycszbiWD+SksX+FP5TBzg6NGV2OOgpr
-      iXeHdgoIehHXalm40Tw0SMF7KPJZwgMZznwLSUAEg0D4VVlR+wmw0SQTTT8wfCe7
-      VQwhb8h9BpVioEHUsVid43cZ7mI0L6jzQbdwRQIDAQABAoIBADR1DsheDI+C/N5Z
-      HlC/RFwSwkNV6Mm+WcomVBGxFRQwn5YRt6rV3/PCxN4Ys1aeGurLPA0cTLnGMcEm
-      v8aIzK+MUPWNzANqBk8GxxHBU9udqNnr+kgzh2ZYfmx0w490i24vHRteIeS2w+zN
-      wZ+LNHcFxouGcsMuwmiiZOoOO6I/GAFY1b5qXS/iblMPEe4dLJua5fT8RrFHLFQg
-      2pcShKOtcGnYwMQfXRsZr5F+q0oatPcGQRRTpJWklNfx+W9SNquoCwzdeuENvSEb
-      CSnW67TJcKHBA5rPnGtAYp2ip0UjQZ0/4AusbOeZUZkkZgxmSIwBElKjR6XBM71C
-      1KgvD+0CgYEA1zgzM0RyBrbW1nGr91jCVlKVEIn2O9Zn1O1mWe/J7sboJ/rT9M+6
-      rYKhO1iM1SrkLhqZGBHYBU+LPYft2HMH+FmM3/edhUHcXDie2oBNkJH+g75oTSK7
-      WdnOSMljKvQJlPF58GGsCOKmPuDYzghj6cp/sWXH5xTJbxEvC/3T1csCgYEAwt5Q
-      L9J/P6aJH83mGQeY0qq2UFda33pWmgVoP/kjJzxz+8Kb3DDd6+XPE/3nKEnxleAv
-      7MeUeB6AttwM0zdYUKndF5QL60hqazJ1SUktyh+6WvL2r8Mpoo3eRGVthv1B9+hm
-      N25vX9rzHWlO2K3rQH/9CqahM+Lxc7uLxrSTkC8CgYBKpAIV0LIfJABEZS333b+g
-      gomSL9bHD+f4z9DEdkY5WqCfZP1nlTev/3L9iwtkzrhOSQk5cM7ToK+wylixzctA
-      1YXnExB9a8cJ8NUfAIpmDkwP0tSHk/kYA1LoqXeMKRC9qDXbKXSprDlt6zsl0YEd
-      Tw6ULrFysiHeND510TVLmwKBgQCMv9ZbNEcEylywxB82ZO5U+0jDrtTMJaj3hoBN
-      9L0XUerUJTQ+Tm18PXjcj7+usfn0rwDunRj3ydBeQ4Jf7NG1MXun1B7nyl5THxbn
-      4BtaqqAHoQXc3bHs31tzO29o2PQVA58Q2otHSPXggHeaucP5yngSgVheCcUsOoIy
-      +6q5sQKBgHLUqlcQrvs1S630TsFdE1eN33/5Go0ekLwJBk/J1zlUZtqLCXELz2xc
-      PASCSCq/Xg2YbctQhOyAggRHm5dhjPmD7NFdLGINa9kk/lAPMtsRGrD0YiNvhtfS
-      BLDg/sFuhLuKeN+plOZaYu2hoQE2cPHC5hpFboUbhR9GS7AFVYcH
-      -----END RSA PRIVATE KEY-----
-    id_rsa_pub: |
-      ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCj03zzBJxEKd9MTkcxXXJ0+r8KW/WBJG7rz9Dc0cMkPXsvBPY8NalhnVDzwkoja26+Niy59/7OLXLMcK7avQ20NNpjaIFTgQDIB/q8h/eq0cIxnK07DdEa0yDprYJgG0OICjCbgYjARGu87MqeuLhhnvAezYkT6lqI9Tj85zg7YFsoXvL+i6BZWC5uezPal99BPOekpzFEvP009yj7JyzNuJYP5KSxf4U/lMHODo0ZXY46CmuJd4d2Cgh6EddqWbjRPDRIwXso8lnCAxnOfAtJQASDQPhVWVH7CbDRJBNNPzB8J7tVDCFvyH0GlWKgQdSxWJ3jdxnuYjQvqPNBt3BF
-
-limits:
-  workers: {num_workers}
-  cpu: {num_cpus}
-  gpu: {num_gpus}
-
-gcePersistentDisk:
-  enabled: false
-  pdName: 
-"""
-
 
 @click.group()
 def cli(args=None):
@@ -805,6 +727,7 @@ def create_gcloud(
 @click.argument("release", type=str)
 @click.option("--registry_name", "-r", default="kind-registry", type=str)
 @click.option("--registry_port", "-p", default="5000", type=str)
+@click.option("--host_port", "-h", default="5000", type=str)
 @click.option("--num-cpus", "-c", default=1, type=int)
 @click.option("--num-gpus", "-g", default=0, type=int)
 @click.option("--custom-value", "-v", multiple=True)
@@ -813,95 +736,63 @@ def create_kind(
     release,
     registry_name,
     registry_port,
+    host_port,
     num_cpus,
     num_gpus,
     custom_value,
 ):
+    name = "{}-{}".format(release, num_workers)
+
+    docker_client = docker.from_env()
+
     # check if local registry exists
-    p = subprocess.Popen(
-        ["docker", "inspect", "-f", "'{{.State.Running}}'", registry_name],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
+    existing_containers = [container.name for container in docker_client.containers.list()]
+    registry_exists = registry_name in existing_containers
 
-    output, error = p.communicate()
-    if p.returncode != 0:
-        raise click.UsageError(error.decode())
-
-    if output.decode().strip().replace("'", "") != "true":
+    if not registry_exists:
         # create local registry
         click.echo("Creating registry {}".format((registry_name)))
+        docker_client.containers.run(image="registry:2", name = registry_name, restart_policy={"Name": "always"}, ports={registry_port: host_port}, detach=True)
+        while docker_client.containers.get(registry_name).status != 'running':
+            pass
+    
+    reg_ip = docker_client.containers.get(registry_name).attrs['NetworkSettings']['IPAddress']
+
+    # create cluster
+    with tempfile.TemporaryDirectory() as temp_directory:
+        kind_config_file_location = os.path.join(temp_directory, "kind_config.yml")
+        
+        with open(kind_config_file_location, "w") as f:
+            workers_config = "\n".join(["- role: worker"] * (num_workers - 1))
+            f.write(
+                KIND_CONFIG.format(
+                    reg_port=registry_port, reg_ip=reg_ip, workers_config=workers_config
+                )
+            )
+            
+        click.echo("Creating cluster {}".format((name)))
+
         p = subprocess.Popen(
             [
-                "docker",
-                "run",
-                "--restart=always",
-                "-p",
-                registry_port + ":5000",
+                "kind",
+                "create",
+                "cluster",
                 "--name",
-                registry_name,
-                "registry:2",
+                name,
+                "--config",
+                kind_config_file_location,
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
+
+        output, error = p.communicate()
         if p.returncode != 0:
-            _, error = p.communicate()
             raise click.UsageError(
-                "Failed to create registry with the following error:\n {}".format(
+                "Failed to create cluster with the following error:\n {}".format(
                     error.decode()
                 )
             )
-
-    # create cluster
-    p = subprocess.Popen(
-        ["docker", "inspect", "-f", "'{{.NetworkSettings.IPAddress}}'", registry_name],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-
-    output, error = p.communicate()
-    reg_ip = output.decode().strip().replace("'", "")
-
-    workers_config = "\n".join(["- role: worker"] * (num_workers - 1))
-
-    config_dir_location = os.path.join(os.environ["HOME"], ".local", "share", "mlbench")
-    Path(config_dir_location).mkdir(parents=True, exist_ok=True)
-
-    kind_config_file_location = os.path.join(config_dir_location, "kind_config.yml")
-
-    with open(kind_config_file_location, "w") as f:
-        f.write(
-            KIND_CONFIG.format(
-                reg_port=registry_port, reg_ip=reg_ip, workers_config=workers_config
-            )
-        )
-
-    name = "{}-{}".format(release, num_workers)
-
-    click.echo("Creating cluster {}".format((name)))
-
-    p = subprocess.Popen(
-        [
-            "kind",
-            "create",
-            "cluster",
-            "--name",
-            name,
-            "--config",
-            kind_config_file_location,
-        ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-
-    output, error = p.communicate()
-    if p.returncode != 0:
-        raise click.UsageError(
-            "Failed to create cluster with the following error:\n {}".format(
-                error.decode()
-            )
-        )
 
     config.load_kube_config()
 
@@ -948,7 +839,7 @@ def create_kind(
         "kube-system", tiller_dep
     )
 
-    sleep(3)
+    sleep(5)
 
     pods = client.CoreV1Api().list_namespaced_pod(
         namespace="kube-system", label_selector="app=helm"
