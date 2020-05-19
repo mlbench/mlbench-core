@@ -432,7 +432,7 @@ def delete_kind(name):
     click.echo("Cluster deleted.")
 
 
-@cli.group("create-cluster")
+@cli_group.group("create-cluster")
 def create_cluster():
     pass
 
