@@ -412,7 +412,7 @@ def delete_gcloud(name, zone, project):
 
     click.echo("Cluster deleted.")
 
-    
+
 @delete_cluster.command("kind")
 @click.argument("name", type=str)
 def delete_kind(name):
