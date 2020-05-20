@@ -4,16 +4,30 @@ import numpy as np
 
 
 def _roundup(x, multiple):
+    """ Round up `x` to multiple of `multiple`"""
     return int((x + multiple - 1) // multiple * multiple)
 
 
 def _rounddown(x, multiple):
+    """ Round down `x` to multiple of `multiple`"""
     return int(x // multiple * multiple)
 
 
 def _is_batch_full(num_tokens, max_tokens, max_sentences, batch_length):
-    if batch_length == 0:
+    """Returns true if batch is full
+
+    Args:
+        num_tokens (int): number of tokens in batch
+        max_tokens (Optional[int]): Max number of tokens in batch
+        max_sentences (Optional[int]): Max number of sentences in batch
+        batch_length (int): Current batch length
+
+    Returns:
+        (bool): Whether the batch is full or not
+    """
+    if batch_length == 0 or (max_tokens is None and max_sentences is None):
         return False
+
     elif batch_length == max_sentences or num_tokens > max_tokens:
         return True
     else:
@@ -30,10 +44,24 @@ def _make_batches(
     bsz_mult,
     pad_seq,
 ):
+    """Creates the batches for WMT17 Dataset
+
+    Args:
+        src_lengths (iterable[int]): The source lengths
+        trg_lengths (iterable[int]): The target lengths
+        indices (iterable[int]): Indices to consider (must be sorted by lengths)
+        max_tokens (Optional[int]): Max tokens per batch
+        max_sentences (optional[int]): Max sentences per batch
+        max_len (int): Maximum sequence length
+        bsz_mult (int): Batch size multiple
+        pad_seq (int): Multiple to round up to for sequence lengths
+
+    Returns:
+        (list[list[int]]): The list of batches, referenced by index
+    """
     batches = []
     nelem = len(indices)
     sample_len = 0
-    padded_sample_len = 0
 
     num_seqs_mult = bsz_mult // pad_seq if (bsz_mult % pad_seq == 0) else bsz_mult
 
@@ -94,6 +122,21 @@ def _make_batches(
 def get_batches(
     dataset, max_tokens=None, max_sentences=None, bsz_mult=8, shuffle=True, seed=0
 ):
+    """Creates the batches for the given dataset
+
+    Args:
+        dataset (`obj`:torch.utils.Dataset): The dataset
+        max_tokens (Optional[int]): Maximum number of tokens in one batch.
+            Default: `None` (no limit)
+        max_sentences (int): Maximum number of sentences per batch.
+            Default: `None` (no limit)
+        bsz_mult (int): Batch size multiple. Default: 8
+        shuffle (bool): Shuffle batches. Default: `True`
+        seed (int): Seed to use for shuffling. Default: 0
+
+    Returns:
+        (list[list[int]]): The batches
+    """
     if hasattr(dataset, "indices"):
         partition_indices = dataset.indices
     else:

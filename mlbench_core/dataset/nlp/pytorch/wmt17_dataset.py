@@ -1,23 +1,63 @@
 import logging
 import os
+import struct
 
 import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from mlbench_core.dataset.nlp.pytorch.wmt17 import Dictionary
-from mlbench_core.dataset.nlp.pytorch.wmt17.utils import (
-    IndexedDataset,
-    collate_tokens,
-    data_file_path,
-    index_file_path,
-)
 from mlbench_core.dataset.util.tools import maybe_download_and_extract_tar_gz
+
+from .wmt17 import Dictionary, collate_batch
 
 logger = logging.getLogger("mlbench")
 
+dtypes = {
+    1: np.uint8,
+    2: np.int8,
+    3: np.int16,
+    4: np.int32,
+    5: np.int64,
+    6: np.float,
+    7: np.double,
+}
+
+
+def _read_longs(f, n):
+    a = np.empty(n, dtype=np.int64)
+    f.readinto(a)
+    return a
+
+
+def _index_file_path(prefix_path):
+    return prefix_path + ".idx"
+
+
+def _data_file_path(prefix_path):
+    return prefix_path + ".bin"
+
 
 class WMT17Dataset(Dataset):
+    """Dataset for WMT17 EN to DE translation, for transformer model.
+
+    The dataset needs to be pre-processed before training by using the script
+    `mlbench_core/dataset/nlp/pytorch/wmt17/preprocess/preprocess.py`.
+
+    This class uses the `.bin` and `.idx` files, outputted by the pre-processing script
+
+    Args:
+        root (str): Root folder where to download files
+        lang (tuple): Language pair
+        download (bool): Download dataset from gcloud S3
+        train (bool): Load train set
+        validation (bool): Load validation set
+        test (bool): Load test set
+        left_pad (tuple[bool]): left- or right-padding (true: left, false: right) for (source, target)
+        max_positions (tuple[int]): Maximum number of tokens in (source, target)
+        seq_len_multiple (int): Pad sources to multiples of this
+        shuffle (bool): Shuffle dataset
+    """
+
     urls = [
         (
             "https://storage.googleapis.com/mlbench-datasets/translation/wmt17_en_de.tar.gz",
@@ -96,12 +136,16 @@ class WMT17Dataset(Dataset):
         return len(self.src_data)
 
     def _exists(self):
+        """Checks if all the files needed exist
 
+        Returns:
+            (bool): True of all the files exist
+        """
         return (
-            os.path.exists(index_file_path(self.src_path))
-            and os.path.exists(data_file_path(self.src_path))
-            and os.path.exists(index_file_path(self.trg_path))
-            and os.path.join(data_file_path(self.trg_path))
+            os.path.exists(_index_file_path(self.src_path))
+            and os.path.exists(_data_file_path(self.src_path))
+            and os.path.exists(_index_file_path(self.trg_path))
+            and os.path.join(_data_file_path(self.trg_path))
         )
 
     def __getitem__(self, index):
@@ -113,7 +157,7 @@ class WMT17Dataset(Dataset):
 
     def collater(self, samples):
         """Merge a list of samples to form a mini-batch."""
-        return _collate(
+        return collate_batch(
             samples,
             pad_idx=self.src_dict.pad(),
             eos_idx=self.src_dict.eos(),
@@ -123,35 +167,22 @@ class WMT17Dataset(Dataset):
             seq_len_multiple=self.seq_len_multiple,
         )
 
-    def get_dummy_batch(
-        self, max_tokens_per_batch, max_positions, src_len=256, tgt_len=256
-    ):
-        max_source_positions, max_target_positions = self._get_max_positions(
-            max_positions
-        )
-        src_len, tgt_len = (
-            min(src_len, max_source_positions),
-            min(tgt_len, max_target_positions),
-        )
-        n_seq_per_batch_based_on_longest_seq = max_tokens_per_batch // max(
-            src_len, tgt_len
-        )
-
-        return self.collater(
-            [
-                {
-                    "id": i,
-                    "source": self.src_dict.dummy_sentence(src_len),
-                    "target": self.trg_dict.dummy_sentence(tgt_len)
-                    if self.trg_dict is not None
-                    else None,
-                }
-                for i in range(n_seq_per_batch_based_on_longest_seq)
-            ]
-        )
-
     def ordered_indices(self, partition_indices=None, seed=None):
-        """Ordered indices for batching."""
+        """Returns a list of indices, ordered by source and target lengths
+
+        If `partition_indices` is not `None`, only those indices will be returned,
+        but sorted.
+
+        The indices will be shuffled before sorting, using the given seed
+
+        Args:
+            partition_indices (Optional[list[int]]): The list of indices to sort
+                Default: `None`
+            seed (Optional[int]): Seed to use for shuffling
+
+        Returns:
+            (`obj`:np.array): Array of sorted indices
+        """
         if self.shuffle:
             indices = np.random.RandomState(seed).permutation(
                 len(self) if partition_indices is None else partition_indices
@@ -166,107 +197,38 @@ class WMT17Dataset(Dataset):
 
         return indices[np.argsort(self.src_sizes[indices], kind="mergesort")]
 
-    def _get_max_positions(self, max_positions=None):
-        if max_positions is None:
-            return self.max_source_positions, self.max_target_positions
 
-        assert len(max_positions) == 2
+class IndexedDataset(Dataset):
+    """Loader for TorchNet IndexedDataset"""
 
-        max_src_pos, max_tgt_pos = max_positions
+    def __init__(self, path):
+        super().__init__()
+        # Read Index file
+        with open(_index_file_path(path), "rb") as f:
+            magic = f.read(8)
+            assert magic == b"TNTIDX\x00\x00"
+            version = f.read(8)
+            assert struct.unpack("<Q", version) == (1,)
+            code, self.element_size = struct.unpack("<QQ", f.read(16))
+            self.dtype = dtypes[code]
+            self.size, self.s = struct.unpack("<QQ", f.read(16))
+            self.dim_offsets = _read_longs(f, self.size + 1)
+            self.data_offsets = _read_longs(f, self.size + 1)
+            self.sizes = _read_longs(f, self.s)
+        with open(_data_file_path(path), "rb") as f:
+            self.buffer = np.empty(self.data_offsets[-1], dtype=self.dtype)
+            f.readinto(self.buffer)
 
-        return (
-            min(self.max_source_positions, max_src_pos),
-            min(self.max_target_positions, max_tgt_pos),
-        )
+    def check_index(self, i):
+        if i < 0 or i >= self.size:
+            raise IndexError("index out of range")
 
+    def __getitem__(self, i):
+        self.check_index(i)
+        tensor_size = self.sizes[self.dim_offsets[i] : self.dim_offsets[i + 1]]
+        a = np.empty(tensor_size, dtype=self.dtype)
+        np.copyto(a, self.buffer[self.data_offsets[i] : self.data_offsets[i + 1]])
+        return torch.from_numpy(a).long()
 
-def _collate(
-    samples,
-    pad_idx,
-    eos_idx,
-    left_pad_source=True,
-    left_pad_target=False,
-    bsz_mult=8,
-    seq_len_multiple=1,
-):
-    if len(samples) == 0:
-        return {}
-
-    def merge(key, left_pad, move_eos_to_beginning=False):
-        return collate_tokens(
-            [s[key] for s in samples],
-            pad_idx,
-            eos_idx,
-            left_pad,
-            move_eos_to_beginning,
-            bsz_mult,
-            seq_len_multiple,
-        )
-
-    id = torch.LongTensor([s["id"] for s in samples])
-    src_tokens = merge("source", left_pad=left_pad_source)
-    # sort by descending source length
-    src_lengths = torch.LongTensor([s["source"].numel() for s in samples])
-
-    prev_output_tokens = None
-    target = None
-    if samples[0].get("target", None) is not None:
-        target = merge("target", left_pad=left_pad_target)
-        # we create a shifted version of targets for feeding the
-        # previous output token(s) into the next decoder step
-        prev_output_tokens = merge(
-            "target", left_pad=left_pad_target, move_eos_to_beginning=True,
-        )
-        ntokens = sum(len(s["target"]) for s in samples)
-    else:
-        ntokens = sum(len(s["source"]) for s in samples)
-
-    return {
-        "id": id,
-        "ntokens": ntokens,
-        "net_input": {
-            "src_tokens": src_tokens,
-            "src_lengths": src_lengths,
-            "prev_output_tokens": prev_output_tokens,
-        },
-        "target": target,
-    }
-
-
-def collater_isolated(samples, seq_len_multiple, left_pad_source, left_pad_target):
-    """Merge a list of samples to form a mini-batch."""
-    return _collate(
-        samples,
-        pad_idx=1,
-        eos_idx=2,
-        left_pad_source=left_pad_source,
-        left_pad_target=left_pad_target,
-        bsz_mult=8,
-        seq_len_multiple=seq_len_multiple,
-    )
-
-
-def get_dummy_batch_isolated(max_tokens_per_batch, max_positions, seq_len_multiple):
-    """Creates a dummy batch"""
-    max_source_positions, max_target_positions = max_positions[0], max_positions[1]
-    src_len, tgt_len = max_source_positions, max_target_positions
-    n_seq_per_batch_based_on_longest_seq = max_tokens_per_batch // max(src_len, tgt_len)
-
-    nspecial = 3
-    ntok_alloc = 33712
-    eos_id = 2
-    dummy_seq_src = torch.Tensor(src_len).uniform_(nspecial + 1, ntok_alloc).long()
-    dummy_seq_src[-1] = eos_id
-
-    dummy_seq_tgt = torch.Tensor(tgt_len).uniform_(nspecial + 1, ntok_alloc).long()
-    dummy_seq_tgt[-1] = eos_id
-
-    return collater_isolated(
-        [
-            {"id": i, "source": dummy_seq_src, "target": dummy_seq_tgt}
-            for i in range(n_seq_per_batch_based_on_longest_seq)
-        ],
-        seq_len_multiple,
-        left_pad_source=True,
-        left_pad_target=False,
-    )
+    def __len__(self):
+        return self.size

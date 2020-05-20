@@ -70,6 +70,15 @@ WMT14
 .. autoapimodule:: mlbench_core.dataset.nlp.pytorch.wmt14.wmt14_tokenizer
     :members:
 
+WMT17
+'''''
+
+.. autoapiclass:: mlbench_core.dataset.nlp.pytorch.WMT17Dataset
+    :members:
+
+.. autoapimodule:: mlbench_core.dataset.nlp.pytorch.wmt17
+    :members:
+
 tensorflow
 ++++++++++
 
