@@ -1,9 +1,7 @@
 import torch.nn.functional as F
-from apex.normalization.fused_layer_norm import FusedLayerNorm
 from torch import nn
-from torch.nn.modules.activation import MultiheadAttention
 
-# TODO try using custom MultiHeadAttention with softmax type
+from .multihead_attention import MultiheadAttention
 
 
 def Linear(in_features, out_features, bias=True):
@@ -13,13 +11,13 @@ def Linear(in_features, out_features, bias=True):
     return m
 
 
-def dropout_add(x, residual, prob, is_training):
+def _dropout_add(x, residual, prob, is_training):
     out = F.dropout(x, p=prob, training=is_training)
     out = residual + out
     return out
 
 
-def relu_dropout(x, prob, is_training):
+def _relu_dropout(x, prob, is_training):
     out = F.threshold(x, 0.0, 0.0)
     out = F.dropout(out, p=prob, training=is_training)
     return out
@@ -48,7 +46,7 @@ class TransformerEncoderLayer(nn.Module):
             num_heads=args.encoder_attention_heads,
             dropout=args.attention_dropout,
             bias=False,
-            # softmax_type=args.softmax_type
+            softmax_type=args.softmax_type,
         )
         self.dropout = args.dropout
         self.relu_dropout = args.relu_dropout
@@ -56,7 +54,7 @@ class TransformerEncoderLayer(nn.Module):
         self.fc1 = Linear(self.embed_dim, args.encoder_ffn_embed_dim)
         self.fc2 = Linear(args.encoder_ffn_embed_dim, self.embed_dim)
         self.layer_norms = nn.ModuleList(
-            [FusedLayerNorm(self.embed_dim) for _ in range(2)]
+            [nn.LayerNorm(self.embed_dim) for _ in range(2)]
         )
 
     def forward(self, x, encoder_padding_mask):
@@ -67,7 +65,7 @@ class TransformerEncoderLayer(nn.Module):
             query=x, key=x, value=x, key_padding_mask=encoder_padding_mask
         )
 
-        x = dropout_add(x, residual, self.dropout, self.training)
+        x = _dropout_add(x, residual, self.dropout, self.training)
 
         x = self.maybe_layer_norm(0, x, after=True)
 
@@ -77,12 +75,12 @@ class TransformerEncoderLayer(nn.Module):
         # Fuse Bias to GEMMs by making Tensors 2D
         sent_len, sents, hid_dim = x.size()
         x = x.view(sent_len * sents, hid_dim)
-        x = relu_dropout(self.fc1(x), self.relu_dropout, self.training)
+        x = _relu_dropout(self.fc1(x), self.relu_dropout, self.training)
 
         x = self.fc2(x)
         x = x.view(sent_len, sents, hid_dim)
 
-        x = dropout_add(x, residual, self.dropout, self.training)
+        x = _dropout_add(x, residual, self.dropout, self.training)
         x = self.maybe_layer_norm(1, x, after=True)
         return x
 
@@ -94,7 +92,6 @@ class TransformerEncoderLayer(nn.Module):
             return x
 
 
-# copied from mlperf
 class TransformerDecoderLayer(nn.Module):
     """Decoder layer block.
 
@@ -120,13 +117,13 @@ class TransformerDecoderLayer(nn.Module):
             num_heads=args.decoder_attention_heads,
             dropout=args.attention_dropout,
             bias=False,
-            # softmax_type=args.softmax_type
+            softmax_type=args.softmax_type,
         )
         self.dropout = args.dropout
         self.relu_dropout = args.relu_dropout
         self.normalize_before = args.decoder_normalize_before
 
-        self.self_attn_layer_norm = FusedLayerNorm(
+        self.self_attn_layer_norm = nn.LayerNorm(
             self.embed_dim
         )  # nn.LayerNorm(self.embed_dim)
 
@@ -138,7 +135,7 @@ class TransformerDecoderLayer(nn.Module):
                 embed_dim=self.embed_dim,
                 num_heads=args.decoder_attention_heads,
                 dropout=args.attention_dropout,
-                # softmax_type=args.softmax_type,
+                softmax_type=args.softmax_type,
                 bias=False,
             )
             self.encoder_attn_layer_norm = nn.LayerNorm(self.embed_dim)
@@ -146,7 +143,7 @@ class TransformerDecoderLayer(nn.Module):
         self.fc1 = Linear(self.embed_dim, args.decoder_ffn_embed_dim)
         self.fc2 = Linear(args.decoder_ffn_embed_dim, self.embed_dim)
 
-        self.final_layer_norm = FusedLayerNorm(
+        self.final_layer_norm = nn.LayerNorm(
             self.embed_dim
         )  # nn.LayerNorm(self.embed_dim)
         self.need_attn = True
@@ -158,12 +155,12 @@ class TransformerDecoderLayer(nn.Module):
             query=x,
             key=x,
             value=x,
-            # mask_future_timesteps=True,
-            # incremental_state=incremental_state,
+            mask_future_timesteps=True,
+            incremental_state=incremental_state,
             need_weights=False,
         )
 
-        x = dropout_add(x, residual, self.dropout, self.training)
+        x = _dropout_add(x, residual, self.dropout, self.training)
         x = self.maybe_layer_norm(self.self_attn_layer_norm, x, after=True)
 
         attn = None
@@ -175,11 +172,11 @@ class TransformerDecoderLayer(nn.Module):
                 key=encoder_out,
                 value=encoder_out,
                 key_padding_mask=encoder_padding_mask,
-                # incremental_state=incremental_state,
-                # static_kv=True,
+                incremental_state=incremental_state,
+                static_kv=True,
                 need_weights=(not self.training and self.need_attn),
             )
-            x = dropout_add(x, residual, self.dropout, self.training)
+            x = _dropout_add(x, residual, self.dropout, self.training)
             x = self.maybe_layer_norm(self.encoder_attn_layer_norm, x, after=True)
 
         residual = x
@@ -188,12 +185,12 @@ class TransformerDecoderLayer(nn.Module):
         # Fuse Bias to GEMMs by making Tensors 2D
         sent_len, sents, hid_dim = x.size()
         x = x.view(sent_len * sents, hid_dim)
-        x = relu_dropout(self.fc1(x), self.relu_dropout, self.training)
+        x = _relu_dropout(self.fc1(x), self.relu_dropout, self.training)
 
         x = self.fc2(x)
         x = x.view(sent_len, sents, hid_dim)
 
-        x = dropout_add(x, residual, self.dropout, self.training)
+        x = _dropout_add(x, residual, self.dropout, self.training)
         x = self.maybe_layer_norm(self.final_layer_norm, x, after=True)
         return x, attn
 

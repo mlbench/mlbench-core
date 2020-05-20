@@ -2,12 +2,10 @@ import math
 
 import torch
 import torch.nn.functional as F
-from apex.normalization.fused_layer_norm import FusedLayerNorm
 from torch import nn
 
 from mlbench_core.models.pytorch.transformer.modules import (
     PositionalEmbedding,
-    SinusoidalPositionalEmbedding,
     TransformerEncoderLayer,
 )
 
@@ -18,9 +16,10 @@ class TransformerEncoder(nn.Module):
     is a :class:`TransformerEncoderLayer`.
 
     Args:
-        args (argparse.Namespace): parsed command-line arguments
-        dictionary (~fairseq.data.Dictionary): encoding dictionary
+        args: Arguments of model. All arguments should be accessible via `__getattribute__` method
+        dictionary (`obj`:mlbench_core.dataset.nlp.pytorch.wmt17.Dictionary): encoding dictionary
         embed_tokens (torch.nn.Embedding): input embedding
+        left_pad (bool): Pad sources to the left (`True`) or right (`False`). Default: `True`
     """
 
     def __init__(self, args, dictionary, embed_tokens, left_pad=True):
@@ -54,9 +53,18 @@ class TransformerEncoder(nn.Module):
 
         self.normalize = args.encoder_normalize_before
         if self.normalize:
-            self.layer_norm = FusedLayerNorm(embed_dim)  # nn.LayerNorm(embed_dim)
+            self.layer_norm = nn.LayerNorm(embed_dim)  # nn.LayerNorm(embed_dim)
 
     def forward(self, src_tokens, src_lengths):
+        """Forward function of encoder
+
+        Args:
+            src_tokens (`obj`:torch.Tensor): Source tokens
+            src_lengths (`obj`:torch.Tensor): Source lengths
+
+        Returns:
+            (dict): {`encoder:out` (`obj`:torch.Tensor), `encoder_padding_mask` (`obj`:torch.Tensor)}
+        """
         # embed tokens and positions
         x = self.embed_scale * self.embed_tokens(src_tokens)
 
@@ -104,10 +112,3 @@ class TransformerEncoder(nn.Module):
         if self.embed_positions is None:
             return self.max_source_positions
         return min(self.max_source_positions, self.embed_positions.max_positions())
-
-    def upgrade_state_dict(self, state_dict):
-        if isinstance(self.embed_positions, SinusoidalPositionalEmbedding):
-            if "encoder.embed_positions.weights" in state_dict:
-                del state_dict["encoder.embed_positions.weights"]
-            state_dict["encoder.embed_positions._float_tensor"] = torch.FloatTensor(1)
-        return state_dict

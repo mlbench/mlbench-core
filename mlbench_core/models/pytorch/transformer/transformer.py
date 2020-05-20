@@ -1,38 +1,23 @@
 from torch import nn
 
-from mlbench_core.models.pytorch.transformer import utils
 from mlbench_core.models.pytorch.transformer.decoder import TransformerDecoder
 from mlbench_core.models.pytorch.transformer.encoder import TransformerEncoder
+from mlbench_core.models.pytorch.transformer.modules import build_embedding
 
 DEFAULT_MAX_SOURCE_POSITIONS = 256
 DEFAULT_MAX_TARGET_POSITIONS = 256
 
 
-def Embedding(num_embeddings, embedding_dim, padding_idx):
-    m = nn.Embedding(num_embeddings, embedding_dim, padding_idx=padding_idx)
-    nn.init.normal_(m.weight, mean=0, std=embedding_dim ** -0.5)
-    nn.init.constant_(m.weight[padding_idx], 0)
-    return m
-
-
-def build_embedding(dictionary, embed_dim, path=None):
-    num_embeddings = len(dictionary)
-    padding_idx = dictionary.pad()
-
-    emb = Embedding(num_embeddings, embed_dim, padding_idx)
-    # if provided, load from preloaded dictionaries
-    if path:
-        embed_dict = utils.parse_embedding(path)
-        utils.load_embedding(embed_dict, dictionary, emb)
-    return emb
-
-
 class TransformerModel(nn.Module):
-    """Transformer model TODO add link
+    """Transformer model
+
+    This model uses MultiHeadAttention as described in
+    :cite:`NIPS2017_7181`
+
     Args:
-        args: Arguments of model
-        src_dict: Source dictionary
-        trg_dict: Target dictionary
+        args: Arguments of model. All arguments should be accessible via `__getattribute__` method
+        src_dict (`obj`:mlbench_core.dataset.nlp.pytorch.wmt17.Dictionary): Source dictionary
+        trg_dict (`obj`:mlbench_core.dataset.nlp.pytorch.wmt17.Dictionary): Target dictionary
     """
 
     def __init__(self, args, src_dict, trg_dict):
@@ -84,7 +69,8 @@ class TransformerModel(nn.Module):
             prev_output_tokens (`obj`:torch.Tensor): Previous output tokens
 
         Returns:
-            TODO add decoder output
+            (`obj`:torch.Tensor, Optional[`obj`:torch.Tensor]):
+                The model output, and attention weights if needed
         """
         encoder_out = self.encoder(src_tokens, src_lengths=src_lengths)
         decoder_out = self.decoder(prev_output_tokens, encoder_out=encoder_out)
@@ -94,10 +80,6 @@ class TransformerModel(nn.Module):
         """Maximum length supported by the model."""
         return self.encoder.max_positions(), self.decoder.max_positions()
 
-    def get_normalized_probs(self, net_output, log_probs, sample=None):
-        """Get normalized probabilities (or log probs) from a net's output."""
-        return self.decoder.get_normalized_probs(net_output, log_probs, sample)
-
     def max_decoder_positions(self):
         """Maximum length supported by the decoder.
 
@@ -105,32 +87,3 @@ class TransformerModel(nn.Module):
             (int)
         """
         return self.decoder.max_positions()
-
-    def make_generation_fast_(self, **kwargs):
-        """Optimize model for faster generation."""
-        if self._is_generation_fast:
-            return  # only apply once
-        self._is_generation_fast = True
-
-        # remove weight norm from all modules in the network
-        def apply_remove_weight_norm(module):
-            try:
-                nn.utils.remove_weight_norm(module)
-            except ValueError:  # this module didn't have weight norm
-                return
-
-        self.apply(apply_remove_weight_norm)
-
-        def apply_make_generation_fast_(module):
-            if module != self and hasattr(module, "make_generation_fast_"):
-                module.make_generation_fast_(**kwargs)
-
-        self.apply(apply_make_generation_fast_)
-
-        def train(mode):
-            if mode:
-                raise RuntimeError("cannot train after make_generation_fast")
-
-        # this model should no longer be used for training
-        self.eval()
-        self.train = train

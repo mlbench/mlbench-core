@@ -54,11 +54,6 @@ ResNet18_CIFAR10
     :members:
 
 
-.. rubric:: References
-
-.. bibliography:: models.bib
-   :cited:
-
 RNN
 +++
 ---
@@ -101,6 +96,51 @@ Decoder
 
 .. autoapiclass:: ResidualRecurrentDecoder
     :members:
+
+Transformer Model for Translation
+'''''''''''''''''''''''''''''''''
+.. autoapimodule:: mlbench_core.models.pytorch.transformer
+.. currentmodule:: mlbench_core.models.pytorch.transformer
+
+Model
+=====
+
+.. autoapiclass:: TransformerModel
+    :members: forward
+
+Encoder
+=======
+.. autoapimodule:: mlbench_core.models.pytorch.transformer.encoder
+.. currentmodule:: mlbench_core.models.pytorch.transformer.encoder
+
+.. autoapiclass:: TransformerEncoder
+    :members: forward
+
+Decoder
+=======
+.. autoapimodule:: mlbench_core.models.pytorch.transformer.decoder
+.. currentmodule:: mlbench_core.models.pytorch.transformer.decoder
+
+.. autoapiclass:: TransformerDecoder
+    :members: forward
+
+Layers
+======
+
+.. autoapimodule:: mlbench_core.models.pytorch.transformer.modules
+.. currentmodule:: mlbench_core.models.pytorch.transformer.modules
+
+.. autoapiclass:: TransformerEncoderLayer
+    :members: forward
+
+.. autoapiclass:: TransformerDecoderLayer
+    :members: forward
+
+
+.. rubric:: References
+
+.. bibliography:: models.bib
+   :cited:
 
 
 tensorflow

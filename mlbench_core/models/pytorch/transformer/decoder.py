@@ -2,12 +2,10 @@ import math
 
 import torch
 import torch.nn.functional as F
-from apex.normalization.fused_layer_norm import FusedLayerNorm
 from torch import nn
 
 from mlbench_core.models.pytorch.transformer.modules import (
     PositionalEmbedding,
-    SinusoidalPositionalEmbedding,
     TransformerDecoderLayer,
 )
 
@@ -18,11 +16,12 @@ class TransformerDecoder(nn.Module):
     is a :class:`TransformerDecoderLayer`.
 
     Args:
-        args (argparse.Namespace): parsed command-line arguments
-        dictionary (~fairseq.data.Dictionary): decoding dictionary
+        args: Arguments of model. All arguments should be accessible via `__getattribute__` method
+        dictionary (`obj`:mlbench_core.dataset.nlp.pytorch.wmt17.Dictionary): decoding dictionary
         embed_tokens (torch.nn.Embedding): output embedding
         no_encoder_attn (bool, optional): whether to attend to encoder outputs
             (default: False).
+        left_pad (bool): Pad targets to the left (`True`) or right (`False`). Default: `False`
     """
 
     def __init__(
@@ -64,7 +63,7 @@ class TransformerDecoder(nn.Module):
         self.normalize = args.decoder_normalize_before
 
         if self.normalize:
-            self.layer_norm = FusedLayerNorm(embed_dim)  # nn.LayerNorm(embed_dim)
+            self.layer_norm = nn.LayerNorm(embed_dim)  # FusedLayerNorm(embed_dim)  #
 
     def forward(self, prev_output_tokens, encoder_out=None, incremental_state=None):
         # embed positions
@@ -122,30 +121,6 @@ class TransformerDecoder(nn.Module):
             return self.max_target_positions
         return min(self.max_target_positions, self.embed_positions.max_positions())
 
-    def upgrade_state_dict(self, state_dict):
-        if isinstance(self.embed_positions, SinusoidalPositionalEmbedding):
-            if "decoder.embed_positions.weights" in state_dict:
-                del state_dict["decoder.embed_positions.weights"]
-            state_dict["decoder.embed_positions._float_tensor"] = torch.FloatTensor(1)
-
-        for i in range(len(self.layers)):
-            # update layer norms
-            layer_norm_map = {
-                "0": "self_attn_layer_norm",
-                "1": "encoder_attn_layer_norm",
-                "2": "final_layer_norm",
-            }
-            for old, new in layer_norm_map.items():
-                for m in ("weight", "bias"):
-                    k = "decoder.layers.{}.layer_norms.{}.{}".format(i, old, m)
-                    if k in state_dict:
-                        state_dict[
-                            "decoder.layers.{}.{}.{}".format(i, new, m)
-                        ] = state_dict[k]
-                        del state_dict[k]
-
-        return state_dict
-
     def reorder_incremental_state(self, incremental_state, new_order):
         """Reorder incremental state.
 
@@ -161,22 +136,3 @@ class TransformerDecoder(nn.Module):
                 )
 
         self.apply(apply_reorder_incremental_state)
-
-    def set_beam_size(self, beam_size):
-        """Sets the beam size in the decoder and all children."""
-        if getattr(self, "_beam_size", -1) != beam_size:
-
-            def apply_set_beam_size(module):
-                if module != self and hasattr(module, "set_beam_size"):
-                    module.set_beam_size(beam_size)
-
-            self.apply(apply_set_beam_size)
-            self._beam_size = beam_size
-
-    def get_normalized_probs(self, net_output, log_probs, sample):
-        """Get normalized probabilities (or log probs) from a net's output."""
-        logits = net_output[0]
-        if log_probs:
-            return F.log_softmax(logits, dim=-1, dtype=torch.float32)
-        else:
-            return F.softmax(logits, dim=-1, dtype=torch.float32)
