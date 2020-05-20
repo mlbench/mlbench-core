@@ -434,17 +434,17 @@ class SQRTTimeDecayLRWithWarmup(LambdaLR):
     """SQRT learning rate scheduler with warm-up steps
 
     During warmup:
-
+      ```
       lrs = torch.linspace(warmup_init_lr, base_lr, warmup_steps)
       lr = lrs[update_num]
-
+      ```
     After warmup:
-
+      ```
       lr = decay_factor / sqrt(update_num)
-
+      ```
     where
 
-      decay_factor = base_lr * sqrt(warmup_steps)
+      ``decay_factor = base_lr * sqrt(warmup_steps)``
 
     Args:
         optimizer (`obj`:torch.optim): The optimizer

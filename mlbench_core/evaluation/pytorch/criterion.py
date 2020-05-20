@@ -159,16 +159,15 @@ class MSELossRegularized(_WeightedLoss):
 class LabelSmoothing(_Loss):
     """
     NLL loss with label smoothing.
+
+    Args:
+        padding_idx (int): Code for padding char
+        smoothing (float): Smoothing value
+        fast_xentropy (bool): Use `apex.contrib.xentropy.SoftmaxCrossEntropyLoss`
     """
 
     def __init__(self, padding_idx, smoothing=0.0, fast_xentropy=False):
-        """
-        Constructor for the LabelSmoothing module.
 
-        Args:
-            padding_idx (int): Code for padding char
-            smoothing (float): Smoothing value
-        """
         super(LabelSmoothing, self).__init__()
         self.padding_idx = padding_idx
         self.confidence = 1.0 - smoothing

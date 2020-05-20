@@ -45,6 +45,12 @@ ExponentialWarmupMultiStepLR
 .. autoapiclass:: ExponentialWarmupMultiStepLR
     :members:
 
+SQRTTimeDecayLRWithWarmup
++++++++++++++++++++++++++
+
+.. autoapiclass:: SQRTTimeDecayLRWithWarmup
+    :members:
+
 tensorflow
 ~~~~~~~~~~
 
