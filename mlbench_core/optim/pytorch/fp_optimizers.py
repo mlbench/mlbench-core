@@ -60,8 +60,8 @@ class FP16Optimizer:
         init_scale (int):  initial loss scale
         scale_factor (float): Factor for upscale/dowscale
         scale_window (int): interval for loss scale upscaling
-        average_models (bool): Average the models
-        average_batch (bool): Divide gradients by given denominator at each step, instead
+        average_world (bool): Average the gradients by world size
+        average_custom (bool): Divide gradients by given denominator at each step, instead
             of `world_size`
         divide_before (bool): Divide gradients before reduction (default: False)
     """
@@ -79,8 +79,8 @@ class FP16Optimizer:
         scale_window=128,
         max_scale=None,  # TODO max scale for GNMT is 8192.0
         min_scale=1e-4,
-        average_models=False,
-        average_batch=False,
+        average_world=False,
+        average_custom=False,
         divide_before=False,
     ):
         self.use_cuda = use_cuda
@@ -108,10 +108,10 @@ class FP16Optimizer:
                 world_size=world_size, use_cuda=use_cuda, divide_before=divide_before
             ).agg_grad(by_layer=by_layer)
 
-        if average_models:
-            self.agg_mode = "avg"
-        elif average_batch:
-            self.agg_mode = "avg_batch"
+        if average_world:
+            self.agg_mode = "avg_world"
+        elif average_custom:
+            self.agg_mode = "custom_avg"
         else:
             raise NotImplementedError("Only average model is supported right now.")
 
@@ -254,8 +254,8 @@ class FP32Optimizer:
         use_cuda (bool): Use cuda tensors for aggregation
         by_layer (bool): Aggregate by layer
         grad_clip (float): coefficient for gradient clipping, max L2 norm of the gradients
-        average_models (bool): Average the models
-        average_batch (bool): Divide gradients by given denominator at each step, instead
+        average_world (bool): Average the gradients by world size
+        average_custom (bool): Divide gradients by given denominator at each step, instead
             of `world_size`
         divide_before (bool): Divide gradients before reduction (default: False)
     """
@@ -267,18 +267,18 @@ class FP32Optimizer:
         use_cuda=False,
         by_layer=False,
         grad_clip=float("inf"),
-        average_models=False,
-        average_batch=False,
+        average_world=False,
+        average_custom=False,
         divide_before=False,
     ):
         self.model = model
         self.grad_clip = grad_clip
         self.optimizer = None
 
-        if average_models:
-            self.agg_mode = "avg"
-        elif average_batch:
-            self.agg_mode = "avg_batch"
+        if average_world:
+            self.agg_mode = "avg_world"
+        elif average_custom:
+            self.agg_mode = "custom_avg"
         else:
             raise NotImplementedError("Only average model is supported right now.")
 
@@ -326,7 +326,9 @@ class AMPOptimizer:
         grad_clip (float): coefficient for gradient clipping, max L2 norm of the gradients
         loss_scale (int):  initial loss scale
         dls_upscale_interval (int): interval for loss scale upscaling
-        average_models (bool): Average the models
+        average_world (bool): Average the gradients by world size
+        average_custom (bool): Divide gradients by given denominator at each step, instead
+            of `world_size`
         world_size (int): Distributed world size
         use_cuda (bool): Use cuda tensors for aggregation
         by_layer (bool): Aggregate by layer
@@ -339,7 +341,8 @@ class AMPOptimizer:
         grad_clip=None,
         loss_scale=8192,
         dls_upscale_interval=128,
-        average_models=True,
+        average_world=True,
+        average_custom=False,
         world_size=1,
         use_cuda=False,
         by_layer=False,
@@ -352,8 +355,10 @@ class AMPOptimizer:
         loss_scaler._loss_scale = loss_scale
         loss_scaler._scale_seq_len = dls_upscale_interval
 
-        if average_models:
-            self.agg_mode = "avg"
+        if average_world:
+            self.agg_mode = "avg_world"
+        elif average_custom:
+            self.agg_mode = "custom_avg"
         else:
             raise NotImplementedError("Only average model is supported right now.")
 

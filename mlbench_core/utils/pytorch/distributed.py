@@ -6,6 +6,11 @@ try:
 except ImportError as e:
     pass
 
+ALLREDUCE_AGGREGATION_OPS = ["avg_world", "custom_avg"]
+"""
+All possible aggregations for AllReduceAggregation
+"""
+
 
 def global_average(sum, count):
     def helper(array):
@@ -78,15 +83,14 @@ def unpack_tensors(aggregated, indices, sizes):
 
 
 class Aggregation(object):
-    """Aggregate udpates / models from different processes.
+    """Aggregate updates / models from different processes.
 
     Args:
         use_cuda (bool): Whether to use CUDA tensors for communication
     """
 
-    def __init__(self, use_cuda=False, has_grad=True):
+    def __init__(self, use_cuda=False):
         self.use_cuda = use_cuda
-        self.has_gad = has_grad
 
     def _agg(self, data, op, denom=None):
         """Aggregate data using `op` operation.
@@ -95,7 +99,7 @@ class Aggregation(object):
             data (:obj:`torch.Tensor`): A Tensor to be aggregated.
             op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
             denom (:obj:`torch.Tensor`, optional): Custom denominator to average by
-                Use with op == `avg_batch`. (default: `None`)
+                Use with op == `custom_avg`. (default: `None`)
 
         Returns:
             :obj:`torch.Tensor`: An aggregated tensor.
@@ -107,9 +111,9 @@ class Aggregation(object):
 
         Args:
             model (:obj:`torch.Module`): Models to be averaged.
-            op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
+            op (str): Aggregation method. Should be in `ALLREDUCE_AGGREGATION_OPS`
             denom (:obj:`torch.Tensor`, optional): Custom denominator to average by
-                Use with op == `avg_batch`. (default: `None`)
+                Use with op == `custom_avg`. (default: `None`)
         """
         # Pack all layers
         packed, indices, sizes = pack_tensors(
@@ -127,9 +131,9 @@ class Aggregation(object):
 
         Args:
             model (:obj:`torch.Module`): Models to be averaged.
-            op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
+            op (str): Aggregation method. Should be in `ALLREDUCE_AGGREGATION_OPS`
             denom (:obj:`torch.Tensor`, optional): Custom denominator to average by
-                Use with op == `avg_batch`. (default: `None`)
+                Use with op == `custom_avg`. (default: `None`)
         """
         # Pack all layers
         packed, indices, sizes = pack_tensors(
@@ -147,9 +151,9 @@ class Aggregation(object):
 
         Args:
             model (:obj:`torch.Module`): Models to be averaged.
-            op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
+            op (str): Aggregation method. Should be in `ALLREDUCE_AGGREGATION_OPS`
             denom (:obj:`torch.Tensor`, optional): Custom denominator to average by
-                Use with op == `avg_batch`. (default: `None`)
+                Use with op == `custom_avg`. (default: `None`)
         """
         # Aggregate layer by layer
         for _, param in enumerate(model.parameters()):
@@ -161,9 +165,9 @@ class Aggregation(object):
 
         Args:
             model (:obj:`torch.Module`): Models to be averaged.
-            op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
+            op (str): Aggregation method. Should be in `ALLREDUCE_AGGREGATION_OPS`
             denom (:obj:`torch.Tensor`, optional): Custom denominator to average by
-                Use with op == `avg_batch`. (default: `None`)
+                Use with op == `custom_avg`. (default: `None`)
         """
         # Aggregate layer by layer
         for _, param in enumerate(model.parameters()):
@@ -212,43 +216,44 @@ class AllReduceAggregation(Aggregation):
     def _divide(self, data, op, denom=None):
         """Divides the given `data` tensor by
 
-        - `world_size` if op == `avg`
-        - `denom`, if op == `avg_batch`
+        - `world_size` if op == `avg_world`
+        - `denom`, if op == `custom_avg`
 
         Args:
             data (`obj`:torch.Tensor): Data tensor to divide
-            op (str): One of `avg` or `avg_batch`
+            op (str): Aggregation method. Should be in `ALLREDUCE_AGGREGATION_OPS`
             denom (:obj:`torch.Tensor`, optional): Custom denominator to average by
-                Use with op == `avg_batch`. (default: `None`)
+                Use with op == `custom_avg`. (default: `None`)
 
         Returns:
             (`obj`:torch.Tensor): The resulting tensor
         """
-        if op == "avg":
+        if op not in ALLREDUCE_AGGREGATION_OPS:
+            raise NotImplementedError("Allreduce not implemented for op={}".format(op))
+
+        if op == "avg_world":
             data.div_(self.world_size)
-        elif op == "avg_batch":
+        elif op == "custom_avg":
             if denom is None or denom == 0:
                 raise ValueError("Denominator should be one element tensor")
             data.div_(denom)
-        else:
-            raise NotImplementedError("Allreduce not implemented for op={}".format(op))
 
         return data
 
     def _agg(self, data, op, denom=None):
         """Aggregate data using `op` operation.
 
-        - If op == `avg`, the reduced tensor will be divided by `world_size`,
-        - if op == `avg_batch`, the reduced tensor will be divided by `denom`
+        - If op == `avg_world`, the reduced tensor will be divided by `world_size`,
+        - if op == `custom_avg`, the reduced tensor will be divided by `denom`
 
         If `self.divide_before`, the division is performed before reduction.
         This can be helpful to avoid overflows when using `float16` training
 
         Args:
             data (:obj:`torch.Tensor`): A Tensor to be aggregated.
-            op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
+            op (str): Aggregation method. Should be in `ALLREDUCE_AGGREGATION_OPS`
             denom (:obj:`torch.Tensor`, optional): Custom denominator to average by
-                Use with op == `avg_batch`. (default: `None`)
+                Use with op == `custom_avg`. (default: `None`)
 
         Returns:
             (`obj`:torch.Tensor): The aggregated tensor.
@@ -307,7 +312,7 @@ class DecentralizedAggregation(Aggregation):
             req.wait()
 
         # Aggregate local_data
-        if op == "avg":
+        if op == "avg_world":
             output = sum(local_data.values()) / (len(self.neighbors) + 1)
         else:
             raise NotImplementedError("op {} is not supported yet.".format(op))

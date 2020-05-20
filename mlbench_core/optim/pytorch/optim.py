@@ -302,7 +302,7 @@ class DecentralizedSGD(SGD):
         )
 
         if average_models:
-            self.agg_mode = "avg"
+            self.agg_mode = "avg_world"
         else:
             raise NotImplementedError("Only average model is supported right now.")
 
@@ -361,7 +361,7 @@ class CentralizedSGD(SGD):
             model.parameters(), lr, momentum, dampening, weight_decay, nesterov
         )
         if average_models:
-            self.agg_mode = "avg"
+            self.agg_mode = "avg_world"
         else:
             raise NotImplementedError("Only average model is supported right now.")
 
@@ -480,7 +480,7 @@ class CentralizedAdam(Adam):
             model.parameters(), lr, betas, eps, weight_decay, amsgrad
         )
         if average_models:
-            self.agg_mode = "avg"
+            self.agg_mode = "avg_world"
         else:
             raise NotImplementedError("Only average model is supported right now.")
 
