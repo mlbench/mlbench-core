@@ -1,8 +1,3 @@
-from mlbench_core.utils.pytorch.distributed import (
-    AllReduceAggregation,
-    DecentralizedAggregation,
-    PowerAggregation,
-)
 import numpy as np
 import torch
 import torch.distributed as dist
@@ -12,6 +7,7 @@ from torch.optim.optimizer import Optimizer, required
 from mlbench_core.utils.pytorch.distributed import (
     AllReduceAggregation,
     DecentralizedAggregation,
+    PowerAggregation,
 )
 
 

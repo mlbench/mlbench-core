@@ -1,6 +1,7 @@
+import numpy as np
 import torch
 import torch.distributed as dist
-import numpy as np
+
 from mlbench_core.utils.pytorch.utils import orthogonalize
 
 try:
@@ -360,12 +361,14 @@ class PowerAggregation(Aggregation):
         torch.manual_seed(self.rng.randint(1_000_000_000))
         vector.data[:] = torch.randn(*vector.shape, device=self.device)
 
-    def _agg_gradients_by_model(self, model, op):
+    def _agg_gradients_by_model(self, model, op, denom=None):
         """Aggregate models gradients, all layers at once
 
         Args:
             model (:obj:`torch.Module`): Models to be averaged.
             op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
+            denom (None): Not used here
+
         """
         grads = [t.grad.data for t in model.parameters()]
         aggregated = self._agg(grads, op=op)
@@ -373,12 +376,22 @@ class PowerAggregation(Aggregation):
         for i, param in enumerate(model.parameters()):
             param.grad.data = aggregated[i]
 
-    def _agg(self, data, op):
+    def agg_weights(self, by_layer=False):
+        raise NotImplementedError("PowerSGD doesn't allow aggregation by weights")
+
+    def agg_model(self, by_layer=False):
+        if by_layer:
+            raise NotImplementedError("PowerSGD doesn't allow aggregation by layer")
+        else:
+            return self._agg_gradients_by_model
+
+    def _agg(self, data, op, denom=None):
         """Aggregate data using `op` operation.
 
         Args:
             data (:obj:`torch.Tensor`): A Tensor to be aggragated.
             op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
+            denom (None): Not used here
 
         Returns:
             :obj:`torch.Tensor`: An aggregated tensor.
