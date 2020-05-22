@@ -63,7 +63,7 @@ class TransformerDecoder(nn.Module):
         self.normalize = args.decoder_normalize_before
 
         if self.normalize:
-            self.layer_norm = nn.LayerNorm(embed_dim)  # FusedLayerNorm(embed_dim)  #
+            self.layer_norm = nn.LayerNorm(embed_dim)
 
     def forward(self, prev_output_tokens, encoder_out=None, incremental_state=None):
         # embed positions

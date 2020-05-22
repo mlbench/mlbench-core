@@ -123,9 +123,7 @@ class TransformerDecoderLayer(nn.Module):
         self.relu_dropout = args.relu_dropout
         self.normalize_before = args.decoder_normalize_before
 
-        self.self_attn_layer_norm = nn.LayerNorm(
-            self.embed_dim
-        )  # nn.LayerNorm(self.embed_dim)
+        self.self_attn_layer_norm = nn.LayerNorm(self.embed_dim)
 
         if no_encoder_attn:
             self.encoder_attn = None
@@ -143,9 +141,7 @@ class TransformerDecoderLayer(nn.Module):
         self.fc1 = Linear(self.embed_dim, args.decoder_ffn_embed_dim)
         self.fc2 = Linear(args.decoder_ffn_embed_dim, self.embed_dim)
 
-        self.final_layer_norm = nn.LayerNorm(
-            self.embed_dim
-        )  # nn.LayerNorm(self.embed_dim)
+        self.final_layer_norm = nn.LayerNorm(self.embed_dim)
         self.need_attn = True
 
     def forward(self, x, encoder_out, encoder_padding_mask, incremental_state=None):

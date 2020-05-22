@@ -13,7 +13,7 @@ from torch import nn
 from torch.autograd.variable import Variable
 from torch.nn import Parameter
 
-from . import strided_batched_gemm
+from mlbench_core.models.pytorch.transformer.modules import strided_batched_gemm
 
 
 class QueryLinear(torch.autograd.Function):
@@ -301,17 +301,16 @@ class MultiheadAttention(nn.Module):
         ), "embed_dim must be divisible by num_heads"
         self.scaling = self.head_dim ** -0.5
         self._mask = None
-        #        self.in_proj_weight = Parameter(torch.Tensor(3*embed_dim, embed_dim))
+
         self.in_proj_weight_q = Parameter(torch.Tensor(embed_dim, embed_dim))
         self.in_proj_weight_k = Parameter(torch.Tensor(embed_dim, embed_dim))
         self.in_proj_weight_v = Parameter(torch.Tensor(embed_dim, embed_dim))
+
         if bias:
-            #            self.in_proj_bias = Parameter(torch.Tensor(3*embed_dim))
             self.in_proj_bias_q = Parameter(torch.Tensor(embed_dim))
             self.in_proj_bias_k = Parameter(torch.Tensor(embed_dim))
             self.in_proj_bias_v = Parameter(torch.Tensor(embed_dim))
         else:
-            #            self.register_parameter('in_proj_bias', None)
             self.register_parameter("in_proj_bias_k", None)
             self.register_parameter("in_proj_bias_q", None)
             self.register_parameter("in_proj_bias_v", None)
@@ -321,13 +320,11 @@ class MultiheadAttention(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
-        #        nn.init.xavier_uniform_(self.in_proj_weight)
         nn.init.xavier_uniform_(self.in_proj_weight_q)
         nn.init.xavier_uniform_(self.in_proj_weight_k)
         nn.init.xavier_uniform_(self.in_proj_weight_v)
         nn.init.xavier_uniform_(self.out_proj.weight)
         if self.in_proj_bias_k is not None:
-            #            nn.init.constant_(self.in_proj_bias, 0.)
             nn.init.constant_(self.in_proj_bias_q, 0.0)
             nn.init.constant_(self.in_proj_bias_k, 0.0)
             nn.init.constant_(self.in_proj_bias_v, 0.0)

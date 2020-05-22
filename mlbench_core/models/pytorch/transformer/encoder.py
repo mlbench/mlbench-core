@@ -53,7 +53,7 @@ class TransformerEncoder(nn.Module):
 
         self.normalize = args.encoder_normalize_before
         if self.normalize:
-            self.layer_norm = nn.LayerNorm(embed_dim)  # nn.LayerNorm(embed_dim)
+            self.layer_norm = nn.LayerNorm(embed_dim)
 
     def forward(self, src_tokens, src_lengths):
         """Forward function of encoder
