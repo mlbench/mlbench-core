@@ -3,7 +3,7 @@
 
 """The setup script."""
 
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 with open("README.md") as readme_file:
     readme = readme_file.read()
@@ -46,9 +46,7 @@ test_requirements = [
     "coverage",
 ]
 
-extras = {
-    'test' : test_requirements
-}
+extras = {"test": test_requirements}
 
 setup(
     author="Ralf Grubenmann",
@@ -79,6 +77,6 @@ setup(
     tests_require=test_requirements,
     extras_require=extras,
     url="https://github.com/mlbench/mlbench_core",
-    version="2.4.0-dev210",
+    version="2.4.0-dev217",
     zip_safe=False,
 )
