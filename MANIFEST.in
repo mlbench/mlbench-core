@@ -2,6 +2,8 @@ include CHANGELOG.md
 include LICENSE
 
 recursive-include tests *
+recursive-include * *.cpp
+recursive-include * *.cu
 recursive-exclude * __pycache__
 recursive-exclude * *.py[co]
 
