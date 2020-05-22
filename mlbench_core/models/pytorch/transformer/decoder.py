@@ -17,7 +17,7 @@ class TransformerDecoder(nn.Module):
 
     Args:
         args: Arguments of model. All arguments should be accessible via `__getattribute__` method
-        dictionary (`obj`:mlbench_core.dataset.nlp.pytorch.wmt17.Dictionary): decoding dictionary
+        dictionary (:obj:`mlbench_core.dataset.nlp.pytorch.wmt17.Dictionary`): decoding dictionary
         embed_tokens (torch.nn.Embedding): output embedding
         no_encoder_attn (bool, optional): whether to attend to encoder outputs
             (default: False).

@@ -447,7 +447,7 @@ class SQRTTimeDecayLRWithWarmup(LambdaLR):
       ``decay_factor = base_lr * sqrt(warmup_steps)``
 
     Args:
-        optimizer (`obj`:torch.optim): The optimizer
+        optimizer (:obj:`torch.optim`): The optimizer
         base_lr (float): The base LR after warm-up
         warmup_init_lr (float): LR at start of training
         warmup_steps (int): Number of warm-up steps

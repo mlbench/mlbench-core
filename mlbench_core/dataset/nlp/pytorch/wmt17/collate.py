@@ -22,7 +22,7 @@ def _collate_tokens(
         seq_len_multiple (int): The number of tokens per sequence to round up to
 
     Returns:
-        (`obj`:torch.Tensor): The tensor of collated and padded tokens
+        (:obj:`torch.Tensor`): The tensor of collated and padded tokens
     """
     size_of_seq_dim = max(v.size(0) for v in values)  # Unpadded size
     n_seq_in_batch = len(values)

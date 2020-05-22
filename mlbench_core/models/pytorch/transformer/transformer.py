@@ -16,8 +16,8 @@ class TransformerModel(nn.Module):
 
     Args:
         args: Arguments of model. All arguments should be accessible via `__getattribute__` method
-        src_dict (`obj`:mlbench_core.dataset.nlp.pytorch.wmt17.Dictionary): Source dictionary
-        trg_dict (`obj`:mlbench_core.dataset.nlp.pytorch.wmt17.Dictionary): Target dictionary
+        src_dict (:obj:`mlbench_core.dataset.nlp.pytorch.wmt17.Dictionary`): Source dictionary
+        trg_dict (:obj:`mlbench_core.dataset.nlp.pytorch.wmt17.Dictionary`): Target dictionary
     """
 
     def __init__(self, args, src_dict, trg_dict):
@@ -64,12 +64,12 @@ class TransformerModel(nn.Module):
         Run the forward pass of the transformer model.
 
         Args:
-            src_tokens (`obj`:torch.Tensor): Source tokens
-            src_lengths (`obj`:torch.Tensor): Source sentence lengths
-            prev_output_tokens (`obj`:torch.Tensor): Previous output tokens
+            src_tokens (:obj:`torch.Tensor`): Source tokens
+            src_lengths (:obj:`torch.Tensor`): Source sentence lengths
+            prev_output_tokens (:obj:`torch.Tensor`): Previous output tokens
 
         Returns:
-            (`obj`:torch.Tensor, Optional[`obj`:torch.Tensor]):
+            (:obj:`torch.Tensor`, Optional[:obj:`torch.Tensor`]):
                 The model output, and attention weights if needed
         """
         encoder_out = self.encoder(src_tokens, src_lengths=src_lengths)

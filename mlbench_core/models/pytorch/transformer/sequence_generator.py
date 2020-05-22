@@ -105,6 +105,28 @@ class UnicodeRegex(object):
 
 
 class SequenceGenerator(object):
+    """Generates translations of a given source sentence.
+
+    Args:
+        model (:obj:`torch.nn.Module`): The model to predict on. Should be instance of `TransformerModel`
+        src_dict (:obj:`mlbench_core.dataset.nlp.pytorch.wmt17.Dictionary`): Source dictionary
+        trg_dict (:obj:`mlbench_core.dataset.nlp.pytorch.wmt17.Dictionary`): Target dictionary
+        beam_size (int): Size of the beam. Default 1
+        minlen (int): Minimum generation length. Default 1
+        maxlen (int): Maximum generation length. If `None`, takes value of model.max_decoder_positions().
+            Default `None`
+        stop_early (bool): Stop generation immediately after we finalize beam_size
+            hypotheses, even though longer hypotheses might have better
+            normalized scores. Default `True`
+        normalize_scores (bool): Normalize scores by the length of the output. Default `True`
+        len_penalty (float): length penalty: <1.0 favors shorter, >1.0 favors longer sentences.
+            Default 1
+        retain_dropout (bool): Keep dropout layers. Default `False`
+        sampling (bool): sample hypotheses instead of using beam search. Default `False`
+        sampling_topk (int): sample from top K likely next words instead of all words. Default -1
+        sampling_temperature (int): temperature for random sampling. Default 1
+    """
+
     def __init__(
         self,
         model,
@@ -121,15 +143,6 @@ class SequenceGenerator(object):
         sampling_topk=-1,
         sampling_temperature=1,
     ):
-        """Generates translations of a given source sentence.
-        Args:
-            min/maxlen: The length of the generated output will be bounded by
-                minlen and maxlen (not including the end-of-sentence marker).
-            stop_early: Stop generation immediately after we finalize beam_size
-                hypotheses, even though longer hypotheses might have better
-                normalized scores.
-            normalize_scores: Normalize scores by the length of the output.
-        """
         self.model = model
         self.pad = trg_dict.pad()
         self.eos = trg_dict.eos()
@@ -151,38 +164,40 @@ class SequenceGenerator(object):
         self.sampling_topk = sampling_topk
         self.sampling_temperature = sampling_temperature
 
-    def generate_batched_itr(
-        self, sample, beam_size=None, maxlen_a=0.0, maxlen_b=None, prefix_size=0,
+    def generate_batch_translations(
+        self, batch, maxlen_a=0.0, maxlen_b=None, prefix_size=0,
     ):
-        """Iterate over a batched dataset and yield individual translations.
+        """Yield individual translations of a batch.
+
         Args:
-            maxlen_a/b: generate sequences of maximum length ax + b,
-                where x is the source sentence length.
-            cuda: use GPU for generation
+            batch (dict): The model input batch. Must have keys `net_input`, `target` and `ntokens`
+            maxlen_a (float):
+            maxlen_b (Optional[int]): Generate sequences of max lengths `maxlen_a*x + maxlen_b` where `x = input sentence length`
+            prefix_size (int): Prefix size
         """
         if maxlen_b is None:
             maxlen_b = self.maxlen
 
-        if "net_input" not in sample:
+        if "net_input" not in batch:
             return
-        input = sample["net_input"]
+        input = batch["net_input"]
         srclen = input["src_tokens"].size(1)
         with torch.no_grad():
             hypos = self.generate(
                 input["src_tokens"],
                 input["src_lengths"],
-                beam_size=beam_size,
+                beam_size=self.beam_size,
                 maxlen=int(maxlen_a * srclen + maxlen_b),
-                prefix_tokens=sample["target"][:, :prefix_size]
+                prefix_tokens=batch["target"][:, :prefix_size]
                 if prefix_size > 0
                 else None,
             )
-        for i, id in enumerate(sample["id"].data):
+        for i, id in enumerate(batch["id"].data):
             # remove padding
             src = strip_pad(input["src_tokens"].data[i, :], self.pad)
             ref = (
-                strip_pad(sample["target"].data[i, :], self.pad)
-                if sample["target"] is not None
+                strip_pad(batch["target"].data[i, :], self.pad)
+                if batch["target"] is not None
                 else None
             )
             yield id, src, ref, hypos[i]
@@ -196,14 +211,12 @@ class SequenceGenerator(object):
                 src_tokens, src_lengths, beam_size, maxlen, prefix_tokens
             )
 
-    def _generate(
-        self, src_tokens, src_lengths, beam_size=None, maxlen=None, prefix_tokens=None
-    ):
+    def _generate(self, src_tokens, src_lengths, maxlen=None, prefix_tokens=None):
         bsz, srclen = src_tokens.size()
         maxlen = min(maxlen, self.maxlen) if maxlen is not None else self.maxlen
 
         # the max beam size is the dictionary size - 1, since we never select pad
-        beam_size = beam_size if beam_size is not None else self.beam_size
+        beam_size = self.beam_size
         beam_size = min(beam_size, self.vocab_size - 1)
 
         incremental_state = None
@@ -707,7 +720,21 @@ class SequenceGenerator(object):
         nbest=1,
         ignore_case=True,
     ):
-        translations = self.generate_batched_itr(
+        """
+        Args:
+            batch (dict): The model input batch. Must have keys `net_input`, `target` and `ntokens`
+            maxlen_a (float): Default 1.0
+            maxlen_b (Optional[int]): Generate sequences of max lengths `maxlen_a*x + maxlen_b` where `x = input sentence length`.
+                Default 50
+            prefix_size (int): Prefix size. Default 0
+            remove_bpe (Optional[str]): BPE token. Default `None`
+            nbest (int): Number of hypotheses to output. Default 1
+            ignore_case (bool): Ignore case druing online eval. Default `True`
+
+        Returns:
+            (list[str], list[str]): The translations and their targets for the given batch
+        """
+        translations = self.generate_batch_translations(
             batch, maxlen_a=maxlen_a, maxlen_b=maxlen_b, prefix_size=prefix_size,
         )
 

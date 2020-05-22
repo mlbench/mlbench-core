@@ -17,7 +17,7 @@ class TransformerEncoder(nn.Module):
 
     Args:
         args: Arguments of model. All arguments should be accessible via `__getattribute__` method
-        dictionary (`obj`:mlbench_core.dataset.nlp.pytorch.wmt17.Dictionary): encoding dictionary
+        dictionary (:obj:`mlbench_core.dataset.nlp.pytorch.wmt17.Dictionary`): encoding dictionary
         embed_tokens (torch.nn.Embedding): input embedding
         left_pad (bool): Pad sources to the left (`True`) or right (`False`). Default: `True`
     """
@@ -59,11 +59,11 @@ class TransformerEncoder(nn.Module):
         """Forward function of encoder
 
         Args:
-            src_tokens (`obj`:torch.Tensor): Source tokens
-            src_lengths (`obj`:torch.Tensor): Source lengths
+            src_tokens (:obj:`torch.Tensor`): Source tokens
+            src_lengths (:obj:`torch.Tensor`): Source lengths
 
         Returns:
-            (dict): {`encoder:out` (`obj`:torch.Tensor), `encoder_padding_mask` (`obj`:torch.Tensor)}
+            (dict): {`encoder:out` (:obj:`torch.Tensor`), `encoder_padding_mask` (:obj:`torch.Tensor`)}
         """
         # embed tokens and positions
         x = self.embed_scale * self.embed_tokens(src_tokens)

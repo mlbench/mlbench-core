@@ -125,7 +125,7 @@ def get_batches(
     """Creates the batches for the given dataset
 
     Args:
-        dataset (`obj`:torch.utils.Dataset): The dataset
+        dataset (:obj:`torch.utils.Dataset`): The dataset
         max_tokens (Optional[int]): Maximum number of tokens in one batch.
             Default: `None` (no limit)
         max_sentences (int): Maximum number of sentences per batch.

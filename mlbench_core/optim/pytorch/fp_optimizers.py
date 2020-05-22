@@ -51,7 +51,7 @@ class FP16Optimizer:
     https://docs.nvidia.com/deeplearning/sdk/mixed-precision-training/index.html#scalefactor
 
     Args:
-        fp16_model (`obj`:torch.nn.Module): model (previously casted to half)
+        fp16_model (:obj:`torch.nn.Module`): model (previously casted to half)
         world_size (int): Distributed world size
         use_cuda (bool): Use cuda tensors for aggregation
         use_horovod (bool): Use Horovod for aggregation
@@ -123,7 +123,7 @@ class FP16Optimizer:
         """ Initializes the model's parameters in fp32
 
         Returns:
-            (`obj`:torch.Tensor): The Parameters in fp32
+            (:obj:`torch.Tensor`): The Parameters in fp32
         """
         # Get all params that require gradient
         params = [p for p in self.fp16_model.parameters() if p.requires_grad]
@@ -203,7 +203,7 @@ class FP16Optimizer:
             closure (callable, optional): A closure that reevaluates the model and returns the loss.
             multiplier (float): Multiplier for gradient scaling. Gradient will be scaled using
                 `scaled_grad = reduced_grad / (loss_scaler * multiplier)`
-            denom (:obj:`torch.Tensor`, optional): Custom denominator to average by
+            denom (Optional[:obj:`torch.Tensor`]): Custom denominator to average by
                 Use with `average_batch`. (default: `None`)
         """
 
@@ -249,7 +249,7 @@ class FP32Optimizer:
     Standard optimizer, computes backward and applies weight update.
 
     Args:
-        model (`obj`:torch.nn.Module): model
+        model (:obj:`torch.nn.Module`): model
         world_size (int): Distributed world size
         use_cuda (bool): Use cuda tensors for aggregation
         by_layer (bool): Aggregate by layer
@@ -295,7 +295,7 @@ class FP32Optimizer:
 
         Args:
             closure (callable): Optimizer closure argument
-            denom (:obj:`torch.Tensor`, optional): Custom denominator to reduce by
+            denom (Optional[:obj:`torch.Tensor`]): Custom denominator to reduce by
         """
         # Aggregate gradients
         self.agg(self.model, self.agg_mode, denom=denom)
@@ -322,7 +322,7 @@ class AMPOptimizer:
     update.
 
     Args:
-        model (`obj`:torch.nn.Module): model
+        model (:obj:`torch.nn.Module`): model
         grad_clip (float): coefficient for gradient clipping, max L2 norm of the gradients
         loss_scale (int):  initial loss scale
         dls_upscale_interval (int): interval for loss scale upscaling

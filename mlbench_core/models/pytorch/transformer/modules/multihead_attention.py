@@ -546,13 +546,13 @@ def _get_full_incremental_state_key(module_instance, key):
 
     # assign a unique ID to each module instance, so that incremental state is
     # not shared across module instances
-    if not hasattr(module_instance, "_fairseq_instance_id"):
+    if not hasattr(module_instance, "_mlbench_instance_id"):
         INCREMENTAL_STATE_INSTANCE_ID[module_name] += 1
-        module_instance._fairseq_instance_id = INCREMENTAL_STATE_INSTANCE_ID[
+        module_instance._mlbench_instance_id = INCREMENTAL_STATE_INSTANCE_ID[
             module_name
         ]
 
-    return "{}.{}.{}".format(module_name, module_instance._fairseq_instance_id, key)
+    return "{}.{}.{}".format(module_name, module_instance._mlbench_instance_id, key)
 
 
 def get_incremental_state(module, incremental_state, key):

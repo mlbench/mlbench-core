@@ -191,7 +191,7 @@ class Aggregation(object):
 
 
 class AllReduceAggregation(Aggregation):
-    """Aggregate udpates / models from different processes using all-reduce aggregation
+    """Aggregate weights / models from different processes using all-reduce aggregation
 
     Args:
         world_size (int): Current distributed world size
@@ -208,10 +208,10 @@ class AllReduceAggregation(Aggregation):
         """Reduces the given tensor using `torch.distributed` and op=`dist.ReduceOp.SUM`
 
         Args:
-            data (`obj`:torch.Tensor): The tensor to reduce
+            data (:obj:`torch.Tensor`): The tensor to reduce
 
         Returns:
-            (`obj`:torch.Tensor): The reduced Tensor
+            (:obj:`torch.Tensor`): The reduced Tensor
         """
         dist.all_reduce(data, op=dist.ReduceOp.SUM)
         return data
@@ -223,13 +223,13 @@ class AllReduceAggregation(Aggregation):
         - `denom`, if op == `custom_avg`
 
         Args:
-            data (`obj`:torch.Tensor): Data tensor to divide
+            data (:obj:`torch.Tensor`): Data tensor to divide
             op (str): Aggregation method. Should be in `ALLREDUCE_AGGREGATION_OPS`
             denom (:obj:`torch.Tensor`, optional): Custom denominator to average by
                 Use with op == `custom_avg`. (default: `None`)
 
         Returns:
-            (`obj`:torch.Tensor): The resulting tensor
+            (:obj:`torch.Tensor`): The resulting tensor
         """
         if op not in ALLREDUCE_AGGREGATION_OPS:
             raise NotImplementedError("Allreduce not implemented for op={}".format(op))
@@ -259,7 +259,7 @@ class AllReduceAggregation(Aggregation):
                 Use with op == `custom_avg`. (default: `None`)
 
         Returns:
-            (`obj`:torch.Tensor): The aggregated tensor.
+            (:obj:`torch.Tensor`): The aggregated tensor.
         """
         if self.divide_before:
             data = self._divide(data, op, denom)

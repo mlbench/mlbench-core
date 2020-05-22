@@ -136,6 +136,15 @@ Layers
 .. autoapiclass:: TransformerDecoderLayer
     :members: forward
 
+SequenceGenerator
+=================
+
+.. autoapimodule:: mlbench_core.models.pytorch.transformer.sequence_generator
+.. currentmodule:: mlbench_core.models.pytorch.transformer.sequence_generator
+
+.. autoapiclass:: SequenceGenerator
+    :members:
+
 
 .. rubric:: References
 
