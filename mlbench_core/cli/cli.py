@@ -14,6 +14,7 @@ import click
 import yaml
 from appdirs import user_data_dir
 from kubernetes import client
+import mlbench_core
 from mlbench_core.api import ApiClient, MLBENCH_IMAGES, MLBENCH_BACKENDS
 from pyhelm.chartbuilder import ChartBuilder
 from pyhelm.tiller import Tiller
@@ -21,7 +22,6 @@ from tabulate import tabulate
 import pickle
 from pathlib import Path
 
-import mlbench_core
 
 GCLOUD_NVIDIA_DAEMONSET = (
     "https://raw.githubusercontent.com/"
