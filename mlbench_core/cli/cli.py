@@ -21,6 +21,8 @@ from tabulate import tabulate
 import pickle
 from pathlib import Path
 
+import mlbench_core
+
 GCLOUD_NVIDIA_DAEMONSET = (
     "https://raw.githubusercontent.com/"
     "GoogleCloudPlatform/container-engine-accelerators/"
@@ -102,6 +104,7 @@ status:
 
 
 @click.group()
+@click.version_option(mlbench_core.__version__, help="Print mlbench version")
 def cli_group(args=None):
     """Console script for mlbench_cli."""
     return 0
