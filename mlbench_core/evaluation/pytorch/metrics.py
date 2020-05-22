@@ -3,6 +3,7 @@
 from abc import abstractmethod
 
 import torch
+
 from mlbench_core.utils import AverageMeter
 from mlbench_core.utils.pytorch.distributed import global_average
 
@@ -182,9 +183,10 @@ class F1Score(MLBenchMetric):
 
 
 class BLEUScore(MLBenchMetric):
-    def __init__(self):
+    def __init__(self, use_raw=False):
         """ Bilingual Evaluation Understudy score"""
         super(BLEUScore, self).__init__()
+        self.use_raw = use_raw
 
     def __call__(self, loss, output, target):
         """ Computes the BLEU score of a translation task
@@ -197,13 +199,13 @@ class BLEUScore(MLBenchMetric):
         Returns:
             float: BLEU score
         """
-        return torch.tensor(
-            [
-                sacrebleu.corpus_bleu(
-                    output, [target], tokenize="intl", lowercase=True
-                ).score
-            ]
-        )
+        if self.use_raw:
+            bleu_score = sacrebleu.raw_corpus_bleu(output, [target]).score
+        else:
+            bleu_score = sacrebleu.corpus_bleu(
+                output, [target], tokenize="intl", lowercase=True
+            ).score
+        return torch.tensor([bleu_score])
 
     @property
     def name(self):

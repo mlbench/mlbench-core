@@ -41,23 +41,6 @@ def strip_pad(tensor, pad):
     return tensor[tensor.ne(pad)]
 
 
-def prepare_batch(sample, use_cuda=False):
-    def _move_to_cuda(maybe_tensor):
-        if torch.is_tensor(maybe_tensor):
-            return maybe_tensor.cuda()
-        elif isinstance(maybe_tensor, dict):
-            return {key: _move_to_cuda(value) for key, value in maybe_tensor.items()}
-        elif isinstance(maybe_tensor, list):
-            return [_move_to_cuda(x) for x in maybe_tensor]
-        else:
-            return maybe_tensor
-
-    if use_cuda:
-        return _move_to_cuda(sample)
-    else:
-        return sample
-
-
 def post_process_prediction(hypo_tokens, alignment, align_dict, tgt_dict, remove_bpe):
     hypo_str = tgt_dict.string(hypo_tokens, remove_bpe)
 
@@ -169,13 +152,7 @@ class SequenceGenerator(object):
         self.sampling_temperature = sampling_temperature
 
     def generate_batched_itr(
-        self,
-        data_itr,
-        beam_size=None,
-        maxlen_a=0.0,
-        maxlen_b=None,
-        cuda=False,
-        prefix_size=0,
+        self, sample, beam_size=None, maxlen_a=0.0, maxlen_b=None, prefix_size=0,
     ):
         """Iterate over a batched dataset and yield individual translations.
         Args:
@@ -186,31 +163,29 @@ class SequenceGenerator(object):
         if maxlen_b is None:
             maxlen_b = self.maxlen
 
-        for sample in data_itr:
-            s = prepare_batch(sample, use_cuda=cuda)
-            if "net_input" not in s:
-                continue
-            input = s["net_input"]
-            srclen = input["src_tokens"].size(1)
-            with torch.no_grad():
-                hypos = self.generate(
-                    input["src_tokens"],
-                    input["src_lengths"],
-                    beam_size=beam_size,
-                    maxlen=int(maxlen_a * srclen + maxlen_b),
-                    prefix_tokens=s["target"][:, :prefix_size]
-                    if prefix_size > 0
-                    else None,
-                )
-            for i, id in enumerate(s["id"].data):
-                # remove padding
-                src = strip_pad(input["src_tokens"].data[i, :], self.pad)
-                ref = (
-                    strip_pad(s["target"].data[i, :], self.pad)
-                    if s["target"] is not None
-                    else None
-                )
-                yield id, src, ref, hypos[i]
+        if "net_input" not in sample:
+            return
+        input = sample["net_input"]
+        srclen = input["src_tokens"].size(1)
+        with torch.no_grad():
+            hypos = self.generate(
+                input["src_tokens"],
+                input["src_lengths"],
+                beam_size=beam_size,
+                maxlen=int(maxlen_a * srclen + maxlen_b),
+                prefix_tokens=sample["target"][:, :prefix_size]
+                if prefix_size > 0
+                else None,
+            )
+        for i, id in enumerate(sample["id"].data):
+            # remove padding
+            src = strip_pad(input["src_tokens"].data[i, :], self.pad)
+            ref = (
+                strip_pad(sample["target"].data[i, :], self.pad)
+                if sample["target"] is not None
+                else None
+            )
+            yield id, src, ref, hypos[i]
 
     def generate(
         self, src_tokens, src_lengths, beam_size=None, maxlen=None, prefix_tokens=None
@@ -722,23 +697,18 @@ class SequenceGenerator(object):
         probs = get_normalized_probs(decoder_out, log_probs=log_probs)
         return probs, attn
 
-    def get_translations(
+    def translate_batch(
         self,
-        loader,
-        maxlen_a,
-        maxlen_b,
-        use_cuda=False,
+        batch,
+        maxlen_a=1.0,
+        maxlen_b=50,
         prefix_size=0,
         remove_bpe=None,
         nbest=1,
         ignore_case=True,
     ):
         translations = self.generate_batched_itr(
-            loader,
-            maxlen_a=maxlen_a,
-            maxlen_b=maxlen_b,
-            cuda=use_cuda,
-            prefix_size=prefix_size,
+            batch, maxlen_a=maxlen_a, maxlen_b=maxlen_b, prefix_size=prefix_size,
         )
 
         ref_toks = []
