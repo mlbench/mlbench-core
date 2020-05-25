@@ -1,7 +1,7 @@
 r"""Partition PyTorch datasets."""
 # -*- coding: utf-8 -*-
-import random
 import logging
+import random
 
 import numpy as np
 import torch

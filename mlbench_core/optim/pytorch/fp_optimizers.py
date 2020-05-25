@@ -4,11 +4,12 @@ import math
 
 import torch
 import torch.distributed as dist
-from mlbench_core.utils.pytorch.distributed import (
-    AllReduceAggregationHVD,
-    AllReduceAggregation,
-)
 from torch.nn.utils import clip_grad_norm_
+
+from mlbench_core.utils.pytorch.distributed import (
+    AllReduceAggregation,
+    AllReduceAggregationHVD,
+)
 
 try:
     from apex.optimizers import FusedAdam

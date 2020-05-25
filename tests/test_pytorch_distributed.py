@@ -1,5 +1,6 @@
 """Tests for `mlbench_core.utils.pytorch.distributed`"""
 import torch
+
 from mlbench_core.utils.pytorch.distributed import pack_tensors, unpack_tensors
 
 

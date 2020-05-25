@@ -1,5 +1,5 @@
-from .tracker import AverageMeter, Tracker
 from .log_metrics import LogMetrics
+from .tracker import AverageMeter, Tracker
 
 try:
     import torch

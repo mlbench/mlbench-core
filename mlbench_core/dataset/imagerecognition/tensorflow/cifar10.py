@@ -6,8 +6,9 @@ import logging
 import os
 import sys
 import tarfile
-from six.moves import urllib, xrange
+
 import tensorflow as tf
+from six.moves import urllib, xrange
 
 
 class DatasetCifar(object):

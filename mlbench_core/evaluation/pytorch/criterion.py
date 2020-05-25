@@ -1,9 +1,9 @@
 """Customized Loss Functions."""
 
-import torch.nn.functional as F
-from torch.nn.modules.loss import _WeightedLoss
-from torch import nn
 import torch
+import torch.nn.functional as F
+from torch import nn
+from torch.nn.modules.loss import _WeightedLoss
 
 
 class BCELossRegularized(_WeightedLoss):

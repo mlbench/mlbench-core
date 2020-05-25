@@ -1,9 +1,8 @@
 import pytest
-
 import torch
 
-from mlbench_core.models.pytorch.resnet import *
 from mlbench_core.models.pytorch.linear_models import *
+from mlbench_core.models.pytorch.resnet import *
 
 
 def test_resnet18():

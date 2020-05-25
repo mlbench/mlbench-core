@@ -3,6 +3,7 @@
 from abc import abstractmethod
 
 import torch
+
 from mlbench_core.utils import AverageMeter
 from mlbench_core.utils.pytorch.distributed import global_average
 
