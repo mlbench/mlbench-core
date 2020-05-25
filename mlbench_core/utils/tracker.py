@@ -230,7 +230,7 @@ class Tracker(object):
 
             if goal_result is not None and not self.goal_reached:
                 self.goal_reached = True
-                print("goal reached1")
+                print("goal reached!")
                 print(log_to_api)
                 print(goal_result)
 
