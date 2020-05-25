@@ -234,16 +234,24 @@ def run(name, num_workers, gpu, light, dashboard_url):
 
 
 @cli_group.command()
-@click.argument("name", type=str)
+@click.argument("name", type=str, required=False)
 @click.option("--dashboard-url", "-u", default=None, type=str)
 def status(name, dashboard_url):
-    """Get the status of a benchmark run"""
+    """Get the status of a benchmark run, or all runs if no name is given"""
     loaded = setup_client_from_config()
 
     client = ApiClient(in_cluster=False, url=dashboard_url, load_config=not loaded)
 
     ret = client.get_runs()
     runs = ret.result().json()
+
+    if name is None:  # List all runs
+        for run in runs:
+            del run["job_id"]
+            del run["job_metadata"]
+
+        click.echo(tabulate(runs, headers="keys"))
+        return
 
     try:
         run = next(r for r in runs if r["name"] == name)
