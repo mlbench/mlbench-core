@@ -79,6 +79,5 @@ setup(
     extras_require=extras,
     url="https://github.com/mlbench/mlbench_core",
     version="2.4.0-dev158",
-
     zip_safe=False,
 )

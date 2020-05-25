@@ -115,6 +115,3 @@ def test_orthogonalize():
 
     # check if m'*m = I
     assert torch.allclose(torch.matmul(m.t(), m), identity, atol=1e-04)
-
-
-

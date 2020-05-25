@@ -10,7 +10,7 @@ import os
 
 from os.path import abspath, join, dirname
 
-sys.path.insert(0, abspath(join(dirname(__file__), '.')))
+sys.path.insert(0, abspath(join(dirname(__file__), ".")))
 sys.path.insert(0, abspath(join(dirname(__file__), "..")))
 
 import sys
@@ -65,10 +65,10 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinxcontrib.napoleon",
     "sphinxcontrib.bibtex",
-    'autoapi.extension',
+    "autoapi.extension",
 ]
 
-autoapi_dirs = ['../mlbench_core']
+autoapi_dirs = ["../mlbench_core"]
 autoapi_generate_api_docs = False
 
 # Add any paths that contain templates here, relative to this directory.
