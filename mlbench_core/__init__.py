@@ -4,11 +4,4 @@
 
 __version__ = "2.4.0-dev223"
 
-from . import api
-from . import controlflow
-from . import dataset
-from . import evaluation
-from . import lr_scheduler
-from . import models
-from . import optim
-from . import utils
+from . import api, controlflow, dataset, evaluation, lr_scheduler, models, optim, utils

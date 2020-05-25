@@ -152,6 +152,18 @@ SequenceGenerator
    :cited:
 
 
+NLP
++++
+.. autoapimodule:: mlbench_core.models.pytorch.nlp
+.. currentmodule:: mlbench_core.models.pytorch.nlp
+
+LSTM Language Model
+'''''''''''''''''''
+
+.. autoapiclass:: RNNLM
+    :members:
+
+
 tensorflow
 ~~~~~~~~~~
 

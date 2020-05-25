@@ -14,12 +14,15 @@ class RNNLM(nn.Module):
         dropout=0.5,
         tie_weights=False,
         weight_norm=False,
+        batch_first=False,
     ):
         super(RNNLM, self).__init__()
 
         # define conf.
+        self.batch_first = batch_first
         self.nhid = nhid
         self.nlayers = nlayers
+        self.n_token = ntoken
 
         # define layers.
         self.drop = nn.Dropout(dropout)
@@ -49,13 +52,19 @@ class RNNLM(nn.Module):
         self.decoder.weight.data.uniform_(-initrange, initrange)
 
     def forward(self, input, hidden):
+        if self.batch_first:
+            input = input.t()
         emb = self.drop(self.encoder(input))
         output, hidden = self.rnn(emb, hidden)
         output = self.drop(output)
         decoded = self.decoder(
             output.view(output.size(0) * output.size(1), output.size(2))
         )
-        return decoded.view(output.size(0), output.size(1), decoded.size(1)), hidden
+        output = decoded.view(output.size(0), output.size(1), decoded.size(1))
+        if self.batch_first:
+            output = output.transpose(0, 1)
+
+        return output.contiguous().view(-1, self.n_token), hidden
 
     def init_hidden(self, bsz):
         weight = next(self.parameters())

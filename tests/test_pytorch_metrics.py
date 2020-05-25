@@ -1,6 +1,7 @@
-import torch
-from mlbench_core.evaluation.pytorch.metrics import F1Score, TopKAccuracy
 import numpy as np
+import torch
+
+from mlbench_core.evaluation.pytorch.metrics import F1Score, TopKAccuracy
 
 
 def test_f1_score():
