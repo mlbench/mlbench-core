@@ -186,7 +186,6 @@ class SequenceGenerator(object):
             hypos = self.generate(
                 input["src_tokens"],
                 input["src_lengths"],
-                beam_size=self.beam_size,
                 maxlen=int(maxlen_a * srclen + maxlen_b),
                 prefix_tokens=batch["target"][:, :prefix_size]
                 if prefix_size > 0
@@ -202,14 +201,10 @@ class SequenceGenerator(object):
             )
             yield id, src, ref, hypos[i]
 
-    def generate(
-        self, src_tokens, src_lengths, beam_size=None, maxlen=None, prefix_tokens=None
-    ):
+    def generate(self, src_tokens, src_lengths, maxlen=None, prefix_tokens=None):
         """Generate a batch of translations."""
         with torch.no_grad():
-            return self._generate(
-                src_tokens, src_lengths, beam_size, maxlen, prefix_tokens
-            )
+            return self._generate(src_tokens, src_lengths, maxlen, prefix_tokens)
 
     def _generate(self, src_tokens, src_lengths, maxlen=None, prefix_tokens=None):
         bsz, srclen = src_tokens.size()
