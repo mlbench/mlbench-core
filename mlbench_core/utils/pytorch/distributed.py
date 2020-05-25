@@ -1,6 +1,7 @@
+import numpy as np
 import torch
 import torch.distributed as dist
-import numpy as np
+
 from mlbench_core.utils.pytorch.utils import orthogonalize
 
 try:

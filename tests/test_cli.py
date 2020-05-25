@@ -5,8 +5,9 @@
 
 import pytest
 from click.testing import CliRunner
-from mlbench_core.cli import cli_group
 from google.auth.exceptions import DefaultCredentialsError
+
+from mlbench_core.cli import cli_group
 
 ########################## GLOBALS #################################
 

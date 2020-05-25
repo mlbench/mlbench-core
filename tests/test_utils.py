@@ -5,11 +5,12 @@
 
 import datetime
 
+import torch
 from freezegun import freeze_time
+
 from mlbench_core.evaluation.goals import task1_time_to_accuracy_light_goal
 from mlbench_core.evaluation.pytorch.metrics import TopKAccuracy
 from mlbench_core.utils import Tracker
-import torch
 from mlbench_core.utils.pytorch.utils import orthogonalize
 
 
