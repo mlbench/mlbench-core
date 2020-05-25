@@ -14,12 +14,14 @@ import click
 import yaml
 from appdirs import user_data_dir
 from kubernetes import client
+import mlbench_core
 from mlbench_core.api import ApiClient, MLBENCH_IMAGES, MLBENCH_BACKENDS
 from pyhelm.chartbuilder import ChartBuilder
 from pyhelm.tiller import Tiller
 from tabulate import tabulate
 import pickle
 from pathlib import Path
+
 
 GCLOUD_NVIDIA_DAEMONSET = (
     "https://raw.githubusercontent.com/"
@@ -102,6 +104,7 @@ status:
 
 
 @click.group()
+@click.version_option(mlbench_core.__version__, help="Print mlbench version")
 def cli_group(args=None):
     """Console script for mlbench_cli."""
     return 0
