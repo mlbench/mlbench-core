@@ -67,7 +67,7 @@ extensions = [
 
 autoapi_dirs = ["../mlbench_core"]
 autoapi_generate_api_docs = False
-autoapi_ignore = ['*migrations*', "*/preprocess/*.py"]
+autoapi_ignore = ["*migrations*", "*/preprocess/*.py"]
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 html_static_path = ["_static"]

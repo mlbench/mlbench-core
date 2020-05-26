@@ -20,11 +20,8 @@ import sys
 import unicodedata
 
 import numpy as np
-# from __future__ import absolute_import
-# from __future__ import division
-# from __future__ import print_function
 import six
-from six.moves import xrange  # pylint: disable=redefined-builtin
+from six.moves import xrange
 
 LUA = "<lua_index_compat>"
 PAD = "<pad>_"
