@@ -156,12 +156,11 @@ def record_validation_stats(metrics_values, loss, tracker=None, rank=0):
 
                 global_metric_value = global_average(value, 1).item()
 
-                if rank == 0:
-                    tracker.record_stat(
-                        "global_{}".format(metric.name),
-                        global_metric_value,
-                        log_to_api=True,
-                    )
+                tracker.record_stat(
+                    "global_{}".format(metric.name),
+                    global_metric_value,
+                    log_to_api=True,
+                )
 
         if rank == 0 and tracker:
             logger.info(

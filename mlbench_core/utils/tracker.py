@@ -1,3 +1,4 @@
+import math
 import time
 from collections import defaultdict
 
@@ -230,7 +231,7 @@ class Tracker(object):
         if log_to_api:
             LogMetrics.log(self.run_id, self.rank, self.current_epoch, name, value)
 
-        if self.goal and self.rank == 0:
+        if self.goal:
             goal_result = self.goal(name, value, self)
 
             if goal_result is not None and not self.goal_reached:
@@ -239,34 +240,35 @@ class Tracker(object):
                 print(log_to_api)
                 print(goal_result)
 
-                if log_to_api:
-                    LogMetrics.log(
-                        self.run_id,
-                        self.rank,
-                        self.current_epoch,
-                        "TaskResult",
-                        goal_result,
-                    )
-
-                    LogMetrics.log(
-                        self.run_id,
-                        self.rank,
-                        self.current_epoch,
-                        "TotalCumulativeTrainTime",
-                        self.get_total_train_time(),
-                    )
-
-                    metrics = dict(self.epoch_metrics).items()
-                    metrics = sorted(metrics, key=lambda k: k[0])
-
-                    for k, v in metrics:
+                if self.rank == 0:
+                    if log_to_api:
                         LogMetrics.log(
                             self.run_id,
                             self.rank,
                             self.current_epoch,
-                            "global_cum_{}".format(k),
-                            sum(v),
+                            "TaskResult",
+                            goal_result,
                         )
+
+                        LogMetrics.log(
+                            self.run_id,
+                            self.rank,
+                            self.current_epoch,
+                            "TotalCumulativeTrainTime",
+                            self.get_total_train_time(),
+                        )
+
+                        metrics = dict(self.epoch_metrics).items()
+                        metrics = sorted(metrics, key=lambda k: k[0])
+
+                        for k, v in metrics:
+                            LogMetrics.log(
+                                self.run_id,
+                                self.rank,
+                                self.current_epoch,
+                                "global_cum_{}".format(k),
+                                sum(v),
+                            )
 
     def record_loss(self, value, n=1, log_to_api=False):
         """Records a loss value
