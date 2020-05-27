@@ -413,7 +413,7 @@ def create_cluster():
 @click.option("--kubernetes-version", "-k", type=str, default="1.13")
 @click.option("--machine-type", "-t", default="n1-standard-4", type=str)
 @click.option("--disk-size", "-d", default=50, type=int)
-@click.option("--num-cpus", "-c", default=1, type=int)
+@click.option("--num-cpus", "-c", default=4, type=int)
 @click.option("--num-gpus", "-g", default=0, type=int)
 @click.option("--gpu-type", default="nvidia-tesla-k80", type=str)
 @click.option("--zone", "-z", default="europe-west1-b", type=str)
@@ -640,7 +640,7 @@ def create_gcloud(
         )
 
         values = {
-            "limits": {"workers": num_workers - 1, "gpu": num_gpus, "cpu": num_cpus}
+            "limits": {"workers": num_workers - 1, "gpu": num_gpus, "cpu": num_cpus - 1}
         }
 
         if custom_value:
