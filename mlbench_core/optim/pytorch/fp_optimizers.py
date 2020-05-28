@@ -382,10 +382,10 @@ class AMPOptimizer:
         """
         Performs one step of the optimizer.
         """
+        self.agg(self.model, self.agg_mode)
         if self.grad_clip != float("inf"):
             clip_grad_norm_(amp.master_params(self.optimizer), self.grad_clip)
 
-        self.agg(self.model, self.agg_mode)
         self.optimizer.step(closure=closure)
         return True
 
