@@ -83,7 +83,10 @@ class Tracker(object):
         self.goal = goal
         self.goal_reached = False
 
-        self.primary_metric = metrics[0]
+        if len(metrics) > 0:
+            self.primary_metric = metrics[0]
+        else:
+            self.primary_metric = None
 
         if communication_steps is None:
             communication_steps = _DEFAULT_COMM_STEPS
@@ -293,7 +296,10 @@ class Tracker(object):
         """
         self.record_stat(metric.name, value, n, log_to_api)
 
-        if metric.name == self.primary_metric.name and not self.is_training:
+        is_primary = (
+            self.primary_metric is not None and metric.name == self.primary_metric.name
+        )
+        if is_primary and not self.is_training:
             self.update_primary_metric(value)
 
     def update_primary_metric(self, new_metric_value):
