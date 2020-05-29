@@ -2,129 +2,19 @@ import os
 
 import numpy as np
 import torch
+from torch.utils.data import DataLoader, Dataset
+
 from mlbench_core.dataset.util.tools import maybe_download_and_extract_tar_gz
-from torch.utils.data import Dataset, DataLoader
 
-from .wmt14 import WMT14Tokenizer, wmt14_config
-
-
-def build_collate_fn(sort):
-    """Builds the collate function that adds the lengths of each datapoint to the batch
-
-    Args:
-        sort (bool): Sort within each batch
-
-    Returns:
-        func
-    """
-
-    def collate_seq(seq):
-        """Builds batches for training or inference.
-        Batches are returned as pytorch tensors, with padding.
-
-        Args:
-            seq (list[`obj`:torch.Tensor]): The batch
-
-        Returns:
-            (`obj`:torch.Tensor, `obj`:torch.Tensor): The batch and the lengths of each sequence
-        """
-        lengths = torch.tensor([len(s) for s in seq], dtype=torch.int64)
-        batch_length = max(lengths)
-
-        shape = (len(seq), batch_length)
-        seq_tensor = torch.full(shape, wmt14_config.PAD, dtype=torch.int64)
-
-        for i, s in enumerate(seq):
-            end_seq = lengths[i]
-            seq_tensor[i, :end_seq].copy_(s[:end_seq])
-
-        seq_tensor = seq_tensor.t()
-
-        return seq_tensor, lengths
-
-    def parallel_collate(seqs):
-        """Builds batches from parallel dataset (src, tgt), optionally sorts batch
-        by src sequence length.
-
-        Args:
-            seqs (tuple): Tuple of (data, target) sequences
-
-        Returns:
-            (tuple, tuple): The data and target, along with the lengths
-        """
-        src_seqs, trg_seqs = zip(*seqs)
-        if sort:
-            indices, src_seqs = zip(
-                *sorted(enumerate(src_seqs), key=lambda x: len(x[1]), reverse=True)
-            )
-            trg_seqs = [trg_seqs[idx] for idx in indices]
-
-        src_seqs = collate_seq(src_seqs)
-        trg_seqs = collate_seq(trg_seqs)
-        return src_seqs, trg_seqs
-
-    return parallel_collate
-
-
-def get_data_dtype(vocab_size):
-    if vocab_size <= np.iinfo(np.int16).max:
-        dtype = np.int16
-    elif vocab_size <= np.iinfo(np.int32).max:
-        dtype = np.int32
-    elif vocab_size <= np.iinfo(np.int64).max:
-        dtype = np.int64
-    else:
-        raise ValueError('Vocabulary size is too large')
-    return dtype
-
-
-def _process_raw_data(file_name, max_size=None):
-    with open(file_name, mode="r", encoding="utf-8") as f:
-        data = f.readlines()
-
-    if max_size:
-        data = data[:max_size]
-    return data
-
-
-def _filter_raw_data(raw_src, raw_trg, min_len=0, max_len=float('inf')):
-    filtered_src = []
-    filtered_trg = []
-    filtered_src_len = []
-    filtered_trg_len = []
-    for src, trg in zip(raw_src, raw_trg):
-        src_len = src.count(' ') + 1
-        trg_len = trg.count(' ') + 1
-        if min_len <= src_len <= max_len and \
-                min_len <= trg_len <= max_len:
-            filtered_src.append(src)
-            filtered_trg.append(trg)
-            filtered_src_len.append(src_len)
-            filtered_trg_len.append(trg_len)
-    return filtered_src, filtered_src_len, filtered_trg, filtered_trg_len
-
-
-def _process_data(file_name, tokenizer, max_size=None):
-    data = []
-    with open(file_name, mode="r", encoding="utf-8") as f:
-        for idx, line in enumerate(f):
-            if max_size and idx == max_size:
-                break
-            entry = tokenizer.segment(line)
-            entry = torch.tensor(entry)
-            data.append(entry)
-    return data
-
-
-def _filter_data(src, trg, min_len=0, max_len=float('inf')):
-    filtered_src = []
-    filtered_trg = []
-    for src, trg in zip(src, trg):
-        if min_len <= len(src) <= max_len and \
-                min_len <= len(trg) <= max_len:
-            filtered_src.append(src)
-            filtered_trg.append(trg)
-    return filtered_src, filtered_trg
+from .wmt16 import (
+    WMT16Tokenizer,
+    filter_data,
+    filter_raw_data,
+    get_data_dtype,
+    process_data,
+    process_raw_data,
+    wmt16_config,
+)
 
 
 class WMT16Dataset(Dataset):
@@ -151,19 +41,19 @@ class WMT16Dataset(Dataset):
     ]
 
     def __init__(
-            self,
-            root,
-            lang=("en", "de"),
-            math_precision=None,
-            download=True,
-            train=False,
-            validation=False,
-            lazy=False,
-            preprocessed=False,
-            sort=False,
-            min_len=0,
-            max_len=None,
-            max_size=None,
+        self,
+        root,
+        lang=("en", "de"),
+        math_precision=None,
+        download=True,
+        train=False,
+        validation=False,
+        lazy=False,
+        preprocessed=False,
+        sort=False,
+        min_len=0,
+        max_len=None,
+        max_size=None,
     ):
         super(WMT16Dataset, self).__init__()
         if download:
@@ -171,16 +61,16 @@ class WMT16Dataset(Dataset):
             maybe_download_and_extract_tar_gz(root, file_name, url)
 
         if train:
-            self.path = os.path.join(root, wmt14_config.TRAIN_FNAME)
+            self.path = os.path.join(root, wmt16_config.TRAIN_FNAME)
         elif validation:
-            self.path = os.path.join(root, wmt14_config.VAL_FNAME)
+            self.path = os.path.join(root, wmt16_config.VAL_FNAME)
         else:
             raise NotImplementedError()
 
         self.min_len, self.max_len = min_len, max_len
         self.lazy = lazy
         self.preprocessed = preprocessed
-        self.tokenizer = WMT14Tokenizer(root, math_precision=math_precision)
+        self.tokenizer = WMT16Tokenizer(root, math_precision=math_precision)
 
         # Data is not tokenized already
         if not preprocessed:
@@ -188,25 +78,30 @@ class WMT16Dataset(Dataset):
                 os.path.expanduser(self.path + "." + x) for x in lang
             )
             if lazy:
-                raw_src = _process_raw_data(src_path, max_size)
-                raw_trg = _process_raw_data(trg_path, max_size)
-                assert len(raw_src) == len(raw_trg), "Source and target have different lengths"
+                raw_src = process_raw_data(src_path, max_size)
+                raw_trg = process_raw_data(trg_path, max_size)
+                assert len(raw_src) == len(
+                    raw_trg
+                ), "Source and target have different lengths"
 
-                raw_src, src_lens, raw_trg, trg_lens = _filter_raw_data(raw_src, raw_trg,
-                                                                        min_len - 2, max_len - 2)
+                raw_src, src_lens, raw_trg, trg_lens = filter_raw_data(
+                    raw_src, raw_trg, min_len - 2, max_len - 2
+                )
 
-                assert len(raw_src) == len(raw_trg), "Source and target have different lengths"
+                assert len(raw_src) == len(
+                    raw_trg
+                ), "Source and target have different lengths"
                 # Adding 2 because EOS and BOS are added later during tokenization
                 src_lengths = [i + 2 for i in src_lens]
                 trg_lengths = [i + 2 for i in trg_lens]
                 self.src = raw_src
                 self.trg = raw_trg
             else:
-                src = _process_data(src_path, self.tokenizer, max_size)
-                trg = _process_data(trg_path, self.tokenizer, max_size)
+                src = process_data(src_path, self.tokenizer, max_size)
+                trg = process_data(trg_path, self.tokenizer, max_size)
                 assert len(src) == len(trg), "Source and target have different lengths"
 
-                src, trg = _filter_data(src, trg, min_len, max_len)
+                src, trg = filter_data(src, trg, min_len, max_len)
 
                 assert len(src) == len(trg), "Source and target have different lengths"
 
@@ -216,7 +111,13 @@ class WMT16Dataset(Dataset):
         else:
             self.path = "{}.bin".format(self.path)
             self.file = None
-            file_max_len, file_min_len, file_vocab_size, src_lengths, trg_lengths = self._extract_processed_data()
+            (
+                file_max_len,
+                file_min_len,
+                file_vocab_size,
+                src_lengths,
+                trg_lengths,
+            ) = self._extract_processed_data()
 
             assert file_max_len == self.max_len
             assert file_min_len == self.min_len
@@ -238,7 +139,7 @@ class WMT16Dataset(Dataset):
     def _extract_processed_data(self):
         if not (os.path.exists(self.path) and os.path.isfile(self.path)):
             raise ValueError("File {} not found".format(self.path))
-        with open(self.path, 'rb') as f:
+        with open(self.path, "rb") as f:
             length = int(np.fromfile(f, np.int64, 1))
             file_vocab_size = int(np.fromfile(f, np.int64, 1))
             file_min_len = int(np.fromfile(f, np.int64, 1))
@@ -257,7 +158,7 @@ class WMT16Dataset(Dataset):
 
     def prepare(self):
         if self.preprocessed:
-            self.file = open(self.path, 'rb')
+            self.file = open(self.path, "rb")
 
     def __getitem__(self, idx):
         if self.preprocessed:
@@ -267,8 +168,8 @@ class WMT16Dataset(Dataset):
             data = data.astype(np.int64)
             src_len = self.src_lengths[idx]
             tgt_len = self.trg_lengths[idx]
-            src = torch.tensor(data[0: src_len])
-            tgt = torch.tensor(data[self.max_len: self.max_len + tgt_len])
+            src = torch.tensor(data[0:src_len])
+            tgt = torch.tensor(data[self.max_len : self.max_len + tgt_len])
             return src, tgt
         else:
             if self.lazy:
@@ -278,12 +179,16 @@ class WMT16Dataset(Dataset):
                 src, trg = self.src[idx], self.trg[idx]
             return src, trg
 
-    def write_as_preprocessed(self, collate_fn, min_len=0, max_len=50, num_workers=2, batch_size=1024):
-        loader = DataLoader(self,
-                            batch_size=batch_size,
-                            collate_fn=collate_fn,
-                            num_workers=num_workers,
-                            drop_last=False)
+    def write_as_preprocessed(
+        self, collate_fn, min_len=0, max_len=50, num_workers=2, batch_size=1024
+    ):
+        loader = DataLoader(
+            self,
+            batch_size=batch_size,
+            collate_fn=collate_fn,
+            num_workers=num_workers,
+            drop_last=False,
+        )
 
         srcs = []
         tgts = []
@@ -308,7 +213,7 @@ class WMT16Dataset(Dataset):
 
         offset = 0
         dest_fname = "{}.bin".format(self.path)
-        with open(dest_fname, 'wb') as f:
+        with open(dest_fname, "wb") as f:
             offset += f.write((np.array(length, dtype=np.int64)))
             offset += f.write((np.array(self.vocab_size, dtype=np.int64)))
             offset += f.write((np.array(min_len, dtype=np.int64)))
