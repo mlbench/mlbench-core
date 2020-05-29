@@ -366,6 +366,7 @@ def delete_gcloud(name, zone, project):
     from google.cloud import container_v1
     import google.auth
     from google.auth.exceptions import DefaultCredentialsError
+    from google.api_core.exceptions import NotFound
 
     try:
         credentials, default_project = google.auth.default()
@@ -386,9 +387,15 @@ def delete_gcloud(name, zone, project):
     name_path = "projects/{}/locations/{}/".format(project, zone)
 
     cluster_path = "{}clusters/{}".format(name_path, name)
-
-    response = gclient.delete_cluster(None, None, None, name=cluster_path)
-
+    try:
+        response = gclient.delete_cluster(None, None, None, name=cluster_path)
+    except NotFound as e:
+        click.echo("Exception from Google:")
+        print(e)
+        click.echo("Double-check your project, zone and cluster name")
+        click.echo("Try running 'gcloud container clusters list' to list all active clusters")
+        sys.exit(1)
+    
     # wait for operation to complete
     while response.status < response.DONE:
         response = gclient.get_operation(
@@ -437,6 +444,7 @@ def create_gcloud(
     from google.cloud import container_v1
     import google.auth
     from google.auth.exceptions import DefaultCredentialsError
+    from google.api_core.exceptions import AlreadyExists
     from googleapiclient import discovery, http
 
     try:
@@ -515,8 +523,15 @@ def create_gcloud(
         logging_service=None,
         monitoring_service=None,
     )
-    response = gclient.create_cluster(None, None, cluster, parent=name_path)
-
+    try:
+        response = gclient.create_cluster(None, None, cluster, parent=name_path)
+    except AlreadyExists as e:
+        click.echo("Exception from Google:")
+        print(e)
+        click.echo("A cluster with this name already exists in the specified project and zone")
+        click.echo("Try running 'gcloud container clusters list' to list all active clusters")
+        sys.exit(1)
+        
     # wait for cluster to load
     while response.status < response.DONE:
         response = gclient.get_operation(
