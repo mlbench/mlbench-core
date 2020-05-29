@@ -1,6 +1,6 @@
 import torch
 
-from mlbench_core.dataset.nlp.pytorch.wmt14.wmt14_config import BOS, EOS
+from mlbench_core.dataset.nlp.pytorch.wmt16.wmt16_config import BOS, EOS
 from mlbench_core.utils.pytorch.inference.beam_search import SequenceGenerator
 
 
@@ -10,7 +10,7 @@ class Translator:
 
     Args:
         model (`obj`:torch.nn.Module): Model to use
-        trg_tokenizer (`obj`:mlbench_core.dataset.translation.pytorch.tokenizer.WMT14Tokenizer): The target tokenizer
+        trg_tokenizer (`obj`:mlbench_core.dataset.nlp.pytorch.wmt16.WMT16Tokenizer): The target tokenizer
     """
 
     def __init__(

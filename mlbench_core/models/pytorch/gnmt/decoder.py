@@ -3,7 +3,7 @@ import itertools
 import torch
 import torch.nn as nn
 
-import mlbench_core.dataset.nlp.pytorch.wmt14.wmt14_config as config
+import mlbench_core.dataset.nlp.pytorch.wmt16.wmt16_config as config
 from mlbench_core.models.pytorch.gnmt.attention import BahdanauAttention
 from mlbench_core.models.pytorch.gnmt.utils import init_lstm_
 
