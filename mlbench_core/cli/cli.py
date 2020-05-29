@@ -393,9 +393,11 @@ def delete_gcloud(name, zone, project):
         click.echo("Exception from Google:")
         print(e)
         click.echo("Double-check your project, zone and cluster name")
-        click.echo("Try running 'gcloud container clusters list' to list all active clusters")
+        click.echo(
+            "Try running 'gcloud container clusters list' to list all active clusters"
+        )
         sys.exit(1)
-    
+
     # wait for operation to complete
     while response.status < response.DONE:
         response = gclient.get_operation(
@@ -528,10 +530,14 @@ def create_gcloud(
     except AlreadyExists as e:
         click.echo("Exception from Google:")
         print(e)
-        click.echo("A cluster with this name already exists in the specified project and zone")
-        click.echo("Try running 'gcloud container clusters list' to list all active clusters")
+        click.echo(
+            "A cluster with this name already exists in the specified project and zone"
+        )
+        click.echo(
+            "Try running 'gcloud container clusters list' to list all active clusters"
+        )
         sys.exit(1)
-        
+
     # wait for cluster to load
     while response.status < response.DONE:
         response = gclient.get_operation(
