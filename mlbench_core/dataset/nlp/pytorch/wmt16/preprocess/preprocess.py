@@ -6,8 +6,6 @@ import torch
 from mlbench_core.dataset.nlp.pytorch.wmt16 import wmt16_config
 from mlbench_core.dataset.nlp.pytorch.wmt16_dataset import WMT16Dataset
 
-logger = logging.getLogger()
-
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -85,7 +83,7 @@ def build_collate_fn(max_seq_len):
 def main():
     args = parse_args()
 
-    logger.info(f"Run arguments: {args}")
+    print(f"Run arguments: {args}")
 
     train_data = WMT16Dataset(
         args.dataset_dir,
@@ -100,6 +98,7 @@ def main():
         max_size=args.max_size,
     )
 
+    print("Total train points to pre-process: {}".format(len(train_data)))
     collate_fn = build_collate_fn(max_seq_len=args.max_length_train)
 
     train_data.write_as_preprocessed(

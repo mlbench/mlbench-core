@@ -25,7 +25,8 @@ echo "Writing to ${OUTPUT_DIR}. To change this, set the OUTPUT_DIR environment v
 OUTPUT_DIR_DATA="${OUTPUT_DIR}/data"
 
 mkdir -p $OUTPUT_DIR_DATA
-
+BASEDIR=$(dirname "$0")
+echo "$BASEDIR"
 echo "Downloading Europarl v7. This may take a while..."
 wget -nc -nv -O ${OUTPUT_DIR_DATA}/europarl-v7-de-en.tgz \
   http://www.statmt.org/europarl/v7/de-en.tgz
@@ -44,7 +45,7 @@ wget -nc -nv -O  ${OUTPUT_DIR_DATA}/dev.tgz \
 wget -nc -nv -O  ${OUTPUT_DIR_DATA}/test.tgz \
   http://data.statmt.org/wmt16/translation-task/test.tgz
 
-# Extract everything
+ Extract everything
 echo "Extracting all files..."
 mkdir -p "${OUTPUT_DIR_DATA}/europarl-v7-de-en"
 tar -xvzf "${OUTPUT_DIR_DATA}/europarl-v7-de-en.tgz" -C "${OUTPUT_DIR_DATA}/europarl-v7-de-en"
@@ -138,8 +139,8 @@ cat "${OUTPUT_DIR}/newstest2015.tok.clean.de" \
    > "${OUTPUT_DIR}/newstest_dev.tok.clean.de"
 
 # Filter datasets
-python3 pytorch/scripts/filter_dataset.py -f1 ${OUTPUT_DIR}/train.tok.clean.en -f2 ${OUTPUT_DIR}/train.tok.clean.de
-python3 pytorch/scripts/filter_dataset.py -f1 ${OUTPUT_DIR}/newstest_dev.tok.clean.en -f2 ${OUTPUT_DIR}/newstest_dev.tok.clean.de
+python3 ${BASEDIR}/filter_dataset.py -f1 ${OUTPUT_DIR}/train.tok.clean.en -f2 ${OUTPUT_DIR}/train.tok.clean.de
+python3 ${BASEDIR}/filter_dataset.py -f1 ${OUTPUT_DIR}/newstest_dev.tok.clean.en -f2 ${OUTPUT_DIR}/newstest_dev.tok.clean.de
 
 # Generate Subword Units (BPE)
 # Clone Subword NMT

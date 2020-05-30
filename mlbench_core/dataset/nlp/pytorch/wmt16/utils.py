@@ -69,17 +69,20 @@ def get_data_dtype(vocab_size):
         vocab_size (int):
 
     Returns:
-        (:obj:`np.dtype`): One of `np.int16`, `np.int32` or `np.int64`
+        (:obj:`np.dtype`, :obj:`torch.dtype`): One of `np.int16`, `np.int32` or `np.int64`
     """
     if vocab_size <= np.iinfo(np.int16).max:
         dtype = np.int16
+        torch_dtype = torch.int16
     elif vocab_size <= np.iinfo(np.int32).max:
         dtype = np.int32
+        torch_dtype = torch.int32
     elif vocab_size <= np.iinfo(np.int64).max:
         dtype = np.int64
+        torch_dtype = torch.int64
     else:
         raise ValueError("Vocabulary size is too large")
-    return dtype
+    return dtype, torch_dtype
 
 
 def process_raw_data(file_name, max_size=None):
@@ -153,8 +156,8 @@ def filter_data(src, trg, min_len=0, max_len=float("inf")):
     """Filters data on source and target lengths
 
     Args:
-        src (list[str]): Raw source data
-        trg (list[str]): Raw target data
+        src (list[int]): Tokenized source data
+        trg (list[int]): Tokenized target data
         min_len (int): Minimum length
         max_len (int): Maximum length
 

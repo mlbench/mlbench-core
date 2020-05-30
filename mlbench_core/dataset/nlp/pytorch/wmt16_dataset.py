@@ -1,8 +1,10 @@
 import os
+from copy import deepcopy
 
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, Dataset
+from tqdm import tqdm
 
 from mlbench_core.dataset.util.tools import maybe_download_and_extract_tar_gz
 
@@ -117,13 +119,13 @@ class WMT16Dataset(Dataset):
                 file_vocab_size,
                 src_lengths,
                 trg_lengths,
-            ) = self._extract_processed_data()
+            ) = self._extract_preprocessed_data()
 
             assert file_max_len == self.max_len
             assert file_min_len == self.min_len
             assert file_vocab_size == self.vocab_size
 
-            self.dtype = get_data_dtype(self.vocab_size)
+            self.dtype, _ = get_data_dtype(self.vocab_size)
             itemsize = np.iinfo(self.dtype).dtype.itemsize
             self.item_stride = itemsize * self.max_len * 2
 
@@ -136,7 +138,7 @@ class WMT16Dataset(Dataset):
             self._sort_by_src_length()
             self.sorted = True
 
-    def _extract_processed_data(self):
+    def _extract_preprocessed_data(self):
         if not (os.path.exists(self.path) and os.path.isfile(self.path)):
             raise ValueError("File {} not found".format(self.path))
         with open(self.path, "rb") as f:
@@ -194,22 +196,30 @@ class WMT16Dataset(Dataset):
         tgts = []
         src_lengths = []
         tgt_lengths = []
+        dtype, torch_dtype = get_data_dtype(self.vocab_size)
 
-        for (src, src_len), (tgt, tgt_len) in loader:
-            src_lengths.append(src_len)
-            tgt_lengths.append(tgt_len)
-            srcs.append(src)
-            tgts.append(tgt)
-        src = torch.cat(srcs)
-        tgt = torch.cat(tgts)
+        for (src, src_len), (tgt, tgt_len) in tqdm(loader):
+            src_lengths.append(deepcopy(src_len.to(torch_dtype)))
+            tgt_lengths.append(deepcopy(tgt_len.to(torch_dtype)))
+            srcs.append(deepcopy(src))
+            tgts.append(deepcopy(tgt))
+            del src
+            del src_len
+            del tgt
+            del tgt_len
+
+        del loader
+        import gc
+
+        gc.collect()
+
+        srcs = torch.cat(srcs)
+        tgts = torch.cat(tgts)
         src_lengths = torch.cat(src_lengths)
         tgt_lengths = torch.cat(tgt_lengths)
 
-        assert len(src) == len(tgt) == len(src_lengths) == len(tgt_lengths)
-        length = len(src)
-
-        dtype = get_data_dtype(self.vocab_size)
-        data = torch.cat((src, tgt), dim=1).numpy()
+        assert len(srcs) == len(tgts) == len(src_lengths) == len(tgt_lengths)
+        length = len(srcs)
 
         offset = 0
         dest_fname = "{}.bin".format(self.path)
@@ -223,6 +233,11 @@ class WMT16Dataset(Dataset):
 
             offset += np.iinfo(np.int64).dtype.itemsize
             f.write((np.array(offset, dtype=np.int64)))
+
+            del src_lengths
+            del tgt_lengths
+            gc.collect()
+            data = torch.cat((srcs, tgts), dim=1).numpy()
             f.write((np.array(data, dtype=dtype)))
 
     @property
@@ -230,4 +245,4 @@ class WMT16Dataset(Dataset):
         return self.tokenizer.vocab_size
 
     def __len__(self):
-        return len(self.src)
+        return len(self.src_lengths)

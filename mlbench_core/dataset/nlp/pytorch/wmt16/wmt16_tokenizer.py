@@ -6,12 +6,6 @@ import torch
 
 from . import wmt16_config
 
-try:
-    import sacremoses
-    import subword_nmt.apply_bpe
-except ImportError as e:
-    pass
-
 
 def _pad_vocabulary(vocab, math):
     """
