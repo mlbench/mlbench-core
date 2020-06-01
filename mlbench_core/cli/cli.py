@@ -777,7 +777,7 @@ def create_aws(
             "your credentials."
         )
 
-    assert num_workers >= 2, "Number of workers should be at least 2"
+    assert num_workers >= 2, "Number of workers should be at least 2."
 
     name = "{}-{}".format(release, num_workers)
     nodeGroupName = name + "-node-group"
