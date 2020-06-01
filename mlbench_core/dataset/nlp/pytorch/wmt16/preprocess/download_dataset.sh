@@ -45,7 +45,7 @@ wget -nc -nv -O  ${OUTPUT_DIR_DATA}/dev.tgz \
 wget -nc -nv -O  ${OUTPUT_DIR_DATA}/test.tgz \
   http://data.statmt.org/wmt16/translation-task/test.tgz
 
- Extract everything
+# Extract everything
 echo "Extracting all files..."
 mkdir -p "${OUTPUT_DIR_DATA}/europarl-v7-de-en"
 tar -xvzf "${OUTPUT_DIR_DATA}/europarl-v7-de-en.tgz" -C "${OUTPUT_DIR_DATA}/europarl-v7-de-en"
