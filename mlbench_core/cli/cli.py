@@ -7,28 +7,23 @@ import os
 import pickle
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from time import sleep
 from urllib import request
 
 import click
 import docker
-import tempfile
 import urllib3
 import yaml
 from appdirs import user_data_dir
 from kubernetes import client, config
-from pathlib import Path
 from pyhelm.chartbuilder import ChartBuilder
 from pyhelm.tiller import Tiller
 from tabulate import tabulate
 
 import mlbench_core
 from mlbench_core.api import MLBENCH_BACKENDS, MLBENCH_IMAGES, ApiClient
-from kubernetes import client
-from pyhelm.chartbuilder import ChartBuilder
-from pyhelm.tiller import Tiller
-from tabulate import tabulate
 
 GCLOUD_NVIDIA_DAEMONSET = (
     "https://raw.githubusercontent.com/"
