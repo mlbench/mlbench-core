@@ -774,7 +774,9 @@ def create_kind(
             detach=True,
         )
         while docker_client.containers.get(registry_name).status != "running":
-            pass
+            if docker_client.containers.get(registry_name).status == "exited":
+                raise click.UsageError("Failed to create local registry")
+            sleep(1)
 
     reg_ip = docker_client.containers.get(registry_name).attrs["NetworkSettings"][
         "IPAddress"
