@@ -7,26 +7,26 @@ import os
 import pickle
 import subprocess
 import sys
+from os.path import expanduser
 from pathlib import Path
 from time import sleep
 from urllib import request
 
+import boto3
+import botocore.exceptions
 import click
 import urllib3
 import yaml
 from appdirs import user_data_dir
-from kubernetes import client, config as kube_config
+from kubernetes import client
+from kubernetes import config as kube_config
+from kubernetes.client.rest import ApiException
 from pyhelm.chartbuilder import ChartBuilder
 from pyhelm.tiller import Tiller
 from tabulate import tabulate
 
 import mlbench_core
 from mlbench_core.api import MLBENCH_BACKENDS, MLBENCH_IMAGES, ApiClient
-
-import boto3
-from os.path import expanduser
-from kubernetes.client.rest import ApiException
-import botocore.exceptions
 
 GCLOUD_NVIDIA_DAEMONSET = (
     "https://raw.githubusercontent.com/"
