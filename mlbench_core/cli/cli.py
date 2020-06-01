@@ -25,7 +25,6 @@ from tabulate import tabulate
 import mlbench_core
 from mlbench_core.api import MLBENCH_BACKENDS, MLBENCH_IMAGES, ApiClient
 
-
 GCLOUD_NVIDIA_DAEMONSET = (
     "https://raw.githubusercontent.com/"
     "GoogleCloudPlatform/container-engine-accelerators/"
