@@ -42,6 +42,7 @@ test_requirements = [
     "freezegun==0.3.12",
     "black==19.10b0",
     "pytest-black==0.3.8",
+    "isort==4.3.21",
     "pre-commit",
     "coverage",
 ]
@@ -78,6 +79,5 @@ setup(
     extras_require=extras,
     url="https://github.com/mlbench/mlbench_core",
     version="2.4.0-dev158",
-
     zip_safe=False,
 )

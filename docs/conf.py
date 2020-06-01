@@ -5,16 +5,13 @@
 # Imports
 #
 
-import sys
 import os
-
-from os.path import abspath, join, dirname
-
-sys.path.insert(0, abspath(join(dirname(__file__), '.')))
-sys.path.insert(0, abspath(join(dirname(__file__), "..")))
-
 import sys
+from os.path import abspath, dirname, join
 from unittest.mock import MagicMock
+
+sys.path.insert(0, abspath(join(dirname(__file__), ".")))
+sys.path.insert(0, abspath(join(dirname(__file__), "..")))
 
 
 class Mock(MagicMock):
@@ -65,10 +62,10 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinxcontrib.napoleon",
     "sphinxcontrib.bibtex",
-    'autoapi.extension',
+    "autoapi.extension",
 ]
 
-autoapi_dirs = ['../mlbench_core']
+autoapi_dirs = ["../mlbench_core"]
 autoapi_generate_api_docs = False
 
 # Add any paths that contain templates here, relative to this directory.
@@ -167,12 +164,12 @@ epub_exclude_files = ["search.html"]
 
 # -- Custom Document processing ----------------------------------------------
 
-import gensidebar
+import gensidebar  # isort:skip
 
 gensidebar.generate_sidebar(globals(), "mlbench_core")
 
-import sphinx.addnodes
-import docutils.nodes
+import sphinx.addnodes  # isort:skip
+import docutils.nodes  # isort:skip
 
 
 def process_child(node):

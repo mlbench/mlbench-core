@@ -81,3 +81,22 @@ DatasetCifar
 
 .. autoapiclass:: DatasetCifar
     :members:
+
+
+NLP
+~~~~~~~~~~~~~~~~
+
+.. autoapimodule:: mlbench_core.dataset.nlp
+.. currentmodule:: mlbench_core.dataset.nlp
+
+pytorch
++++++++
+
+.. autoapimodule:: mlbench_core.dataset.nlp.pytorch
+.. currentmodule:: mlbench_core.dataset.nlp.pytorch
+
+WikiText2
+'''''''''
+
+.. autoapiclass:: BPTTWikiText2
+    :members:

@@ -3,6 +3,7 @@
 from abc import abstractmethod
 
 import torch
+
 from mlbench_core.utils import AverageMeter
 from mlbench_core.utils.pytorch.distributed import global_average
 
@@ -113,6 +114,9 @@ class Perplexity(MLBenchMetric):
         Returns:
             float
         """
+        if not isinstance(loss, torch.Tensor):
+            loss = torch.Tensor([loss])
+
         return torch.exp(loss)
 
 

@@ -3,8 +3,9 @@
 import concurrent.futures
 import datetime
 import logging
-from kubernetes import client, config
+
 import requests
+from kubernetes import client, config
 
 MLBENCH_BACKENDS = ["MPI", "GLOO", "NCCL"]
 

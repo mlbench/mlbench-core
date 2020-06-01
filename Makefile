@@ -50,8 +50,9 @@ clean-test: ## remove test and coverage artifacts
 	rm -fr htmlcov/
 	rm -fr .pytest_cache
 
-lint: ## check style with flake8
-	flake8 --max-line-length=120 mlbench_core tests
+lint: ## check style with black, sort imports
+	black --check .
+	isort --check-only --recursive .
 
 test: ## run tests quickly with the default Python
 	py.test

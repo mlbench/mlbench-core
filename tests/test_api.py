@@ -3,8 +3,9 @@
 
 """Tests for `mlbench_core.api` package."""
 
-import pytest
 import datetime
+
+import pytest
 
 from mlbench_core.api import ApiClient
 

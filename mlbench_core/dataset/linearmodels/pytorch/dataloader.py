@@ -7,8 +7,9 @@ import lmdb
 import numpy as np
 import torch.utils.data
 from PIL import Image
-from mlbench_core.dataset.util.tools import progress_download
 from tensorpack.utils.compatible_serialize import loads
+
+from mlbench_core.dataset.util.tools import progress_download
 
 _logger = logging.getLogger("mlbench")
 

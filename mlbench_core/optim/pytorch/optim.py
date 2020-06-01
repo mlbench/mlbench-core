@@ -1,15 +1,14 @@
+import numpy as np
+import torch
+import torch.distributed as dist
+from torch.optim import SGD, Adam
+from torch.optim.optimizer import Optimizer, required
+
 from mlbench_core.utils.pytorch.distributed import (
     AllReduceAggregation,
     DecentralizedAggregation,
     PowerAggregation,
 )
-import numpy as np
-import torch
-import torch.distributed as dist
-from mlbench_core.utils.pytorch.distributed import AllReduceAggregation
-from mlbench_core.utils.pytorch.distributed import DecentralizedAggregation
-from torch.optim import SGD, Adam
-from torch.optim.optimizer import Optimizer, required
 
 
 class SparsifiedSGD(Optimizer):

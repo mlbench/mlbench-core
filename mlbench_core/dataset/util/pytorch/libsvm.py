@@ -8,10 +8,10 @@ https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary.html
 import os
 
 import click
+from sklearn.datasets import load_svmlight_file, make_classification
+from tensorpack.dataflow import LMDBSerializer, PrefetchDataZMQ
+
 from mlbench_core.dataset.util.tools import maybe_download_and_extract_bz2
-from sklearn.datasets import load_svmlight_file
-from sklearn.datasets import make_classification
-from tensorpack.dataflow import PrefetchDataZMQ, LMDBSerializer
 
 _DATASET_MAP = {
     "australian_train": {
