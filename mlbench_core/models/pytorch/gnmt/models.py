@@ -93,6 +93,7 @@ class GNMT(Seq2Seq):
         num_layers=4,
         dropout=0.2,
         share_embedding=True,
+        fusion=True,
     ):
         super(GNMT, self).__init__()
 
@@ -109,7 +110,7 @@ class GNMT(Seq2Seq):
         )
 
         self.decoder = ResidualRecurrentDecoder(
-            vocab_size, hidden_size, num_layers, dropout, embedder
+            vocab_size, hidden_size, num_layers, dropout, embedder, fusion=fusion
         )
 
     def forward(self, input_encoder, input_enc_len, input_decoder):
