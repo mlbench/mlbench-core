@@ -15,6 +15,7 @@ requirements = [
     "kubernetes>=9.0.0",
     "dill>=0.2.8.2",
     "deprecation>=2.0.6",
+    "docker==4.2.0",
     "Click>=6.0",
     "tabulate>=0.8.5",
     "dill==0.2.8.2",
