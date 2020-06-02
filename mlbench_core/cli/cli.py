@@ -1026,13 +1026,6 @@ def create_aws(
     # https://github.com/kubernetes-client/python/issues/166
     ports = 44134
 
-    # resp = stream(
-    #     client.CoreV1Api().connect_get_namespaced_pod_portforward,
-    #     name=tiller_pod.metadata.name,
-    #     namespace=tiller_pod.metadata.namespace,
-    #     ports=ports
-    #     )
-
     with subprocess.Popen(
         [
             "kubectl",
