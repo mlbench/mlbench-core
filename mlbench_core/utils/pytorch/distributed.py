@@ -9,6 +9,11 @@ try:
 except ImportError as e:
     pass
 
+ALLREDUCE_AGGREGATION_OPS = ["avg_world", "custom_avg"]
+"""
+All possible aggregations for AllReduceAggregation
+"""
+
 
 def global_average(sum, count):
     def helper(array):
@@ -81,86 +86,95 @@ def unpack_tensors(aggregated, indices, sizes):
 
 
 class Aggregation(object):
-    """Aggregate udpates / models from different processes."""
+    """Aggregate updates / models from different processes.
+
+    Args:
+        use_cuda (bool): Whether to use CUDA tensors for communication
+    """
 
     def __init__(self, use_cuda=False):
-        """
-
-        Args:
-            use_cuda (bool): Whether to use CUDA tensors for communication
-        """
         self.use_cuda = use_cuda
 
-    def _agg(self, data, op):
+    def _agg(self, data, op, denom=None):
         """Aggregate data using `op` operation.
 
         Args:
             data (:obj:`torch.Tensor`): A Tensor to be aggregated.
             op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
+            denom (:obj:`torch.Tensor`, optional): Custom denominator to average by
+                Use with op == `custom_avg`. (default: `None`)
 
         Returns:
             :obj:`torch.Tensor`: An aggregated tensor.
         """
         raise NotImplementedError
 
-    def _agg_weights_by_model(self, model, op):
+    def _agg_weights_by_model(self, model, op, denom=None):
         """Aggregate models by model weight, all layers at once
 
         Args:
             model (:obj:`torch.Module`): Models to be averaged.
-            op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
+            op (str): Aggregation method. Should be in `ALLREDUCE_AGGREGATION_OPS`
+            denom (:obj:`torch.Tensor`, optional): Custom denominator to average by
+                Use with op == `custom_avg`. (default: `None`)
         """
         # Pack all layers
         packed, indices, sizes = pack_tensors(
             [t for t in model.parameters()], use_cuda=self.use_cuda
         )
-        aggregated = self._agg(packed, op=op)
+        aggregated = self._agg(packed, op=op, denom=denom)
 
         tensors = unpack_tensors(aggregated, indices, sizes)
         # Unpack
         for i, param in enumerate(model.parameters()):
             param.data = tensors[i]
 
-    def _agg_gradients_by_model(self, model, op):
+    def _agg_gradients_by_model(self, model, op, denom=None):
         """Aggregate models gradients, all layers at once
 
         Args:
             model (:obj:`torch.Module`): Models to be averaged.
-            op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
+            op (str): Aggregation method. Should be in `ALLREDUCE_AGGREGATION_OPS`
+            denom (:obj:`torch.Tensor`, optional): Custom denominator to average by
+                Use with op == `custom_avg`. (default: `None`)
         """
         # Pack all layers
         packed, indices, sizes = pack_tensors(
             [t.grad for t in model.parameters()], use_cuda=self.use_cuda
         )
-        aggregated = self._agg(packed, op=op)
+        aggregated = self._agg(packed, op=op, denom=denom)
 
         # Unpack
         tensors = unpack_tensors(aggregated, indices, sizes)
         for i, param in enumerate(model.parameters()):
             param.grad.data = tensors[i]
 
-    def _agg_weights_by_layer(self, model, op):
+    def _agg_weights_by_layer(self, model, op, denom=None):
         """Aggregate models by model weight, for each layer individually
 
         Args:
             model (:obj:`torch.Module`): Models to be averaged.
-            op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
+            op (str): Aggregation method. Should be in `ALLREDUCE_AGGREGATION_OPS`
+            denom (:obj:`torch.Tensor`, optional): Custom denominator to average by
+                Use with op == `custom_avg`. (default: `None`)
         """
         # Aggregate layer by layer
         for _, param in enumerate(model.parameters()):
-            grad = self._agg(param.data, op=op)
+            grad = self._agg(param.data, op=op, denom=denom)
             param.data = grad
 
-    def _agg_gradients_by_layer(self, model, op):
+    def _agg_gradients_by_layer(self, model, op, denom=None):
         """Aggregate models gradients each layer individually
 
         Args:
             model (:obj:`torch.Module`): Models to be averaged.
-            op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
+            op (str): Aggregation method. Should be in `ALLREDUCE_AGGREGATION_OPS`
+            denom (:obj:`torch.Tensor`, optional): Custom denominator to average by
+                Use with op == `custom_avg`. (default: `None`)
         """
         # Aggregate layer by layer
         for _, param in enumerate(model.parameters()):
-            grad = self._agg(param.grad.data, op=op)
+            grad = self._agg(param.grad.data, op=op, denom=denom)
             param.grad.data = grad
 
     def agg_model(self, by_layer=False):
@@ -177,43 +191,90 @@ class Aggregation(object):
 
 
 class AllReduceAggregation(Aggregation):
-    """Aggregate udpates / models from different processes using all-reduce aggregation"""
+    """Aggregate weights / models from different processes using all-reduce aggregation
 
-    def __init__(self, world_size, use_cuda=False):
+    Args:
+        world_size (int): Current distributed world size
+        divide_before (bool): Perform division before reduction (avoid overflow)
+        use_cuda (bool): Use cuda tensors for reduction
+    """
+
+    def __init__(self, world_size, divide_before=False, use_cuda=False):
         self.world_size = world_size
+        self.divide_before = divide_before
         super(AllReduceAggregation, self).__init__(use_cuda=use_cuda)
 
-    def _agg(self, data, op):
-        """Aggregate data using `op` operation.
+    def _reduce(self, data):
+        """Reduces the given tensor using `torch.distributed` and op=`dist.ReduceOp.SUM`
 
         Args:
-            data (:obj:`torch.Tensor`): A Tensor to be aggragated.
-            op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
+            data (:obj:`torch.Tensor`): The tensor to reduce
 
         Returns:
-            :obj:`torch.Tensor`: An aggregated tensor.
+            (:obj:`torch.Tensor`): The reduced Tensor
         """
-        if op == "avg":
-            dist.all_reduce(data, op=dist.ReduceOp.SUM)
-            data /= self.world_size
-        else:
-            raise NotImplementedError
+        dist.all_reduce(data, op=dist.ReduceOp.SUM)
+        return data
+
+    def _divide(self, data, op, denom=None):
+        """Divides the given `data` tensor by
+
+        - `world_size` if op == `avg_world`
+        - `denom`, if op == `custom_avg`
+
+        Args:
+            data (:obj:`torch.Tensor`): Data tensor to divide
+            op (str): Aggregation method. Should be in `ALLREDUCE_AGGREGATION_OPS`
+            denom (:obj:`torch.Tensor`, optional): Custom denominator to average by
+                Use with op == `custom_avg`. (default: `None`)
+
+        Returns:
+            (:obj:`torch.Tensor`): The resulting tensor
+        """
+        if op not in ALLREDUCE_AGGREGATION_OPS:
+            raise NotImplementedError("Allreduce not implemented for op={}".format(op))
+
+        if op == "avg_world":
+            data.div_(self.world_size)
+        elif op == "custom_avg":
+            if denom is None or denom == 0:
+                raise ValueError("Denominator should be one element tensor")
+            data.div_(denom)
+
+        return data
+
+    def _agg(self, data, op, denom=None):
+        """Aggregate data using `op` operation.
+
+        - If op == `avg_world`, the reduced tensor will be divided by `world_size`,
+        - if op == `custom_avg`, the reduced tensor will be divided by `denom`
+
+        If `self.divide_before`, the division is performed before reduction.
+        This can be helpful to avoid overflows when using `float16` training
+
+        Args:
+            data (:obj:`torch.Tensor`): A Tensor to be aggregated.
+            op (str): Aggregation method. Should be in `ALLREDUCE_AGGREGATION_OPS`
+            denom (:obj:`torch.Tensor`, optional): Custom denominator to average by
+                Use with op == `custom_avg`. (default: `None`)
+
+        Returns:
+            (:obj:`torch.Tensor`): The aggregated tensor.
+        """
+        if self.divide_before:
+            data = self._divide(data, op, denom)
+
+        if self.world_size > 1:
+            data = self._reduce(data)
+
+        if not self.divide_before:
+            data = self._divide(data, op, denom)
         return data
 
 
 class AllReduceAggregationHVD(AllReduceAggregation):
-    def _agg(self, data, op):
-        """Aggregate data using `op` operation. Uses horovod library for reduction
-        Args:
-            data (:obj:`torch.Tensor`): A Tensor to be aggregated (Should be `torch.float16`)
-            op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
-        Returns:
-            :obj:`torch.Tensor`: An aggregated tensor.
-        """
-        if op == "avg":
-            data = hvd.allreduce(data, op=hvd.Sum) / self.world_size
-        else:
-            raise NotImplementedError
+    def _reduce(self, data):
+        data = hvd.allreduce(data, op=hvd.Sum)
         return data
 
 
@@ -231,7 +292,7 @@ class DecentralizedAggregation(Aggregation):
         self.neighbors = neighbors
         super(DecentralizedAggregation, self).__init__(use_cuda=use_cuda)
 
-    def _agg(self, data, op):
+    def _agg(self, data, op, denom=None):
         """Aggregate data using `op` operation.
 
         Args:
@@ -254,7 +315,7 @@ class DecentralizedAggregation(Aggregation):
             req.wait()
 
         # Aggregate local_data
-        if op == "avg":
+        if op == "avg_world":
             output = sum(local_data.values()) / (len(self.neighbors) + 1)
         else:
             raise NotImplementedError("op {} is not supported yet.".format(op))
@@ -269,7 +330,7 @@ class SparsifiedAggregation(Aggregation):
         super(SparsifiedAggregation, self).__init__(use_cuda=use_cuda)
         pass
 
-    def _agg(self, data, op):
+    def _agg(self, data, op, denom=None):
         pass
 
 
@@ -300,12 +361,14 @@ class PowerAggregation(Aggregation):
         torch.manual_seed(self.rng.randint(1_000_000_000))
         vector.data[:] = torch.randn(*vector.shape, device=self.device)
 
-    def _agg_gradients_by_model(self, model, op):
+    def _agg_gradients_by_model(self, model, op, denom=None):
         """Aggregate models gradients, all layers at once
 
         Args:
             model (:obj:`torch.Module`): Models to be averaged.
             op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
+            denom (None): Not used here
+
         """
         grads = [t.grad.data for t in model.parameters()]
         aggregated = self._agg(grads, op=op)
@@ -313,12 +376,22 @@ class PowerAggregation(Aggregation):
         for i, param in enumerate(model.parameters()):
             param.grad.data = aggregated[i]
 
-    def _agg(self, data, op):
+    def agg_weights(self, by_layer=False):
+        raise NotImplementedError("PowerSGD doesn't allow aggregation by weights")
+
+    def agg_model(self, by_layer=False):
+        if by_layer:
+            raise NotImplementedError("PowerSGD doesn't allow aggregation by layer")
+        else:
+            return self._agg_gradients_by_model
+
+    def _agg(self, data, op, denom=None):
         """Aggregate data using `op` operation.
 
         Args:
             data (:obj:`torch.Tensor`): A Tensor to be aggragated.
             op (str): Aggregation methods like `avg`, `sum`, `min`, `max`, etc.
+            denom (None): Not used here
 
         Returns:
             :obj:`torch.Tensor`: An aggregated tensor.

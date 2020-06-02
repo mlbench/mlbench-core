@@ -5,6 +5,27 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 
+from mlbench_core.models.pytorch.gnmt import attn_score
+
+
+class AttentionScore(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, att_query, att_keys, bias, linear_att):
+        score = attn_score.forward(att_query, att_keys, bias, linear_att)
+        ctx.save_for_backward(att_query, att_keys, bias, linear_att)
+        return score
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        att_query, att_keys, bias, linear_att = ctx.saved_tensors
+        grad_query, grad_keys, grad_bias, grad_linear_att = attn_score.backward(
+            grad_output, att_query, att_keys, bias, linear_att
+        )
+        return grad_query, grad_keys, grad_bias, grad_linear_att
+
+
+fused_calc_score = AttentionScore.apply
+
 
 class BahdanauAttention(nn.Module):
     """
@@ -23,7 +44,13 @@ class BahdanauAttention(nn.Module):
     """
 
     def __init__(
-        self, query_size, key_size, num_units, normalize=False, init_weight=0.1,
+        self,
+        query_size,
+        key_size,
+        num_units,
+        normalize=False,
+        init_weight=0.1,
+        fusion=True,
     ):
         super(BahdanauAttention, self).__init__()
 
@@ -46,6 +73,7 @@ class BahdanauAttention(nn.Module):
             self.register_parameter("normalize_scalar", None)
             self.register_parameter("normalize_bias", None)
 
+        self.fusion = fusion
         self.reset_parameters(init_weight)
 
     def reset_parameters(self, init_weight):
@@ -142,7 +170,14 @@ class BahdanauAttention(nn.Module):
         processed_key = self.linear_k(keys)
 
         # scores: (b x t_q x t_k)
-        scores = self.calc_score(processed_query, processed_key)
+        if self.fusion:
+            linear_att = self.linear_att / self.linear_att.norm()
+            linear_att = linear_att * self.normalize_scalar
+            scores = fused_calc_score(
+                processed_query, processed_key, self.normalize_bias, linear_att
+            )
+        else:
+            scores = self.calc_score(processed_query, processed_key)
 
         if self.mask is not None:
             mask = self.mask.unsqueeze(1).expand(b, t_q, t_k)

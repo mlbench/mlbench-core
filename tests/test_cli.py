@@ -16,7 +16,7 @@ runner = CliRunner()
 CREATE_GCLOUD_DEFAULTS = {
     "machine_type": "n1-standard-4",
     "disk_size": 50,
-    "num_cpus": 1,
+    "num_cpus": 4,
     "num_gpus": 0,
     "gpu_type": "nvidia-tesla-k80",
     "zone": "europe-west1-b",
@@ -163,7 +163,7 @@ def create_gcloud_test_helper(mocker, gcloud_mock, args, option_dict=None):
     )
     assert (
         install_release.call_args[1]["values"]["limits"]["cpu"]
-        == option_dict["num_cpus"]
+        == option_dict["num_cpus"] - 1
     )
 
     get_operation.assert_called()

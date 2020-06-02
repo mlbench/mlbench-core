@@ -1,3 +1,4 @@
+import math
 import time
 from collections import defaultdict
 
@@ -82,7 +83,10 @@ class Tracker(object):
         self.goal = goal
         self.goal_reached = False
 
-        self.primary_metric = metrics[0]
+        if len(metrics) > 0:
+            self.primary_metric = metrics[0]
+        else:
+            self.primary_metric = None
 
         if communication_steps is None:
             communication_steps = _DEFAULT_COMM_STEPS
@@ -230,7 +234,7 @@ class Tracker(object):
         if log_to_api:
             LogMetrics.log(self.run_id, self.rank, self.current_epoch, name, value)
 
-        if self.goal and self.rank == 0:
+        if self.goal:
             goal_result = self.goal(name, value, self)
 
             if goal_result is not None and not self.goal_reached:
@@ -239,34 +243,35 @@ class Tracker(object):
                 print(log_to_api)
                 print(goal_result)
 
-                if log_to_api:
-                    LogMetrics.log(
-                        self.run_id,
-                        self.rank,
-                        self.current_epoch,
-                        "TaskResult",
-                        goal_result,
-                    )
-
-                    LogMetrics.log(
-                        self.run_id,
-                        self.rank,
-                        self.current_epoch,
-                        "TotalCumulativeTrainTime",
-                        self.get_total_train_time(),
-                    )
-
-                    metrics = dict(self.epoch_metrics).items()
-                    metrics = sorted(metrics, key=lambda k: k[0])
-
-                    for k, v in metrics:
+                if self.rank == 0:
+                    if log_to_api:
                         LogMetrics.log(
                             self.run_id,
                             self.rank,
                             self.current_epoch,
-                            "global_cum_{}".format(k),
-                            sum(v),
+                            "TaskResult",
+                            goal_result,
                         )
+
+                        LogMetrics.log(
+                            self.run_id,
+                            self.rank,
+                            self.current_epoch,
+                            "TotalCumulativeTrainTime",
+                            self.get_total_train_time(),
+                        )
+
+                        metrics = dict(self.epoch_metrics).items()
+                        metrics = sorted(metrics, key=lambda k: k[0])
+
+                        for k, v in metrics:
+                            LogMetrics.log(
+                                self.run_id,
+                                self.rank,
+                                self.current_epoch,
+                                "global_cum_{}".format(k),
+                                sum(v),
+                            )
 
     def record_loss(self, value, n=1, log_to_api=False):
         """Records a loss value
@@ -291,7 +296,10 @@ class Tracker(object):
         """
         self.record_stat(metric.name, value, n, log_to_api)
 
-        if metric.name == self.primary_metric.name and not self.is_training:
+        is_primary = (
+            self.primary_metric is not None and metric.name == self.primary_metric.name
+        )
+        if is_primary and not self.is_training:
             self.update_primary_metric(value)
 
     def update_primary_metric(self, new_metric_value):

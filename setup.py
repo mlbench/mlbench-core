@@ -17,7 +17,7 @@ requirements = [
     "deprecation>=2.0.6",
     "Click>=6.0",
     "tabulate>=0.8.5",
-    "dill==0.2.8.2",
+    "dill == 0.3.1.1",
     "grpcio==1.26.0",
     "pyhelm==2.14.5",
     "appdirs==1.4.3",
@@ -80,6 +80,6 @@ setup(
     tests_require=test_requirements,
     extras_require=extras,
     url="https://github.com/mlbench/mlbench_core",
-    version="2.4.0-dev158",
+    version="2.4.0-dev233",
     zip_safe=False,
 )

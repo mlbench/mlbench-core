@@ -3,7 +3,7 @@ import itertools
 import torch
 import torch.nn as nn
 
-import mlbench_core.dataset.nlp.pytorch.wmt14.wmt14_config as config
+import mlbench_core.dataset.nlp.pytorch.wmt16.wmt16_config as config
 from mlbench_core.models.pytorch.gnmt.attention import BahdanauAttention
 from mlbench_core.models.pytorch.gnmt.utils import init_lstm_
 
@@ -29,6 +29,7 @@ class RecurrentAttention(nn.Module):
         num_layers=1,
         dropout=0.2,
         init_weight=0.1,
+        fusion=True,
     ):
         super(RecurrentAttention, self).__init__()
 
@@ -38,7 +39,7 @@ class RecurrentAttention(nn.Module):
         init_lstm_(self.rnn, init_weight)
 
         self.attn = BahdanauAttention(
-            hidden_size, context_size, context_size, normalize=True,
+            hidden_size, context_size, context_size, normalize=True, fusion=fusion
         )
 
         self.dropout = nn.Dropout(dropout)
@@ -130,13 +131,19 @@ class ResidualRecurrentDecoder(nn.Module):
         dropout=0.2,
         embedder=None,
         init_weight=0.1,
+        fusion=True,
     ):
         super(ResidualRecurrentDecoder, self).__init__()
 
         self.num_layers = num_layers
 
         self.att_rnn = RecurrentAttention(
-            hidden_size, hidden_size, hidden_size, num_layers=1, dropout=dropout,
+            hidden_size,
+            hidden_size,
+            hidden_size,
+            num_layers=1,
+            dropout=dropout,
+            fusion=fusion,
         )
 
         self.rnn_layers = nn.ModuleList()
