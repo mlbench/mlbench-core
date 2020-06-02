@@ -77,7 +77,7 @@ class FP16Optimizer:
         init_scale=1024,
         scale_factor=2,
         scale_window=128,
-        max_scale=None,  # TODO max scale for GNMT is 8192.0
+        max_scale=None,
         min_scale=1e-4,
         average_world=False,
         average_custom=False,
@@ -351,9 +351,9 @@ class AMPOptimizer:
         self.model = model
         self.grad_clip = grad_clip
         self.optimizer = None
-        loss_scaler = amp._amp_state.loss_scalers[0]
-        loss_scaler._loss_scale = loss_scale
-        loss_scaler._scale_seq_len = dls_upscale_interval
+        self.loss_scaler = amp._amp_state.loss_scalers[0]
+        self.loss_scaler._loss_scale = loss_scale
+        self.loss_scaler._scale_seq_len = dls_upscale_interval
 
         if average_world:
             self.agg_mode = "avg_world"
@@ -378,16 +378,16 @@ class AMPOptimizer:
         with amp.scale_loss(loss, self.optimizer) as scaled_loss:
             scaled_loss.backward()
 
-    def step(self, closure=None):
+    def step(self, closure=None, denom=None):
         """
         Performs one step of the optimizer.
         """
-        self.agg(self.model, self.agg_mode)
+        self.agg(self.model, self.agg_mode, denom=denom)
         if self.grad_clip != float("inf"):
             clip_grad_norm_(amp.master_params(self.optimizer), self.grad_clip)
 
         self.optimizer.step(closure=closure)
-        return True
+        return not self.loss_scaler._has_overflow
 
     def zero_grad(self):
         self.optimizer.zero_grad()
