@@ -29,6 +29,7 @@ requirements = [
     "torchtext==0.5.0",
     "spacy==2.2.3",
     "sklearn==0.0",
+    "boto3==1.12.26",
 ]
 
 setup_requirements = [
