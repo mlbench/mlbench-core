@@ -19,3 +19,4 @@ spacy==2.2.3
 sklearn==0.0
 numpy==1.16.6
 docker==4.2.0
+boto3==1.12.26

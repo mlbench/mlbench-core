@@ -8,16 +8,21 @@ import pickle
 import subprocess
 import sys
 import tempfile
+from os.path import expanduser
 from pathlib import Path
 from time import sleep
 from urllib import request
 
+import boto3
+import botocore.exceptions
 import click
 import docker
 import urllib3
 import yaml
 from appdirs import user_data_dir
-from kubernetes import client, config
+from kubernetes import client
+from kubernetes import config as kube_config
+from kubernetes.client.rest import ApiException
 from pyhelm.chartbuilder import ChartBuilder
 from pyhelm.tiller import Tiller
 from tabulate import tabulate
@@ -424,6 +429,7 @@ def delete_gcloud(name, zone, project):
     click.echo("Cluster deleted.")
 
 
+
 @delete_cluster.command("kind")
 @click.argument("name", type=str)
 def delete_kind(name):
@@ -440,7 +446,47 @@ def delete_kind(name):
                 error.decode()
             )
         )
+    click.echo("Cluster deleted.")
 
+
+@delete_cluster.command("aws")
+@click.argument("name", type=str)
+def delete_aws(name):
+    sts = boto3.client("sts")
+    try:
+        sts.get_caller_identity()
+    except botocore.exceptions.ClientError:
+        raise click.UsageError(
+            "Couldn't find aws credentials. Install the aws"
+            " sdk ( https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2-linux.html ) and "
+            "run 'aws configure' to login and create "
+            "your credentials."
+        )
+
+    # delete nodegroup
+    stackName = "eks-auto-scaling-group-" + name
+
+    cloudFormation = boto3.client("cloudformation")
+    cloudFormation.delete_stack(StackName=stackName)
+
+    waiter = cloudFormation.get_waiter("stack_delete_complete")
+    click.echo("Waiting for nodegroup to be deleted.")
+    waiter.wait(StackName=stackName)
+
+    # delete EKS cluster
+    eks = boto3.client("eks")
+    eks.delete_cluster(name=name)
+    waiter = eks.get_waiter("cluster_deleted")
+    click.echo("Waiting for cluster to be deleted. This can take up to ten minutes.")
+    waiter.wait(name=name)
+
+    # delete VPC stack
+    stack_name = name + "-stack"
+    cf_client = boto3.client("cloudformation")
+    cf_client.delete_stack(StackName=stack_name)
+    waiter = cf_client.get_waiter("stack_delete_complete")
+    click.echo("Waiting for the VPC stack to be deleted.")
+    waiter.wait(StackName=stack_name)
     click.echo("Cluster deleted.")
 
 
@@ -732,6 +778,368 @@ def create_gcloud(
     write_config(config)
 
     click.echo("MLBench successfully deployed")
+    
+@create_cluster.command("aws")
+@click.argument("num_workers", type=int, metavar="num-workers")
+@click.argument("release", type=str)
+@click.option("--kubernetes-version", "-k", type=str, default="1.15")
+@click.option("--machine-type", "-t", default="t2.medium", type=str)
+@click.option("--disk-size", "-d", default=50, type=int)
+@click.option("--num-cpus", "-c", default=1, type=int)
+@click.option("--num-gpus", "-g", default=0, type=int)
+@click.option("--gpu-type", default="nvidia-tesla-k80", type=str)
+@click.option("--region", "-z", default="us-east-1", type=str)
+@click.option("--custom-value", "-v", multiple=True)
+@click.option("--ami-id", "-a", default="ami-06d4f570358b1b626", type=str)
+@click.option("--ssh-key", "-a", default="eksNodeKey", type=str)
+def create_aws(
+    num_workers,
+    release,
+    kubernetes_version,
+    machine_type,
+    disk_size,
+    num_cpus,
+    num_gpus,
+    gpu_type,
+    region,
+    custom_value,
+    ami_id,
+    ssh_key,
+):
+    sts = boto3.client("sts")
+    try:
+        sts.get_caller_identity()
+    except botocore.exceptions.ClientError:
+        raise click.UsageError(
+            "Couldn't find aws credentials. Install the aws"
+            " sdk ( https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2-linux.html ) and "
+            "run 'aws configure' to login and create "
+            "your credentials."
+        )
+
+    assert num_workers >= 2, "Number of workers should be at least 2."
+
+    name = "{}-{}".format(release, num_workers)
+    nodeGroupName = name + "-node-group"
+
+    # create VPC stack for cluster
+    stack_name = name + "-stack"
+    CF_TEMPLATE_URL = "https://amazon-eks.s3-us-west-2.amazonaws.com/cloudformation/2019-02-11/amazon-eks-vpc-sample.yaml"
+    cf_client = boto3.client("cloudformation")
+    cf_client.create_stack(StackName=stack_name, TemplateURL=CF_TEMPLATE_URL)
+    waiter = cf_client.get_waiter("stack_create_complete")
+    click.echo("Waiting for the VPC stack to be created.")
+    # will throw an exception if the creation fails
+    waiter.wait(StackName=stack_name)
+
+    # obtain vpc id, security group id and subnet ids
+    r = cf_client.describe_stack_resources(
+        StackName=stack_name, LogicalResourceId="VPC"
+    )
+    vpcId = r["StackResources"][0]["PhysicalResourceId"]
+
+    r = cf_client.describe_stack_resources(
+        StackName=stack_name, LogicalResourceId="ControlPlaneSecurityGroup"
+    )
+    secGroupId = r["StackResources"][0]["PhysicalResourceId"]
+
+    ec2 = boto3.resource("ec2")
+    vpc = ec2.Vpc(vpcId)
+    subnets = [subnet.id for subnet in vpc.subnets.all()]
+
+    ec2 = boto3.client("ec2")
+
+    # ensure that public IP addresses are assigned on launch in each subnet
+    for subnet in subnets:
+        ec2.modify_subnet_attribute(
+            MapPublicIpOnLaunch={"Value": True,}, SubnetId=subnet,
+        )
+
+    # create a role and assign the policy needed for creating the EKS cluster
+    iam = boto3.client("iam")
+    try:
+        assume_role_policy_document = """{
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {"Service": "eks.amazonaws.com"},
+                    "Action": "sts:AssumeRole"
+                }
+            ]
+        }"""
+        iam.create_role(
+            RoleName="EKSClusterRole",
+            AssumeRolePolicyDocument=assume_role_policy_document,
+        )
+    except botocore.exceptions.ClientError as error:
+        if error.response["Error"]["Code"] == "EntityAlreadyExists":
+            # the role has already been created
+            pass
+        else:
+            click.UsageError(error)
+
+    iam.attach_role_policy(
+        RoleName="EKSClusterRole",
+        PolicyArn="arn:aws:iam::aws:policy/AmazonEKSClusterPolicy",
+    )
+
+    roleArn = iam.get_role(RoleName="EKSClusterRole")["Role"]["Arn"]
+
+    # create the EKS cluster
+    eks = boto3.client("eks")
+    eks.create_cluster(
+        name=name,
+        version=kubernetes_version,
+        roleArn=roleArn,
+        resourcesVpcConfig={"subnetIds": subnets, "securityGroupIds": [secGroupId]},
+    )
+    waiter = eks.get_waiter("cluster_active")
+    click.echo("Waiting for cluster to be created. This can take up to ten minutes.")
+    waiter.wait(name=name)
+
+    # connect kubernetes to the EKS cluster
+    configuration = get_config()
+
+    configuration.set("general", "provider", "aws")
+
+    configuration.set("aws", "cluster", name)
+
+    write_config(configuration)
+
+    setup_client_from_config()
+
+    # create ssh key
+    ec2 = boto3.client("ec2")
+    try:
+        keypair = ec2.create_key_pair(KeyName=ssh_key)
+        file_location = expanduser("~") + "/.ssh/{}.pem".format(ssh_key)
+        click.echo("Writing ssh key to " + file_location)
+        with open(file_location, "w") as file:
+            file.write(keypair["KeyMaterial"])
+    except botocore.exceptions.ClientError as error:
+        if error.response["Error"]["Code"] == "InvalidKeyPair.Duplicate":
+            # the key has already been created
+            pass
+        else:
+            click.UsageError(error)
+
+    # create EKS nodegroup
+    params = [
+        {"ParameterKey": "KeyName", "ParameterValue": ssh_key},
+        {"ParameterKey": "NodeImageId", "ParameterValue": ami_id},
+        {"ParameterKey": "NodeInstanceType", "ParameterValue": machine_type},
+        {
+            "ParameterKey": "NodeAutoScalingGroupMinSize",
+            "ParameterValue": str(num_workers),
+        },
+        {
+            "ParameterKey": "NodeAutoScalingGroupMaxSize",
+            "ParameterValue": str(num_workers),
+        },
+        {
+            "ParameterKey": "NodeAutoScalingGroupDesiredCapacity",
+            "ParameterValue": str(num_workers),
+        },
+        {"ParameterKey": "ClusterName", "ParameterValue": name},
+        {"ParameterKey": "NodeGroupName", "ParameterValue": nodeGroupName},
+        {
+            "ParameterKey": "ClusterControlPlaneSecurityGroup",
+            "ParameterValue": secGroupId,
+        },
+        {"ParameterKey": "VpcId", "ParameterValue": vpcId},
+        {"ParameterKey": "Subnets", "ParameterValue": ",".join(subnets)},
+    ]
+
+    stackName = "eks-auto-scaling-group-" + name
+    templateURL = "https://amazon-eks.s3-us-west-2.amazonaws.com/cloudformation/2019-02-11/amazon-eks-nodegroup.yaml"
+
+    cloudFormation = boto3.client("cloudformation")
+    cloudFormation.create_stack(
+        StackName=stackName,
+        TemplateURL=templateURL,
+        Parameters=params,
+        Capabilities=["CAPABILITY_IAM"],
+    )
+
+    waiter = cloudFormation.get_waiter("stack_create_complete")
+    click.echo("Waiting for nodegroup to be created.")
+    waiter.wait(StackName=stackName)
+
+    resource = boto3.resource("cloudformation")
+    stack = resource.Stack(stackName)
+
+    for i in stack.outputs:
+        if i["OutputKey"] == "NodeInstanceRole":
+            nodeInstanceRole = i["OutputValue"]
+
+    # create config map to connect the nodes to the cluster
+    v1 = client.CoreV1Api()
+    namespace = "kube-system"
+    configMapName = "aws-auth"
+
+    # Delete old config maps in case it exists
+    body = client.V1DeleteOptions()
+    body.api_version = "v1"
+    try:
+        v1.delete_namespaced_config_map(
+            name="aws-auth", namespace="kube-system", body=body
+        )
+    except ApiException as e:
+        pass
+
+    # Create new config map
+    body = client.V1ConfigMap()
+    body.api_version = "v1"
+    body.metadata = {}
+    body.metadata["name"] = configMapName
+    body.metadata["namespace"] = namespace
+
+    body.data = {}
+    body.data["mapRoles"] = (
+        "- rolearn: "
+        + nodeInstanceRole
+        + "\n  username: system:node:{{EC2PrivateDNSName}}\n  groups:\n    - system:bootstrappers\n    - system:nodes\n"
+    )
+
+    response = v1.create_namespaced_config_map(namespace, body)
+
+    kube_config.load_kube_config()
+    # create tiller service account
+    client.CoreV1Api().create_namespaced_service_account(
+        "kube-system",
+        {
+            "apiVersion": "v1",
+            "kind": "ServiceAccount",
+            "metadata": {
+                "name": "tiller",
+                "generateName": "tiller",
+                "namespace": "kube-system",
+            },
+        },
+    )
+
+    client.RbacAuthorizationV1beta1Api().create_cluster_role_binding(
+        {
+            "apiVersion": "rbac.authorization.k8s.io/v1beta1",
+            "kind": "ClusterRoleBinding",
+            "metadata": {"name": "tiller"},
+            "roleRef": {
+                "apiGroup": "rbac.authorization.k8s.io",
+                "kind": "ClusterRole",
+                "name": "cluster-admin",
+            },
+            "subjects": [
+                {"kind": "ServiceAccount", "name": "tiller", "namespace": "kube-system"}
+            ],
+        }
+    )
+
+    # deploy tiller
+    tiller_service = yaml.safe_load(TILLER_MANIFEST_SERVICE)
+    tiller_dep = yaml.safe_load(TILLER_MANIFEST_DEPLOYMENT)
+    client.CoreV1Api().create_namespaced_service("kube-system", tiller_service)
+    client.ExtensionsV1beta1Api().create_namespaced_deployment(
+        "kube-system", tiller_dep
+    )
+
+    sleep(5)
+
+    pods = client.CoreV1Api().list_namespaced_pod(
+        namespace="kube-system", label_selector="app=helm"
+    )
+
+    tiller_pod = pods.items[0]
+
+    while True:
+        # Wait for tiller
+        resp = client.CoreV1Api().read_namespaced_pod(
+            namespace="kube-system", name=tiller_pod.metadata.name
+        )
+        if resp.status.phase != "Pending":
+            break
+        sleep(5)
+
+    # kubernetes python doesn't currently support port forward
+    # https://github.com/kubernetes-client/python/issues/166
+    ports = 44134
+
+    with subprocess.Popen(
+        [
+            "kubectl",
+            "port-forward",
+            "--namespace={}".format(tiller_pod.metadata.namespace),
+            tiller_pod.metadata.name,
+            "{0}:{0}".format(ports),
+        ]
+    ) as portforward:
+
+        sleep(5)
+        # install chart
+        tiller = Tiller("localhost")
+        chart = ChartBuilder(
+            {
+                "name": "mlbench-helm",
+                "source": {
+                    "type": "git",
+                    "location": "https://github.com/mlbench/mlbench-helm",
+                },
+            }
+        )
+
+        values = {
+            "limits": {"workers": num_workers - 1, "gpu": num_gpus, "cpu": num_cpus}
+        }
+
+        if custom_value:
+            # merge custom values with values
+            for cv in custom_value:
+                key, v = cv.split("=", 1)
+
+                current = values
+                key_path = key.split(".")
+
+                for k in key_path[:-1]:
+                    if k not in current:
+                        current[k] = {}
+
+                    current = current[k]
+
+                current[key_path[-1]] = v
+
+        tiller.install_release(
+            chart.get_helm_chart(),
+            name=name,
+            wait=True,
+            dry_run=False,
+            namespace="default",
+            values=values,
+        )
+
+        portforward.terminate()
+
+    # open port in firewall
+    kube_config.load_kube_config()
+    mlbench_client = ApiClient(in_cluster=False, load_config=False)
+    mlbench_port = mlbench_client.port
+    r = cf_client.describe_stack_resources(
+        StackName=stackName, LogicalResourceId="NodeSecurityGroup"
+    )
+    secGroupId = r["StackResources"][0]["PhysicalResourceId"]
+
+    ec2 = boto3.client("ec2")
+    ec2.authorize_security_group_ingress(
+        GroupId=secGroupId,
+        IpPermissions=[
+            {
+                "FromPort": mlbench_port,
+                "IpProtocol": "tcp",
+                "IpRanges": [{"CidrIp": "0.0.0.0/0",},],
+                "ToPort": mlbench_port,
+            },
+        ],
+    )
+    click.echo("MLBench successfully deployed")
 
 
 @create_cluster.command("kind")
@@ -965,6 +1373,9 @@ def get_config():
     if not config.has_section("gke"):
         config.add_section("gke")
 
+    if not config.has_section("aws"):
+        config.add_section("aws")
+
     return config
 
 
@@ -988,10 +1399,11 @@ def setup_client_from_config():
 
     if provider == "gke":
         return setup_gke_client_from_config(config)
-    elif provider == "kind":
+    if provider == "kind":
         return setup_kind_client_from_config(config)
-    else:
-        raise NotImplementedError()
+    if provider == "aws":
+        return setup_aws_client_from_config(config)
+    raise NotImplementedError()
 
 
 def setup_kind_client_from_config(configuration):
@@ -1023,6 +1435,58 @@ def setup_gke_client_from_config(config):
     configuration.verify_ssl = False
     configuration.api_key = {"authorization": "Bearer " + credentials.token}
     client.Configuration.set_default(configuration)
+
+    return True
+
+
+def setup_aws_client_from_config(config):
+    name = config.get("aws", "cluster")
+
+    eks = boto3.client("eks")
+    cluster = eks.describe_cluster(name=name)
+    cluster_cert = cluster["cluster"]["certificateAuthority"]["data"]
+    cluster_ep = cluster["cluster"]["endpoint"]
+    cluster_arn = cluster["cluster"]["arn"]
+
+    cluster_config = {
+        "apiVersion": "v1",
+        "kind": "Config",
+        "clusters": [
+            {
+                "cluster": {
+                    "server": str(cluster_ep),
+                    "certificate-authority-data": str(cluster_cert),
+                },
+                "name": cluster_arn,
+            }
+        ],
+        "contexts": [
+            {
+                "context": {"cluster": cluster_arn, "user": cluster_arn,},
+                "name": cluster_arn,
+            }
+        ],
+        "current-context": cluster_arn,
+        "preferences": {},
+        "users": [
+            {
+                "name": cluster_arn,
+                "user": {
+                    "exec": {
+                        "apiVersion": "client.authentication.k8s.io/v1alpha1",
+                        "command": "aws-iam-authenticator",
+                        "args": ["token", "-i", name],
+                    }
+                },
+            }
+        ],
+    }
+
+    config_text = yaml.dump(cluster_config, default_flow_style=False)
+    config_file = expanduser("~") + "/.kube/config"
+    click.echo("Writing kubectl configuration to " + config_file)
+    open(config_file, "w").write(config_text)
+    kube_config.load_kube_config()
 
     return True
 
