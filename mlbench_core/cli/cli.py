@@ -818,18 +818,16 @@ def create_aws(
     # create a role and assign the policy needed for creating the EKS cluster
     iam = boto3.client("iam")
     try:
-        assume_role_policy_document = json.dumps(
-            {
-                "Version": "2012-10-17",
-                "Statement": [
-                    {
-                        "Effect": "Allow",
-                        "Principal": {"Service": "eks.amazonaws.com"},
-                        "Action": "sts:AssumeRole",
-                    }
-                ],
-            }
-        )
+        assume_role_policy_document = """{
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {"Service": "eks.amazonaws.com"},
+                    "Action": "sts:AssumeRole"
+                }
+            ]
+        }"""
         iam.create_role(
             RoleName="EKSClusterRole",
             AssumeRolePolicyDocument=assume_role_policy_document,
