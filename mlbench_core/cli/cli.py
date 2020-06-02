@@ -429,7 +429,6 @@ def delete_gcloud(name, zone, project):
     click.echo("Cluster deleted.")
 
 
-
 @delete_cluster.command("kind")
 @click.argument("name", type=str)
 def delete_kind(name):
@@ -778,7 +777,8 @@ def create_gcloud(
     write_config(config)
 
     click.echo("MLBench successfully deployed")
-    
+
+
 @create_cluster.command("aws")
 @click.argument("num_workers", type=int, metavar="num-workers")
 @click.argument("release", type=str)
