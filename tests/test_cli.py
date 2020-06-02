@@ -143,7 +143,8 @@ def create_gcloud_test_helper(mocker, gcloud_mock, args, option_dict=None):
             if k not in option_dict:
                 option_dict[k] = CREATE_GCLOUD_DEFAULTS[k]
 
-    runner.invoke(cli_group, ["create-cluster", "gcloud"] + cmd_line)
+    result = runner.invoke(cli_group, ["create-cluster", "gcloud"] + cmd_line)
+    assert result.exit_code == 0
 
     cluster.assert_called_once()
     assert cluster.call_args[1]["initial_node_count"] == args[0]  # num_workers
@@ -307,7 +308,8 @@ def test_delete_gcloud_cluster(gcloud_mock):
 
     cmd = get_gcloud_cmd_line(args, opts)
 
-    runner.invoke(cli_group, ["delete-cluster", "gcloud"] + cmd)
+    result = runner.invoke(cli_group, ["delete-cluster", "gcloud"] + cmd)
+    assert result.exit_code == 0
 
     delete_cluster.assert_called_once()
     get_operation.assert_called_once()
@@ -335,7 +337,8 @@ def test_status(status_mock):
 
     cmd = ["status", name, "-u", url]
 
-    runner.invoke(cli_group, cmd)
+    result = runner.invoke(cli_group, cmd)
+    assert result.exit_code == 0
 
     client.assert_called_once_with(in_cluster=False, url=url, load_config=False)
     get_run_metrics.assert_called()
@@ -353,7 +356,8 @@ def test_status_no_run(status_mock_no_run):
     name = "my-test-name"
     cmd = ["status", name, "-u", url]
 
-    runner.invoke(cli_group, cmd)
+    result = runner.invoke(cli_group, cmd)
+    assert result.exit_code == 0
 
     client.assert_called_once_with(in_cluster=False, url=url, load_config=False)
     assert not get_run_metrics.called
@@ -369,7 +373,8 @@ def test_delete_no_run(status_mock_no_run):
     name = "my-test-name"
     cmd = ["delete", name, "-u", url]
 
-    runner.invoke(cli_group, cmd)
+    result = runner.invoke(cli_group, cmd)
+    assert result.exit_code == 0
 
     client.assert_called_once_with(in_cluster=False, url=url, load_config=False)
     assert not delete_run_client.called
@@ -385,7 +390,8 @@ def test_delete_run(status_mock):
 
     cmd = ["delete", name, "-u", url]
 
-    runner.invoke(cli_group, cmd)
+    result = runner.invoke(cli_group, cmd)
+    assert result.exit_code == 0
 
     client.assert_called_once_with(in_cluster=False, url=url, load_config=False)
     delete_run_client.assert_called_once_with(rid)
