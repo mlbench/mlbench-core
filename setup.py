@@ -43,6 +43,7 @@ test_requirements = [
     "black==19.10b0",
     "pytest-black==0.3.8",
     "isort==4.3.21",
+    "wcwidth==0.1.9",
     "pre-commit",
     "coverage",
 ]
