@@ -255,7 +255,7 @@ def status(name, dashboard_url):
             del run["job_id"]
             del run["job_metadata"]
 
-        # click.echo(tabulate(runs, headers="keys"))
+        click.echo(tabulate(runs, headers="keys"))
         return
 
     try:
@@ -267,7 +267,7 @@ def status(name, dashboard_url):
     del run["job_id"]
     del run["job_metadata"]
 
-    # click.echo(tabulate([run], headers="keys"))
+    click.echo(tabulate([run], headers="keys"))
 
     loss = client.get_run_metrics(
         run["id"], metric_filter="val_global_loss @ 0", last_n=1
