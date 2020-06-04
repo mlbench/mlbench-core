@@ -6,6 +6,8 @@ from .log_metrics import LogMetrics
 
 _DEFAULT_COMM_STEPS = ["opt_step"]
 _DEFAULT_COMPUTE_STEPS = ["fwd_pass", "comp_loss", "backprop"]
+_DEFAULT_COMPUTE_METRICS_STEPS = ["comp_metrics"]
+_DEFAULT_PREPROCESS_STEPS = ["batch_load"]
 
 
 class AverageMeter(object):
@@ -29,6 +31,13 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
+def _get_times(steps, tracker_stats):
+    _times = None
+    if steps:
+        _times = [t[1][1] - t[0][1] for t in tracker_stats if t[1][0] in steps]
+    return _times
+
+
 class Tracker(object):
     """A class to track running stats and metrics.
 
@@ -48,6 +57,8 @@ class Tracker(object):
         goal=None,
         communication_steps=None,
         compute_steps=None,
+        metrics_steps=None,
+        preprocess_steps=None,
         minimize=False,
     ):
         self.batch_times = []
@@ -59,6 +70,8 @@ class Tracker(object):
         self.cumulative_train_time = []
         self.cumulative_compute_time = []
         self.cumulative_communication_time = []
+        self.cumulative_metrics_time = []
+        self.cumulative_preprocess_time = []
         self.cumulative_val_time = []
         self.best_epoch = 0
         self.current_epoch = 0
@@ -71,6 +84,8 @@ class Tracker(object):
 
         self.communication_steps = []
         self.compute_steps = []
+        self.metrics_steps = []
+        self.preprocess_steps = []
 
         self.train_prefix = "train_"
         self.val_prefix = "val_"
@@ -103,6 +118,22 @@ class Tracker(object):
             compute_steps = [compute_steps]
 
         self.compute_steps = compute_steps
+
+        if metrics_steps is None:
+            metrics_steps = _DEFAULT_COMPUTE_METRICS_STEPS
+
+        if not isinstance(metrics_steps, list):
+            metrics_steps = [metrics_steps]
+
+        self.metrics_steps = metrics_steps
+
+        if preprocess_steps is None:
+            preprocess_steps = _DEFAULT_PREPROCESS_STEPS
+
+        if not isinstance(preprocess_steps, list):
+            preprocess_steps = [preprocess_steps]
+
+        self.preprocess_steps = preprocess_steps
 
     def start(self):
         """ Starts Tracking """
@@ -142,31 +173,30 @@ class Tracker(object):
         if len(self.batch_times) > 1:
             metric = "CumulativeTrainTimeEpoch"
 
+            # batch times
+            self.batch_times.sort(key=lambda x: x[1])
+
             self.cumulative_train_time.append(
                 self.batch_times[-1][1] - self.batch_times[0][1]
             )
             time_diff = self.cumulative_train_time[-1]
 
-            # batch times
-            self.batch_times.sort(key=lambda x: x[1])
-
             tracker_stats = list(zip(self.batch_times[:-1], self.batch_times[1:]))
 
-            if self.compute_steps:
-                compute_times = [
-                    t[1][1] - t[0][1]
-                    for t in tracker_stats
-                    if t[1][0] in self.compute_steps
-                ]
-                self.cumulative_compute_time.append(sum(compute_times))
+            # Get the times for each category of steps
+            compute_times = _get_times(self.compute_steps, tracker_stats)
+            communication_times = _get_times(self.communication_steps, tracker_stats)
+            metric_times = _get_times(self.metrics_steps, tracker_stats)
+            preprocess_times = _get_times(self.preprocess_steps, tracker_stats)
 
-            if self.communication_steps:
-                communication_times = [
-                    t[1][1] - t[0][1]
-                    for t in tracker_stats
-                    if t[1][0] in self.communication_steps
-                ]
+            if compute_times:
+                self.cumulative_compute_time.append(sum(compute_times))
+            if communication_times:
                 self.cumulative_communication_time.append(sum(communication_times))
+            if metric_times:
+                self.cumulative_metrics_time.append(sum(metric_times))
+            if preprocess_times:
+                self.cumulative_preprocess_time.append(sum(preprocess_times))
 
             if len(self.epoch_metrics[metric]) < self.current_epoch + 1:
                 self.epoch_metrics[metric].append(0.0)
@@ -328,6 +358,12 @@ class Tracker(object):
     def get_total_communication_time(self):
         return sum(self.cumulative_communication_time)
 
+    def get_total_metrics_time(self):
+        return sum(self.cumulative_metrics_time)
+
+    def get_total_preprocess_time(self):
+        return sum(self.cumulative_preprocess_time)
+
     def get_total_val_time(self):
         return sum(self.cumulative_val_time)
 
@@ -382,3 +418,9 @@ class Tracker(object):
     def record_batch_opt_step(self):
         """Records time taken for optimization"""
         self.record_batch_step("opt_step")
+
+    def record_batch_load(self):
+        self.record_batch_step("batch_load")
+
+    def record_batch_comp_metrics(self):
+        self.record_batch_step("comp_metrics")
