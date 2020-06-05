@@ -312,16 +312,21 @@ class DecentralizedSGD(SGD):
             rank, neighbors, use_cuda=use_cuda
         ).agg_model(by_layer=by_layer)
 
-    def step(self, closure=None):
+    def step(self, closure=None, tracker=None):
         """ Aggregates the gradients and performs a single optimization step.
 
         Arguments:
             closure (callable, optional): A closure that reevaluates the model
                 and returns the loss.
+            tracker (:obj:`mlbench_core.utils.Tracker`, optional) The current tracker
         """
         loss = super(DecentralizedSGD, self).step(closure=closure)
+        if tracker:
+            tracker.record_batch_opt_step()
         # Averaging the model after updating the gradient separately.
         self.agg(self.model, self.agg_mode)
+        if tracker:
+            tracker.record_batch_agg()
         return loss
 
 
@@ -378,19 +383,28 @@ class CentralizedSGD(SGD):
             self.agg = agg.agg_model(by_layer=by_layer)
             self.agg(self.model, self.agg_mode)  # Agg params once at init
 
-    def step(self, closure=None):
+    def step(self, closure=None, tracker=None):
         """ Aggregates the gradients and performs a single optimization step.
 
         Arguments:
             closure (callable, optional): A closure that reevaluates the model
                 and returns the loss.
+            tracker (:obj:`mlbench_core.utils.Tracker`, optional) The current tracker
         """
         if self.agg_grad:
             self.agg(self.model, self.agg_mode)
+            if tracker:
+                tracker.record_batch_agg()
             loss = super(CentralizedSGD, self).step(closure=closure)
+            if tracker:
+                tracker.record_batch_opt_step()
         else:
             loss = super(CentralizedSGD, self).step(closure=closure)
+            if tracker:
+                tracker.record_batch_opt_step()
             self.agg(self.model, self.agg_mode)
+            if tracker:
+                tracker.record_batch_agg()
         return loss
 
 
@@ -499,15 +513,20 @@ class CentralizedAdam(Adam):
             world_size=world_size, use_cuda=use_cuda
         ).agg_grad(by_layer=by_layer)
 
-    def step(self, closure=None):
+    def step(self, closure=None, tracker=None):
         """ Aggregates the gradients and performs a single optimization step.
 
         Arguments:
             closure (callable, optional): A closure that reevaluates the model
                 and returns the loss.
+            tracker (:obj:`mlbench_core.utils.Tracker`, optional) The current tracker
         """
         self.agg(self.model, self.agg_mode)
+        if tracker:
+            tracker.record_batch_agg()
         loss = super(CentralizedAdam, self).step(closure=closure)
+        if tracker:
+            tracker.record_batch_opt_step()
         return loss
 
 
@@ -562,15 +581,20 @@ class PowerSGD(SGD):
             model=model, use_cuda=use_cuda, reuse_query=reuse_query, rank=rank
         ).agg_grad(by_layer=by_layer)
 
-    def step(self, closure=None):
+    def step(self, closure=None, tracker=None):
         """Performs a single optimization step.
 
         Arguments:
             closure (callable, optional): A closure that reevaluates the model
                 and returns the loss.
+            tracker (:obj:`mlbench_core.utils.Tracker`, optional) The current tracker
         """
         self.agg(self.model, self.agg_mode)
+        if tracker:
+            tracker.record_batch_agg()
         loss = super(PowerSGD, self).step(closure=closure)
+        if tracker:
+            tracker.record_batch_opt_step()
         return loss
 
 

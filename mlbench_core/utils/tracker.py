@@ -4,8 +4,8 @@ from collections import defaultdict
 
 from .log_metrics import LogMetrics
 
-_DEFAULT_COMM_STEPS = ["opt_step"]
-_DEFAULT_COMPUTE_STEPS = ["fwd_pass", "comp_loss", "backprop"]
+_DEFAULT_COMM_STEPS = ["agg"]
+_DEFAULT_COMPUTE_STEPS = ["fwd_pass", "comp_loss", "backprop", "opt_step"]
 _DEFAULT_COMPUTE_METRICS_STEPS = ["comp_metrics"]
 _DEFAULT_PREPROCESS_STEPS = ["batch_load"]
 
@@ -424,3 +424,6 @@ class Tracker(object):
 
     def record_batch_comp_metrics(self):
         self.record_batch_step("comp_metrics")
+
+    def record_batch_agg(self):
+        self.record_batch_step("agg")

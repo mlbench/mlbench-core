@@ -79,6 +79,8 @@ def test_tracker_goal_times(mocker):
         frozen.tick(delta=datetime.timedelta(seconds=0.5))
         tracker.record_batch_backprop()
         frozen.tick(delta=datetime.timedelta(seconds=0.5))
+        tracker.record_batch_agg()
+        frozen.tick(delta=datetime.timedelta(seconds=0.5))
         tracker.record_batch_opt_step()
         frozen.tick(delta=datetime.timedelta(seconds=0.5))
         tracker.record_batch_comp_metrics()
@@ -87,7 +89,7 @@ def test_tracker_goal_times(mocker):
 
         assert abs(tracker.get_total_preprocess_time() - 0.5) < 0.01
         assert abs(tracker.get_total_communication_time() - 0.5) < 0.01
-        assert abs(tracker.get_total_compute_time() - 1.5) < 0.01
+        assert abs(tracker.get_total_compute_time() - 2.0) < 0.01
         assert abs(tracker.get_total_metrics_time() - 0.5) < 0.01
 
         tracker.batch_start()
@@ -102,6 +104,8 @@ def test_tracker_goal_times(mocker):
         frozen.tick(delta=datetime.timedelta(seconds=0.5))
         tracker.record_batch_backprop()
         frozen.tick(delta=datetime.timedelta(seconds=0.5))
+        tracker.record_batch_agg()
+        frozen.tick(delta=datetime.timedelta(seconds=0.5))
         tracker.record_batch_opt_step()
         frozen.tick(delta=datetime.timedelta(seconds=0.5))
         tracker.record_batch_comp_metrics()
@@ -110,7 +114,7 @@ def test_tracker_goal_times(mocker):
 
         assert abs(tracker.get_total_preprocess_time() - 1.0) < 0.01
         assert abs(tracker.get_total_communication_time() - 1.0) < 0.01
-        assert abs(tracker.get_total_compute_time() - 3.0) < 0.01
+        assert abs(tracker.get_total_compute_time() - 4.0) < 0.01
         assert abs(tracker.get_total_metrics_time() - 1.0) < 0.01
 
         tracker.validation()
