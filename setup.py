@@ -21,7 +21,6 @@ requirements = [
     "google-auth==1.14.0",
     "google-cloud==0.34.0",
     "google-cloud-container==0.3.0",
-#    "grpcio==1.29.0",
     "kubernetes>=9.0.0",
     "oauth2client==4.1.2",
     "pyhelm==2.14.5",
