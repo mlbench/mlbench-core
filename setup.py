@@ -12,7 +12,7 @@ with open("CHANGELOG.md") as history_file:
     history = history_file.read()
 
 requirements = [
-    "appdirs==1.4.3",
+    "appdirs==1.4.4",
     "boto3==1.12.26",
     "Click>=6.0",
     "deprecation>=2.0.6",
