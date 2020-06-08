@@ -1,4 +1,4 @@
-appdirs==1.4.3
+appdirs==1.4.4
 boto3==1.12.26
 click==7.0
 deprecation==2.0.6
