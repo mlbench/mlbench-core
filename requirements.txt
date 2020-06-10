@@ -1,7 +1,7 @@
 appdirs==1.4.4
 boto3==1.12.26
 click==7.1.2
-deprecation==2.0.6
+deprecation==2.1.0
 dill==0.3.1.1
 google-api-python-client==1.7.11
 google-auth==1.14.0
