@@ -17,4 +17,4 @@ tabulate==0.8.6
 tensorflow==1.13.2
 torch==1.5.0
 torchtext==0.5.0
-torchvision==0.5.0
+torchvision==0.6.0
