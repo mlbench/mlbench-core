@@ -2,8 +2,14 @@
 
 import torch
 import torch.nn.functional as F
-from torch import nn
-from torch.nn.modules.loss import _WeightedLoss
+from torch.nn.modules.loss import _Loss, _WeightedLoss
+
+try:
+    from apex.contrib.xentropy import SoftmaxCrossEntropyLoss
+
+    apex_installed = True
+except ImportError as e:
+    apex_installed = False
 
 
 class BCELossRegularized(_WeightedLoss):
@@ -150,30 +156,43 @@ class MSELossRegularized(_WeightedLoss):
         return output
 
 
-class LabelSmoothing(nn.Module):
+class LabelSmoothing(_Loss):
     """
     NLL loss with label smoothing.
+
+    Args:
+        padding_idx (int): Code for padding char
+        smoothing (float): Smoothing value
+        fast_xentropy (bool): Use `apex.contrib.xentropy.SoftmaxCrossEntropyLoss`
     """
 
-    def __init__(self, padding_idx, smoothing=0.0):
-        """
-        Constructor for the LabelSmoothing module.
+    def __init__(self, padding_idx, smoothing=0.0, fast_xentropy=False):
 
-        Args:
-            padding_idx (int): Code for padding char
-            smoothing (float): Smoothing value
-        """
         super(LabelSmoothing, self).__init__()
         self.padding_idx = padding_idx
         self.confidence = 1.0 - smoothing
         self.smoothing = smoothing
+        self.fast_xentropy = fast_xentropy
+
+        if fast_xentropy and apex_installed:
+            self.xentropy_func = SoftmaxCrossEntropyLoss.apply
+        else:
+            self.xentropy_func = None
 
     def forward(self, x, target):
-        logprobs = torch.nn.functional.log_softmax(x, dim=-1).type(torch.float32)
+        if self.fast_xentropy:
+            assert (x.dtype == torch.float16) or (
+                x.dtype == torch.float32
+            ), "Unsupported data types"
+            loss = self.xentropy_func(
+                x, target, self.smoothing, self.padding_idx, x.dtype == torch.float16,
+            )
 
-        non_pad_mask = target != self.padding_idx
-        nll_loss = -logprobs.gather(dim=-1, index=target.unsqueeze(1))
-        nll_loss = nll_loss.squeeze(1)[non_pad_mask]
-        smooth_loss = -logprobs.mean(dim=-1)[non_pad_mask]
-        loss = self.confidence * nll_loss + self.smoothing * smooth_loss
+        else:
+            logprobs = torch.nn.functional.log_softmax(x, dim=-1).type(torch.float32)
+            non_pad_mask = target != self.padding_idx
+            nll_loss = -logprobs.gather(dim=-1, index=target.unsqueeze(1))
+            nll_loss = nll_loss.squeeze(1)[non_pad_mask]
+            smooth_loss = -logprobs.mean(dim=-1)[non_pad_mask]
+            loss = self.confidence * nll_loss + self.smoothing * smooth_loss
         return loss.sum()

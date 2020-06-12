@@ -52,7 +52,7 @@ class CheckpointsEvaluationControlFlow(object):
         self.max_batch_per_epoch = max_batch_per_epoch
         self.use_cuda = use_cuda
 
-        self.model_agg_fn = AllReduceAggregation(world_size=world_size).agg_model
+        self.model_agg_fn = AllReduceAggregation(world_size=world_size).agg_model()
 
         self._check_checkpoints()
 
@@ -67,7 +67,7 @@ class CheckpointsEvaluationControlFlow(object):
         )
 
         # aggregate models
-        self.model_agg_fn(model, op="avg")
+        self.model_agg_fn(model, op="avg_world")
         return model
 
     def evaluate_by_epochs(self, dataloader):

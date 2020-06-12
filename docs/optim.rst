@@ -57,8 +57,8 @@ CentralizedAdam
 fp_optimizers
 +++++++++++++
 
-.. autoapimodule:: mlbench_core.optim.pytorch.optim.fp_optimizers
-.. currentmodule:: mlbench_core.optim.pytorch.optim.fp_optimizers
+.. autoapimodule:: mlbench_core.optim.pytorch.fp_optimizers
+.. currentmodule:: mlbench_core.optim.pytorch.fp_optimizers
 
 FP16Optimizer
 '''''''''''''

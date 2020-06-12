@@ -428,3 +428,48 @@ class ExponentialWarmupMultiStepLR(LambdaLR):
             num_decay_steps = min(num_decay_steps, self.decay_steps)
             factor = self.decay_factor ** num_decay_steps
         return factor
+
+
+class SQRTTimeDecayLRWithWarmup(LambdaLR):
+    """SQRT learning rate scheduler with warm-up steps
+
+    During warmup:
+      ```
+      lrs = torch.linspace(warmup_init_lr, base_lr, warmup_steps)
+      lr = lrs[update_num]
+      ```
+    After warmup:
+      ```
+      lr = decay_factor / sqrt(update_num)
+      ```
+    where
+
+      ``decay_factor = base_lr * sqrt(warmup_steps)``
+
+    Args:
+        optimizer (:obj:`torch.optim`): The optimizer
+        base_lr (float): The base LR after warm-up
+        warmup_init_lr (float): LR at start of training
+        warmup_steps (int): Number of warm-up steps
+
+    """
+
+    def __init__(self, optimizer, base_lr, warmup_init_lr, warmup_steps):
+        self.warmup_steps = warmup_steps
+
+        self.lr_step = (base_lr - warmup_init_lr) / warmup_steps
+        self.init_lr = warmup_init_lr
+        self.base_lr = base_lr
+        self.optimizer = optimizer
+
+        super(SQRTTimeDecayLRWithWarmup, self).__init__(optimizer, self.f)
+
+    def f(self, iteration):
+        # Warmup
+        if iteration < self.warmup_steps:
+            # Linear increase with the steps
+            lr = self.init_lr + self.lr_step * iteration
+            factor = lr / self.base_lr
+        else:
+            factor = (self.warmup_steps / iteration) ** 0.5
+        return factor

@@ -6,6 +6,7 @@ import random
 import shutil
 import socket
 
+import numpy as np
 import torch
 from torch import distributed as dist
 
@@ -78,8 +79,11 @@ def config_pytorch(use_cuda=False, seed=None, cudnn_deterministic=False):
         )
 
     if seed:
-        random.seed(seed)
         torch.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        np.random.seed(seed)
+        random.seed(seed)
+        os.environ["PYTHONHASHSEED"] = str(seed)
 
     # define the graph for the computation.
     if use_cuda:
@@ -94,7 +98,10 @@ def config_pytorch(use_cuda=False, seed=None, cudnn_deterministic=False):
     if use_cuda:
         graph.assigned_gpu_id()
         torch.backends.cudnn.enabled = True
-        torch.backends.cudnn.benchmark = True
+        torch.backends.cudnn.benchmark = False
+
+        if cudnn_deterministic:
+            torch.backends.cudnn.deterministic = True
 
         if torch.backends.cudnn.version() is None:
             print("CUDNN not found on device.")

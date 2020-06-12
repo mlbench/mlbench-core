@@ -12,24 +12,24 @@ with open("CHANGELOG.md") as history_file:
     history = history_file.read()
 
 requirements = [
-    "kubernetes>=9.0.0",
-    "dill>=0.2.8.2",
-    "deprecation>=2.0.6",
+    "appdirs==1.4.4",
+    "boto3==1.12.26",
     "Click>=6.0",
     "tabulate>=0.8.5",
-    "dill==0.2.8.2",
     "grpcio==1.26.0",
     "matplotlib==3.2.1",
-    "pyhelm==2.14.5",
-    "appdirs==1.4.3",
+    "deprecation>=2.0.6",
+    "dill==0.3.1.1",
     "google-api-python-client==1.7.11",
     "google-auth==1.14.0",
     "google-cloud==0.34.0",
-    "google-cloud-container==0.3.0",
+    "google-cloud-container==0.5.0",
+    "kubernetes>=9.0.0",
     "oauth2client==4.1.2",
-    "torchtext==0.5.0",
-    "spacy==2.2.3",
+    "pyhelm==2.14.5",
     "sklearn==0.0",
+    "spacy==2.2.3",
+    "torchtext==0.6.0",
 ]
 
 setup_requirements = [
@@ -37,15 +37,15 @@ setup_requirements = [
 ]
 
 test_requirements = [
-    "pytest>=3",
-    "pytest-mock",
-    "deprecation==2.0.6",
-    "freezegun==0.3.12",
     "black==19.10b0",
-    "pytest-black==0.3.8",
+    "coverage",
+    "freezegun==0.3.12",
     "isort==4.3.21",
     "pre-commit",
-    "coverage",
+    "pytest>=3",
+    "pytest-black==0.3.9",
+    "pytest-mock==3.1.1",
+    "wcwidth==0.1.9",
 ]
 
 extras = {"test": test_requirements}
@@ -79,6 +79,6 @@ setup(
     tests_require=test_requirements,
     extras_require=extras,
     url="https://github.com/mlbench/mlbench_core",
-    version="2.4.0-dev158",
+    version="2.4.0-dev241",
     zip_safe=False,
 )

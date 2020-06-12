@@ -1,6 +1,7 @@
 import torch
+from mosestokenizer import MosesDetokenizer
 
-from mlbench_core.dataset.nlp.pytorch.wmt14.wmt14_config import BOS, EOS
+from mlbench_core.dataset.nlp.pytorch.wmt16.wmt16_config import BOS, EOS
 from mlbench_core.utils.pytorch.inference.beam_search import SequenceGenerator
 
 
@@ -10,13 +11,14 @@ class Translator:
 
     Args:
         model (`obj`:torch.nn.Module): Model to use
-        trg_tokenizer (`obj`:mlbench_core.dataset.translation.pytorch.tokenizer.WMT14Tokenizer): The target tokenizer
+        trg_tokenizer (`obj`:mlbench_core.dataset.nlp.pytorch.wmt16.WMT16Tokenizer): The target tokenizer
     """
 
     def __init__(
         self,
         model,
         trg_tokenizer,
+        trg_lang="de",
         beam_size=5,
         len_norm_factor=0.6,
         len_norm_const=5.0,
@@ -30,6 +32,7 @@ class Translator:
         self.insert_src_start = [BOS]
         self.insert_src_end = [EOS]
         self.beam_size = beam_size
+        self.trg_lang = trg_lang
 
         self.generator = SequenceGenerator(
             model=self.model,
@@ -42,9 +45,11 @@ class Translator:
 
     def get_detokenized_target(self, trg, batch_size):
         targets = []
-        for i in range(batch_size):
-            t = trg[:, i]
-            targets.append(self.tokenizer.detokenize(t.tolist()))
+        with MosesDetokenizer(self.trg_lang) as detok:
+            for i in range(batch_size):
+                t = self.tokenizer.detokenize(trg[:, i].tolist())
+                t = detok(t.split())
+                targets.append(t)
 
         return targets
 
@@ -82,9 +87,11 @@ class Translator:
         targets = self.get_detokenized_target(trg, batch_size)
 
         output = []
-        for pred in preds:
-            pred = pred.tolist()
-            detok = self.tokenizer.detokenize(pred)
-            output.append(detok)
+        with MosesDetokenizer(self.trg_lang) as detokenizer:
+            for pred in preds:
+                pred = pred.tolist()
+                detok = self.tokenizer.detokenize(pred)
+                detok = detokenizer(detok.split())
+                output.append(detok)
 
         return output, targets
