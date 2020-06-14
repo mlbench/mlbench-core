@@ -1240,7 +1240,7 @@ def delete_gcloud_cluster(name):
     config.remove_section("gke.{}".format(name))
 
     if config.get("gke", "current-cluster", fallback=None):
-        config.set("gke", "current-cluster", None)
+        config.set("gke", "current-cluster", "")
 
     write_config(config)
 
