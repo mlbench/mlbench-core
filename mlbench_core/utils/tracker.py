@@ -274,6 +274,7 @@ class Tracker(object):
                 print(goal_result)
 
                 if self.rank == 0 and log_to_api:
+                    time.sleep(2)
                     LogMetrics.log(
                         self.run_id,
                         self.rank,
@@ -282,6 +283,7 @@ class Tracker(object):
                         goal_result,
                     )
 
+                    time.sleep(1)
                     LogMetrics.log(
                         self.run_id,
                         self.rank,
@@ -301,6 +303,7 @@ class Tracker(object):
                             "global_cum_{}".format(k),
                             sum(v),
                         )
+                        time.sleep(0.5)
 
     def record_loss(self, value, n=1, log_to_api=False):
         """Records a loss value

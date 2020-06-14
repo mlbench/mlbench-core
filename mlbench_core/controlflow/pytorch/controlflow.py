@@ -167,10 +167,10 @@ def record_validation_stats(metrics_values, loss, tracker=None, rank=0):
         # Save
         if tracker:
             for metric, value in metrics_values.items():
-                tracker.record_metric(metric, value, log_to_api=True)
+                tracker.record_metric(metric, value, log_to_api=rank == 0)
 
                 tracker.record_stat(
-                    "global_{}".format(metric.name), value, log_to_api=True,
+                    "global_{}".format(metric.name), value, log_to_api=rank == 0,
                 )
 
         if rank == 0 and tracker:
