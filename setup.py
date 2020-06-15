@@ -22,7 +22,7 @@ requirements = [
     "google-cloud==0.34.0",
     "google-cloud-container==0.5.0",
     "kubernetes>=9.0.0",
-    "oauth2client==4.1.2",
+    "oauth2client==4.1.3",
     "pyhelm==2.14.5",
     "sklearn==0.0",
     "spacy==2.2.4",
