@@ -1238,7 +1238,7 @@ def delete_gcloud_cluster(name):
     config.remove_section("gke.{}".format(name))
 
     if config.get("gke", "current-cluster", fallback=None):
-        config.set("gke", "current-cluster", None)
+        config.set("gke", "current-cluster", "")
 
     write_config(config)
 
@@ -1266,7 +1266,7 @@ def delete_aws_cluster(name):
     config.remove_section("aws.{}".format(name))
 
     if config.get("aws", "current-cluster", fallback=None):
-        config.set("aws", "current-cluster", None)
+        config.set("aws", "current-cluster", "")
 
     write_config(config)
 
