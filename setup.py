@@ -37,7 +37,7 @@ setup_requirements = [
 test_requirements = [
     "black==19.10b0",
     "coverage",
-    "freezegun==0.3.12",
+    "freezegun==0.3.15",
     "isort==4.3.21",
     "pre-commit",
     "pytest>=3",
