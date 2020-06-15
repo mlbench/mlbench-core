@@ -25,7 +25,7 @@ requirements = [
     "oauth2client==4.1.2",
     "pyhelm==2.14.5",
     "sklearn==0.0",
-    "spacy==2.2.3",
+    "spacy==2.2.4",
     "tabulate>=0.8.5",
     "torchtext==0.6.0",
 ]
