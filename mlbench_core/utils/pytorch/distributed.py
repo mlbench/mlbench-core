@@ -266,6 +266,8 @@ class AllReduceAggregation(Aggregation):
 
         if self.world_size > 1:
             data = self._reduce(data)
+            if dist.get_backend() == dist.Backend.NCCL:
+                torch.cuda.synchronize()
 
         if not self.divide_before:
             data = self._divide(data, op, denom)
