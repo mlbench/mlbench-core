@@ -13,7 +13,7 @@ with open("CHANGELOG.md") as history_file:
 
 requirements = [
     "appdirs==1.4.4",
-    "boto3==1.14.2",
+    "boto3==1.14.4",
     "Click>=6.0",
     "deprecation>=2.0.6",
     "dill==0.3.1.1",
