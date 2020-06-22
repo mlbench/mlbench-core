@@ -61,13 +61,22 @@ pytorch
 .. autoapimodule:: mlbench_core.dataset.nlp.pytorch
 .. currentmodule:: mlbench_core.dataset.nlp.pytorch
 
-WMT14
+WMT16
 '''''
 
-.. autoapiclass:: WMT14Dataset
+.. autoapiclass:: WMT16Dataset
     :members:
 
-.. autoapimodule:: mlbench_core.dataset.nlp.pytorch.wmt14.wmt14_tokenizer
+.. autoapimodule:: mlbench_core.dataset.nlp.pytorch.wmt16.wmt16_tokenizer
+    :members:
+
+WMT17
+'''''
+
+.. autoapiclass:: mlbench_core.dataset.nlp.pytorch.WMT17Dataset
+    :members:
+
+.. autoapimodule:: mlbench_core.dataset.nlp.pytorch.wmt17
     :members:
 
 tensorflow
@@ -80,4 +89,23 @@ DatasetCifar
 ''''''''''''
 
 .. autoapiclass:: DatasetCifar
+    :members:
+
+
+NLP
+~~~~~~~~~~~~~~~~
+
+.. autoapimodule:: mlbench_core.dataset.nlp
+.. currentmodule:: mlbench_core.dataset.nlp
+
+pytorch
++++++++
+
+.. autoapimodule:: mlbench_core.dataset.nlp.pytorch
+.. currentmodule:: mlbench_core.dataset.nlp.pytorch
+
+WikiText2
+'''''''''
+
+.. autoapiclass:: BPTTWikiText2
     :members:

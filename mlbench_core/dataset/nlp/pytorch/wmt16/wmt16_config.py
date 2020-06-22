@@ -1,4 +1,4 @@
-"""Configuration for WMT14 dataset"""
+"""Configuration for WMT16 dataset"""
 PAD_TOKEN = "<pad>"
 UNK_TOKEN = "<unk>"
 BOS_TOKEN = "<s>"

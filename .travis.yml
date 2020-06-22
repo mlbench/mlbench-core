@@ -6,7 +6,7 @@ language: python
 matrix:
   include:
     - python: 3.6
-      env: TOXENV=black
+      env: TOXENV=lint
     - python: 3.6
       env: TOXENV=py36
     - python: 3.7
@@ -17,4 +17,4 @@ install:
 
 
 script:
-  - tox
+  - travis_wait tox

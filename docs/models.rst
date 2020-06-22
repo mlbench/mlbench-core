@@ -54,11 +54,6 @@ ResNet18_CIFAR10
     :members:
 
 
-.. rubric:: References
-
-.. bibliography:: models.bib
-   :cited:
-
 RNN
 +++
 ---
@@ -100,6 +95,72 @@ Decoder
     :members:
 
 .. autoapiclass:: ResidualRecurrentDecoder
+    :members:
+
+Transformer Model for Translation
+'''''''''''''''''''''''''''''''''
+.. autoapimodule:: mlbench_core.models.pytorch.transformer
+.. currentmodule:: mlbench_core.models.pytorch.transformer
+
+Model
+=====
+
+.. autoapiclass:: TransformerModel
+    :members: forward
+
+Encoder
+=======
+.. autoapimodule:: mlbench_core.models.pytorch.transformer.encoder
+.. currentmodule:: mlbench_core.models.pytorch.transformer.encoder
+
+.. autoapiclass:: TransformerEncoder
+    :members: forward
+
+Decoder
+=======
+.. autoapimodule:: mlbench_core.models.pytorch.transformer.decoder
+.. currentmodule:: mlbench_core.models.pytorch.transformer.decoder
+
+.. autoapiclass:: TransformerDecoder
+    :members: forward
+
+Layers
+======
+
+.. autoapimodule:: mlbench_core.models.pytorch.transformer.modules
+.. currentmodule:: mlbench_core.models.pytorch.transformer.modules
+
+.. autoapiclass:: TransformerEncoderLayer
+    :members: forward
+
+.. autoapiclass:: TransformerDecoderLayer
+    :members: forward
+
+SequenceGenerator
+=================
+
+.. autoapimodule:: mlbench_core.models.pytorch.transformer.sequence_generator
+.. currentmodule:: mlbench_core.models.pytorch.transformer.sequence_generator
+
+.. autoapiclass:: SequenceGenerator
+    :members:
+
+
+.. rubric:: References
+
+.. bibliography:: models.bib
+   :cited:
+
+
+NLP
++++
+.. autoapimodule:: mlbench_core.models.pytorch.nlp
+.. currentmodule:: mlbench_core.models.pytorch.nlp
+
+LSTM Language Model
+'''''''''''''''''''
+
+.. autoapiclass:: RNNLM
     :members:
 
 

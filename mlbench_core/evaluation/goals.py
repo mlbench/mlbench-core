@@ -9,6 +9,15 @@ def _add_detailed_times(result, tracker):
     if communication_time:
         result += ", Communication: {} seconds".format(communication_time)
 
+    metrics_time = tracker.get_total_metrics_time()
+
+    if metrics_time:
+        result += ", Metrics Computation: {} seconds".format(metrics_time)
+
+    preprocess_time = tracker.get_total_preprocess_time()
+
+    if preprocess_time:
+        result += ", Pre-processing: {} seconds".format(preprocess_time)
     return result
 
 

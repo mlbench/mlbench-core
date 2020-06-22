@@ -1,7 +1,7 @@
 import torch.nn as nn
 from torch.nn.functional import log_softmax
 
-from mlbench_core.dataset.nlp.pytorch.wmt14 import wmt14_config
+from mlbench_core.dataset.nlp.pytorch.wmt16 import wmt16_config
 from mlbench_core.models.pytorch.gnmt.decoder import ResidualRecurrentDecoder
 from mlbench_core.models.pytorch.gnmt.encoder import ResidualRecurrentEncoder
 
@@ -93,12 +93,13 @@ class GNMT(Seq2Seq):
         num_layers=4,
         dropout=0.2,
         share_embedding=True,
+        fusion=True,
     ):
         super(GNMT, self).__init__()
 
         if share_embedding:
             embedder = nn.Embedding(
-                vocab_size, hidden_size, padding_idx=wmt14_config.PAD
+                vocab_size, hidden_size, padding_idx=wmt16_config.PAD
             )
             nn.init.uniform_(embedder.weight.data, -0.1, 0.1)
         else:
@@ -109,7 +110,7 @@ class GNMT(Seq2Seq):
         )
 
         self.decoder = ResidualRecurrentDecoder(
-            vocab_size, hidden_size, num_layers, dropout, embedder
+            vocab_size, hidden_size, num_layers, dropout, embedder, fusion=fusion
         )
 
     def forward(self, input_encoder, input_enc_len, input_decoder):

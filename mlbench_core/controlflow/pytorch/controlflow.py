@@ -12,8 +12,29 @@ logger = logging.getLogger("mlbench")
 LOG_EVERY_N_BATCHES = 25
 
 
+def compute_train_batch_metrics(loss, output, target, metrics):
+    """Computes the given metrics on the given batch
+
+    Args:
+        loss (float): The loss of the batch
+        output (:obj:`torch.Tensor`): The model output
+        target (:obj:`torch.Tensor`): The labels for the current batch
+        metrics (list): List of metrics to track
+
+    Returns:
+        (dict of :obj:`mlbench_core.evaluation.pytorch.metrics.MLBenchMetric`: float): The metric
+            and its computed value
+    """
+    # Compute metrics for one batch
+    result = {}
+    for metric in metrics:
+        metric_value = metric(loss, output, target).item()
+        result[metric] = metric_value
+    return result
+
+
 def record_train_batch_stats(
-    batch_idx, loss, output, target, metrics, tracker, num_batches_per_device_train
+    batch_idx, loss, output, metric_results, tracker, num_batches_per_device_train
 ):
     """Record the stats in a training batch.
 
@@ -21,8 +42,7 @@ def record_train_batch_stats(
         batch_idx (int): The id of the current batch
         loss (float): The loss of the batch
         output (:obj:`torch.Tensor`): The model output
-        target (:obj:`torch.Tensor`): The labels for the current batch
-        metrics (list): List of metrics to track
+        metric_results (dict of :obj:`mlbench_core.evaluation.pytorch.metrics.MLBenchMetric`: float): Metrics and their values
         tracker (`obj`:mlbench_core.utils.Tracker): Tracker object to use.
         num_batches_per_device_train (int): Number of batches per train epoch
     """
@@ -37,15 +57,10 @@ def record_train_batch_stats(
     if tracker:
         tracker.record_loss(loss, output.size()[0], log_to_api=log_to_api)
 
-    # Compute metrics for one batch
-    for metric in metrics:
-        metric_value = metric(loss, output, target).item()
-
-        if tracker:
+        for metric, metric_value in metric_results.items():
             tracker.record_metric(
                 metric, metric_value, output.size()[0], log_to_api=log_to_api
             )
-
     status = "Epoch {:5.2f} Batch {:4}: ".format(progress, batch_idx)
 
     logger.info(status + str(tracker))
@@ -61,6 +76,9 @@ def validation_round(
     transform_target_type=False,
     use_cuda=False,
     max_batches=None,
+    init_hidden=None,
+    package_hidden=None,
+    transform_parameters=None,
 ):
     """Evaluate the model on the test dataset.
 
@@ -74,6 +92,8 @@ def validation_round(
         transform_target_type (bool): Convert target to `dtype`. Default `False`
         use_cuda (bool): Whether to use GPU for training, default: `False`
         max_batches (int | None): Maximum number of batches to validate on
+        init_hidden (`func`): Function to initialize hidden state (for RNNs), default: `None`
+        package_hidden (`func`): Function to (re-)package hidden state (for RNNs), default: `None`
 
     Returns:
           (dict, float): Dictionary of average of each metric, and average validation loss
@@ -95,9 +115,21 @@ def validation_round(
         data_iter = iterate_dataloader(
             dataloader, dtype, max_batches, use_cuda, transform_target_type
         )
+
+        hidden = None
+        if init_hidden:
+            hidden = init_hidden()
+
         for data, target in data_iter:
+            if hidden:
+                hidden = package_hidden(hidden)
+
             # Inference
-            output = model(data)
+            if hidden:
+                output, hidden = model(data, hidden)
+                target = target.view(-1)
+            else:
+                output = model(data)
 
             # Compute loss
             loss = loss_function(output, target)
@@ -139,12 +171,11 @@ def record_validation_stats(metrics_values, loss, tracker=None, rank=0):
 
                 global_metric_value = global_average(value, 1).item()
 
-                if rank == 0:
-                    tracker.record_stat(
-                        "global_{}".format(metric.name),
-                        global_metric_value,
-                        log_to_api=True,
-                    )
+                tracker.record_stat(
+                    "global_{}".format(metric.name),
+                    global_metric_value,
+                    log_to_api=True,
+                )
 
         if rank == 0 and tracker:
             logger.info(

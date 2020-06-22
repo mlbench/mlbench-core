@@ -3,8 +3,9 @@
 import concurrent.futures
 import datetime
 import logging
-from kubernetes import client, config
+
 import requests
+from kubernetes import client, config
 
 MLBENCH_BACKENDS = ["MPI", "GLOO", "NCCL"]
 
@@ -26,6 +27,11 @@ MLBENCH_IMAGES = {
     ),
     "PyTorch Machine Translation GNMT": (
         "mlbench/pytorch-wmt14-gnmt-all-reduce:latest",
+        "/conda/bin/python /codes/main.py --run_id {run_id} --rank {rank} --hosts {hosts} --backend {backend}",
+        True,
+    ),
+    "PyTorch Machine Translation Transformer": (
+        "mlbench/pytorch-wmt17-transformer-all-reduce:latest",
         "/conda/bin/python /codes/main.py --run_id {run_id} --rank {rank} --hosts {hosts} --backend {backend}",
         True,
     ),
