@@ -16,7 +16,7 @@ requirements = [
     "boto3==1.14.2",
     "Click>=6.0",
     "deprecation>=2.0.6",
-    "dill==0.3.1.1",
+    "dill==0.3.2",
     "google-api-python-client==1.9.3",
     "google-auth==1.18.0",
     "google-cloud==0.34.0",
