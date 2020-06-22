@@ -1,7 +1,7 @@
 # Taken from https://github.com/NVIDIA/DeepLearningExamples/tree/master/PyTorch/Translation/GNMT
 import torch
 
-from mlbench_core.dataset.nlp.pytorch.wmt16.wmt16_config import BOS, EOS
+import mlbench_core.dataset.nlp.pytorch.wmt16.wmt16_config as wmt16_config
 
 
 class SequenceGenerator:
@@ -62,7 +62,7 @@ class SequenceGenerator:
         active = torch.arange(0, batch_size, dtype=torch.int64, device=device)
         base_mask = torch.arange(0, batch_size, dtype=torch.int64, device=device)
 
-        translation[:, 0] = BOS
+        translation[:, 0] = wmt16_config.BOS
         words, context = initial_input, initial_context
 
         word_view = (1, -1)
@@ -82,7 +82,7 @@ class SequenceGenerator:
             translation[active, idx] = words
             lengths[active] += 1
 
-            terminating = words == EOS
+            terminating = words == wmt16_config.EOS
 
             if terminating.any():
                 not_terminating = ~terminating
@@ -138,7 +138,7 @@ class SequenceGenerator:
             [0] + (beam_size - 1) * [float("-inf")], dtype=torch.float32, device=device
         )
 
-        translation[:, 0] = BOS
+        translation[:, 0] = wmt16_config.BOS
 
         words, context = initial_input, initial_context
 
@@ -170,7 +170,7 @@ class SequenceGenerator:
                 break
             counter += 1
 
-            eos_mask = words == EOS
+            eos_mask = words == wmt16_config.EOS
             eos_mask = eos_mask.view(-1, beam_size)
 
             terminating, _ = eos_mask.min(dim=1)
@@ -186,7 +186,7 @@ class SequenceGenerator:
 
             # words: (batch, beam, k)
             words = words.view(-1, beam_size, beam_size)
-            words = words.masked_fill(eos_mask.unsqueeze(2), EOS)
+            words = words.masked_fill(eos_mask.unsqueeze(2), wmt16_config.EOS)
 
             # logprobs: (batch, beam, k)
             logprobs = logprobs.float().view(-1, beam_size, beam_size)
