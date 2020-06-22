@@ -364,7 +364,7 @@ def test_status_no_run(status_mock_no_run):
 
 
 def test_summary(status_mock, tmpdir):
-    """Tests "mlbench status" command when a run is found"""
+    """Tests "mlbench summary" command on 3 finished runs"""
     folder = tmpdir.mkdir("summary")
 
     client, rid, name = status_mock
