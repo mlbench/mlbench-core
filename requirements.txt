@@ -4,7 +4,7 @@ click==7.1.2
 deprecation==2.1.0
 dill==0.3.1.1
 google-api-python-client==1.9.3
-google-auth==1.17.2
+google-auth==1.18.0
 google-cloud==0.34.0
 google-cloud-container==0.5.0
 grpcio==1.29.0
@@ -17,6 +17,6 @@ matplotlib==3.2.1
 spacy==2.2.4
 tabulate==0.8.7
 tensorflow==1.13.2
-torch==1.5.0
+torch==1.5.1
 torchtext==0.6.0
 torchvision==0.6.0
