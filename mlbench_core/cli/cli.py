@@ -112,7 +112,7 @@ status:
 KIND_CONFIG = """
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
-containerdConfigPatches: 
+containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:{reg_port}"]
     endpoint = ["http://{reg_ip}:{reg_port}"]
@@ -380,8 +380,116 @@ def download(name, output, dashboard_url):
         f.write(ret.result().content)
 
 
+@cli_group.command("list-clusters")
+def list_clusters():
+    """List all currently configured clusters."""
+    config = get_config()
+
+    sections = [
+        s.split(".", 1)
+        for s in config.sections()
+        if s.startswith("gke.") or s.startswith("aws.")
+    ]
+
+    if len(sections) == 0:
+        click.echo("No clusters are currently configured")
+        return
+
+    current_provider = config.get("general", "provider", fallback=None)
+    current_cluster = None
+
+    if current_provider == "gke":
+        current_cluster = config.get("gke", "current-cluster", fallback=None)
+    elif current_provider == "aws":
+        current_cluster = config.get("aws", "current-cluster", fallback=None)
+    elif current_provider == "kind":
+        current_cluster = config.get("kind", "current-cluster", fallback=None)
+
+    gke = [
+        name + " *" if current_provider == "gke" and current_cluster == name else name
+        for t, name in sections
+        if t == "gke"
+    ]
+    aws = [
+        name + " *" if current_provider == "aws" and current_cluster == name else name
+        for t, name in sections
+        if t == "aws"
+    ]
+    kind = [
+        name + " *" if current_provider == "kind" and current_cluster == name else name
+        for t, name in sections
+        if t == "kind"
+    ]
+
+    message = "Clusters:"
+
+    if gke:
+        message += "\n\tGoogle Cloud:\n\t\t{}".format("\n\t\t".join(gke))
+    if aws:
+        message += "\n\tAWS:\n\t\t{}".format("\n\t\t".join(aws))
+    if kind:
+        message += "\n\Kind:\n\t\t{}".format("\n\t\t".join(kind))
+
+    click.echo(message)
+
+
+@cli_group.group("set-cluster")
+def set_cluster():
+    """Set the current cluster to use."""
+    pass
+
+
+@set_cluster.command("gcloud")
+@click.argument("name", type=str)
+def set_gcloud_cluster(name):
+    """Set current cluster to a gcloud cluster."""
+    config = get_config()
+
+    if not config.has_section("gke.{}".format(name)):
+        click.echo("Cluster {} not found".format(name))
+
+    config.set("general", "provider", "gke")
+    config.set("gke", "current-cluster", name)
+    write_config(config)
+
+    click.echo("Ok")
+
+
+@set_cluster.command("aws")
+@click.argument("name", type=str)
+def set_aws_cluster(name):
+    """Set current cluster to an aws cluster."""
+    config = get_config()
+
+    if not config.has_section("aws.{}".format(name)):
+        click.echo("Cluster {} not found".format(name))
+
+    config.set("general", "provider", "aws")
+    config.set("aws", "current-cluster", name)
+    write_config(config)
+
+    click.echo("Ok")
+
+
+@set_cluster.command("kind")
+@click.argument("name", type=str)
+def set_kind_cluster(name):
+    """Set current cluster to an aws cluster."""
+    config = get_config()
+
+    if not config.has_section("kind.{}".format(name)):
+        click.echo("Cluster {} not found".format(name))
+
+    config.set("general", "provider", "kind")
+    config.set("kind", "current-cluster", name)
+    write_config(config)
+
+    click.echo("Ok")
+
+
 @cli_group.group("delete-cluster")
 def delete_cluster():
+    """Delete a cluster."""
     pass
 
 
@@ -426,7 +534,7 @@ def delete_gcloud(name, zone, project):
     if response.status != response.DONE:
         raise ValueError("Cluster deletion failed!")
 
-    click.echo("Cluster deleted.")
+    delete_gcloud_cluster(name)
 
 
 @delete_cluster.command("kind")
@@ -445,6 +553,8 @@ def delete_kind(name):
                 error.decode()
             )
         )
+
+    delete_kind_cluster(name)
     click.echo("Cluster deleted.")
 
 
@@ -486,11 +596,15 @@ def delete_aws(name):
     waiter = cf_client.get_waiter("stack_delete_complete")
     click.echo("Waiting for the VPC stack to be deleted.")
     waiter.wait(StackName=stack_name)
+
+    delete_aws_cluster(name)
+
     click.echo("Cluster deleted.")
 
 
 @cli_group.group("create-cluster")
 def create_cluster():
+    """Create a new cluster."""
     pass
 
 
@@ -500,7 +614,7 @@ def create_cluster():
 @click.option("--kubernetes-version", "-k", type=str, default="1.13")
 @click.option("--machine-type", "-t", default="n1-standard-4", type=str)
 @click.option("--disk-size", "-d", default=50, type=int)
-@click.option("--num-cpus", "-c", default=1, type=int)
+@click.option("--num-cpus", "-c", default=4, type=int)
 @click.option("--num-gpus", "-g", default=0, type=int)
 @click.option("--gpu-type", default="nvidia-tesla-k80", type=str)
 @click.option("--zone", "-z", default="europe-west1-b", type=str)
@@ -602,7 +716,7 @@ def create_gcloud(
         logging_service=None,
         monitoring_service=None,
     )
-    response = gclient.create_cluster(None, None, cluster, parent=name_path)
+    response = gclient.create_cluster(cluster, parent=name_path)
 
     # wait for cluster to load
     while response.status < response.DONE:
@@ -727,7 +841,7 @@ def create_gcloud(
         )
 
         values = {
-            "limits": {"workers": num_workers - 1, "gpu": num_gpus, "cpu": num_cpus}
+            "limits": {"workers": num_workers - 1, "gpu": num_gpus, "cpu": num_cpus - 1}
         }
 
         if custom_value:
@@ -768,13 +882,7 @@ def create_gcloud(
 
     firewalls.insert(project=project, body=firewall_body).execute()
 
-    config = get_config()
-
-    config.set("general", "provider", "gke")
-
-    config.set("gke", "cluster", cluster.endpoint)
-
-    write_config(config)
+    add_gcloud_cluster(name, cluster)
 
     click.echo("MLBench successfully deployed")
 
@@ -899,13 +1007,7 @@ def create_aws(
     waiter.wait(name=name)
 
     # connect kubernetes to the EKS cluster
-    configuration = get_config()
-
-    configuration.set("general", "provider", "aws")
-
-    configuration.set("aws", "cluster", name)
-
-    write_config(configuration)
+    add_aws_cluster(name, name)
 
     setup_client_from_config()
 
@@ -1226,9 +1328,7 @@ def create_kind(
                 )
             )
 
-    config.load_kube_config()
-
-    configuration = client.Configuration()
+    kube_config.load_kube_config(context="kind-{}".format(name))
 
     click.echo("Creating service account")
 
@@ -1345,21 +1445,19 @@ def create_kind(
 
         portforward.terminate()
 
-    configuration = get_config()
-
-    configuration.set("general", "provider", "kind")
-
-    write_config(configuration)
+    add_kind_cluster(name)
 
     click.echo("MLBench successfully deployed")
 
 
 def get_config_path():
+    """Gets the path to the user config."""
     user_dir = user_data_dir("mlbench", "mlbench")
     return os.path.join(user_dir, "mlbench.ini")
 
 
 def get_config():
+    """Get the current users' config."""
     path = get_config_path()
 
     config = configparser.ConfigParser()
@@ -1380,6 +1478,7 @@ def get_config():
 
 
 def write_config(config):
+    """Save a config object."""
     path = get_config_path()
 
     if not os.path.exists(path):
@@ -1389,7 +1488,89 @@ def write_config(config):
         config.write(configfile)
 
 
+def add_gcloud_cluster(name, cluster):
+    """Add a gcloud cluster to config."""
+    config = get_config()
+
+    config.set("general", "provider", "gke")
+    config.set("gke", "current-cluster", name)
+
+    section = "gke.{}".format(name)
+
+    if not config.has_section(section):
+        config.add_section(section)
+    config.set(section, "cluster", cluster.endpoint)
+
+    write_config(config)
+
+
+def delete_gcloud_cluster(name):
+    """Delete a gcloud cluster from config."""
+    config = get_config()
+    config.remove_section("gke.{}".format(name))
+
+    if config.get("gke", "current-cluster", fallback=None):
+        config.set("gke", "current-cluster", "")
+
+    write_config(config)
+
+
+def add_aws_cluster(name, cluster):
+    """Add an aws cluster to config."""
+    config = get_config()
+
+    config.set("general", "provider", "gke")
+    config.set("aws", "current-cluster", name)
+
+    section = "aws.{}".format(name)
+
+    if not config.has_section(section):
+        config.add_section(section)
+
+    config.set(section, "cluster", cluster.endpoint)
+
+    write_config(config)
+
+
+def delete_aws_cluster(name):
+    """Delete an aws cluster from config."""
+    config = get_config()
+    config.remove_section("aws.{}".format(name))
+
+    if config.get("aws", "current-cluster", fallback=None):
+        config.set("aws", "current-cluster", "")
+
+    write_config(config)
+
+
+def add_kind_cluster(name):
+    """Add an kind cluster to config."""
+    config = get_config()
+
+    config.set("general", "provider", "kind")
+    config.set("kind", "current-cluster", name)
+
+    section = "kind.{}".format(name)
+
+    if not config.has_section(section):
+        config.add_section(section)
+
+    write_config(config)
+
+
+def delete_kind_cluster(name):
+    """Delete a kind cluster from config."""
+    config = get_config()
+    config.remove_section("kind.{}".format(name))
+
+    if config.get("kind", "current-cluster", fallback=None):
+        config.set("kind", "current-cluster", "")
+
+    write_config(config)
+
+
 def setup_client_from_config():
+    """Setup the current kubernetes config."""
     config = get_config()
 
     provider = config.get("general", "provider", fallback=None)
@@ -1403,19 +1584,42 @@ def setup_client_from_config():
         return setup_kind_client_from_config(config)
     if provider == "aws":
         return setup_aws_client_from_config(config)
-    raise NotImplementedError()
+
+    else:
+        raise NotImplementedError()
 
 
-def setup_kind_client_from_config(configuration):
-    config.load_kube_config()
+def setup_kind_client_from_config(config):
+    """Setup a kubernrtes cluster for kind from current config."""
+
+    cluster = config.get("gke", "current-cluster", fallback=None)
+    if not cluster:
+        raise click.UsageError(
+            "No kind cluster selected, create a new one with `mlbench create-cluster`"
+            " or set one with `mlbench set-cluster`"
+        )
+
+    cluster = config.get("gke.{}".format(cluster), "cluster", fallback=None)
+    if not cluster:
+        return False
+
+    kube_config.load_kube_config(context="kind-{}".format(cluster))
     return True
 
 
 def setup_gke_client_from_config(config):
+    """Setup a kubernetes cluster for gke from current config."""
     import google.auth
     from google.auth.exceptions import DefaultCredentialsError
 
-    cluster = config.get("gke", "cluster")
+    cluster = config.get("gke", "current-cluster", fallback=None)
+    if not cluster:
+        raise click.UsageError(
+            "No gcloud cluster selected, create a new one with `mlbench create-cluster`"
+            " or set one with `mlbench set-cluster`"
+        )
+
+    cluster = config.get("gke.{}".format(cluster), "cluster", fallback=None)
     if not cluster:
         return False
 
@@ -1440,7 +1644,17 @@ def setup_gke_client_from_config(config):
 
 
 def setup_aws_client_from_config(config):
-    name = config.get("aws", "cluster")
+    """Setup a kubernetes cluster for aws from current config."""
+    name = config.get("aws", "current-cluster", fallback=None)
+    if not name:
+        raise click.UsageError(
+            "No gcloud cluster selected, create a new one with `mlbench create-cluster`"
+            " or set one with `mlbench set-cluster`"
+        )
+
+    name = config.get("gke.{}".format(name), "cluster", fallback=None)
+    if not name:
+        return False
 
     eks = boto3.client("eks")
     cluster = eks.describe_cluster(name=name)

@@ -29,6 +29,8 @@ MSELossRegularized
 .. autoapiclass:: MSELossRegularized
     :members:
 
+.. autoapiclass:: LabelSmoothing
+    :members:
 
 metrics
 +++++++

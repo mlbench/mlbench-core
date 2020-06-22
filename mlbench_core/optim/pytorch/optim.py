@@ -184,7 +184,7 @@ class CentralizedSparsifiedSGD(SparsifiedSGD):
         weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
         sparse_grad_size (int): Size of the sparsified gradients vector (default: 10)
         random_sparse (bool): Whether select random sparsification (default: `False`)
-        average_models (bool): Whether to average models together (default: `True`)
+        average_world (bool): Whether to average models on the world_size (default: `True`)
 
     """
 
@@ -195,11 +195,11 @@ class CentralizedSparsifiedSGD(SparsifiedSGD):
         weight_decay=0,
         sparse_grad_size=10,
         random_sparse=False,
-        average_models=True,
+        average_world=True,
     ):
         if not params:
             raise ValueError('"params" not set for optimizer')
-        self.average_models = average_models
+        self.average_world = average_world
         self.world_size = dist.get_world_size()
         self.random_sparse = random_sparse
         super(CentralizedSparsifiedSGD, self).__init__(
@@ -247,7 +247,7 @@ class CentralizedSparsifiedSGD(SparsifiedSGD):
                             0, begin : (begin + tensor_size - 1)
                         ] += grad_tensor[0, 1:]
 
-                if self.average_models:
+                if self.average_world:
                     p.grad.data /= self.world_size
 
                 if p.grad is None:
@@ -273,7 +273,7 @@ class DecentralizedSGD(SGD):
         weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
         dampening (float, optional): dampening for momentum (default: 0)
         nesterov (bool, optional): enables Nesterov momentum (default: False)
-        average_models (bool): Whether to average models together. (default: `True`)
+        average_world (bool): Whether to average models on the world_size (default: `True`)
         use_cuda (bool): Whether to use cuda tensors for aggregation
         by_layer (bool): Aggregate by layer instead of all layers at once
     """
@@ -288,7 +288,7 @@ class DecentralizedSGD(SGD):
         dampening=0,
         weight_decay=0,
         nesterov=False,
-        average_models=True,
+        average_world=True,
         use_cuda=False,
         by_layer=False,
     ):
@@ -302,8 +302,8 @@ class DecentralizedSGD(SGD):
             model.parameters(), lr, momentum, dampening, weight_decay, nesterov
         )
 
-        if average_models:
-            self.agg_mode = "avg"
+        if average_world:
+            self.agg_mode = "avg_world"
         else:
             raise NotImplementedError("Only average model is supported right now.")
 
@@ -312,16 +312,21 @@ class DecentralizedSGD(SGD):
             rank, neighbors, use_cuda=use_cuda
         ).agg_model(by_layer=by_layer)
 
-    def step(self, closure=None):
+    def step(self, closure=None, tracker=None):
         """ Aggregates the gradients and performs a single optimization step.
 
         Arguments:
             closure (callable, optional): A closure that reevaluates the model
                 and returns the loss.
+            tracker (:obj:`mlbench_core.utils.Tracker`, optional) The current tracker
         """
         loss = super(DecentralizedSGD, self).step(closure=closure)
+        if tracker:
+            tracker.record_batch_opt_step()
         # Averaging the model after updating the gradient separately.
         self.agg(self.model, self.agg_mode)
+        if tracker:
+            tracker.record_batch_agg()
         return loss
 
 
@@ -336,9 +341,11 @@ class CentralizedSGD(SGD):
         weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
         dampening (float, optional): dampening for momentum (default: 0)
         nesterov (bool, optional): enables Nesterov momentum (default: False)
-        average_models (bool): Whether to average models together. (default: `True`)
+        average_world (bool): Whether to average models on the world_size (default: `True`)
         use_cuda (bool): Whether to use cuda tensors for aggregation
         by_layer (bool): Aggregate by layer instead of all layers at once
+        agg_grad (bool): Aggregate the gradients before updating weights. If `False`,
+            weights will be updated and then reduced across all workers. (default: `True`)
     """
 
     def __init__(
@@ -350,9 +357,10 @@ class CentralizedSGD(SGD):
         dampening=0,
         weight_decay=0,
         nesterov=False,
-        average_models=True,
+        average_world=True,
         use_cuda=False,
         by_layer=False,
+        agg_grad=True,
     ):
         if not world_size:
             raise ValueError('"world_size" not set for optimizer')
@@ -361,25 +369,42 @@ class CentralizedSGD(SGD):
         super(CentralizedSGD, self).__init__(
             model.parameters(), lr, momentum, dampening, weight_decay, nesterov
         )
-        if average_models:
-            self.agg_mode = "avg"
+        if average_world:
+            self.agg_mode = "avg_world"
         else:
             raise NotImplementedError("Only average model is supported right now.")
 
         self.model = model
-        self.agg = AllReduceAggregation(
-            world_size=world_size, use_cuda=use_cuda
-        ).agg_grad(by_layer=by_layer)
+        self.agg_grad = agg_grad
+        agg = AllReduceAggregation(world_size=world_size, use_cuda=use_cuda)
+        if agg_grad:
+            self.agg = agg.agg_grad(by_layer=by_layer)
+        else:
+            self.agg = agg.agg_model(by_layer=by_layer)
+            self.agg(self.model, self.agg_mode)  # Agg params once at init
 
-    def step(self, closure=None):
+    def step(self, closure=None, tracker=None):
         """ Aggregates the gradients and performs a single optimization step.
 
         Arguments:
             closure (callable, optional): A closure that reevaluates the model
                 and returns the loss.
+            tracker (:obj:`mlbench_core.utils.Tracker`, optional) The current tracker
         """
-        self.agg(self.model, self.agg_mode)
-        loss = super(CentralizedSGD, self).step(closure=closure)
+        if self.agg_grad:
+            self.agg(self.model, self.agg_mode)
+            if tracker:
+                tracker.record_batch_agg()
+            loss = super(CentralizedSGD, self).step(closure=closure)
+            if tracker:
+                tracker.record_batch_opt_step()
+        else:
+            loss = super(CentralizedSGD, self).step(closure=closure)
+            if tracker:
+                tracker.record_batch_opt_step()
+            self.agg(self.model, self.agg_mode)
+            if tracker:
+                tracker.record_batch_agg()
         return loss
 
 
@@ -394,8 +419,6 @@ class SignSGD(SGD):
         weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
         dampening (float, optional): dampening for momentum (default: 0)
         nesterov (bool, optional): enables Nesterov momentum (default: False)
-        average_models (bool): Whether to average models together. (default: `True`)
-
     """
 
     def step(self, closure=None):
@@ -455,7 +478,7 @@ class CentralizedAdam(Adam):
         amsgrad (boolean, optional): whether to use the AMSGrad variant of this
             algorithm from the paper `On the Convergence of Adam and Beyond`_
             (default: False)
-        average_models (bool): Whether to average models together. (default: `True`)
+        average_world (bool): Whether to average models on the world_size (default: `True`)
         use_cuda (bool): Whether to use cuda tensors for aggregation
         by_layer (bool): Aggregate by layer instead of all layers at once
     """
@@ -469,7 +492,7 @@ class CentralizedAdam(Adam):
         eps=1e-8,
         weight_decay=0,
         amsgrad=False,
-        average_models=True,
+        average_world=True,
         use_cuda=False,
         by_layer=False,
     ):
@@ -480,8 +503,8 @@ class CentralizedAdam(Adam):
         super(CentralizedAdam, self).__init__(
             model.parameters(), lr, betas, eps, weight_decay, amsgrad
         )
-        if average_models:
-            self.agg_mode = "avg"
+        if average_world:
+            self.agg_mode = "avg_world"
         else:
             raise NotImplementedError("Only average model is supported right now.")
 
@@ -490,15 +513,20 @@ class CentralizedAdam(Adam):
             world_size=world_size, use_cuda=use_cuda
         ).agg_grad(by_layer=by_layer)
 
-    def step(self, closure=None):
+    def step(self, closure=None, tracker=None):
         """ Aggregates the gradients and performs a single optimization step.
 
         Arguments:
             closure (callable, optional): A closure that reevaluates the model
                 and returns the loss.
+            tracker (:obj:`mlbench_core.utils.Tracker`, optional) The current tracker
         """
         self.agg(self.model, self.agg_mode)
+        if tracker:
+            tracker.record_batch_agg()
         loss = super(CentralizedAdam, self).step(closure=closure)
+        if tracker:
+            tracker.record_batch_opt_step()
         return loss
 
 
@@ -512,7 +540,7 @@ class PowerSGD(SGD):
             weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
             dampening (float, optional): dampening for momentum (default: 0)
             nesterov (bool, optional): enables Nesterov momentum (default: False)
-            average_models (bool): Whether to average models together. (default: `True`)
+            average_world (bool): Whether to average models on the world_size (default: `True`)
             use_cuda (bool): Whether to use cuda tensors for aggregation
             by_layer (bool): Aggregate by layer instead of all layers at once
             reuse_query (bool): Whether to use warm start to initialize the power iteration
@@ -527,7 +555,7 @@ class PowerSGD(SGD):
         weight_decay=0,
         dampening=0,
         nesterov=False,
-        average_models=True,
+        average_world=True,
         use_cuda=False,
         by_layer=False,
         reuse_query=False,
@@ -543,7 +571,7 @@ class PowerSGD(SGD):
         super(PowerSGD, self).__init__(
             model.parameters(), lr, momentum, dampening, weight_decay, nesterov
         )
-        if average_models:
+        if average_world:
             self.agg_mode = "avg"
         else:
             raise NotImplementedError("Only average model is supported right now.")
@@ -553,15 +581,20 @@ class PowerSGD(SGD):
             model=model, use_cuda=use_cuda, reuse_query=reuse_query, rank=rank
         ).agg_grad(by_layer=by_layer)
 
-    def step(self, closure=None):
+    def step(self, closure=None, tracker=None):
         """Performs a single optimization step.
 
         Arguments:
             closure (callable, optional): A closure that reevaluates the model
                 and returns the loss.
+            tracker (:obj:`mlbench_core.utils.Tracker`, optional) The current tracker
         """
         self.agg(self.model, self.agg_mode)
+        if tracker:
+            tracker.record_batch_agg()
         loss = super(PowerSGD, self).step(closure=closure)
+        if tracker:
+            tracker.record_batch_opt_step()
         return loss
 
 
