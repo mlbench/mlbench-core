@@ -17,4 +17,4 @@ install:
 
 
 script:
-  - tox
+  - travis_wait tox

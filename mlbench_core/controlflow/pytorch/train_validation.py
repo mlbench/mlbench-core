@@ -7,7 +7,12 @@ from torch import distributed as dist
 
 from mlbench_core.utils import Tracker
 
-from . import record_train_batch_stats, record_validation_stats, validation_round
+from . import (
+    compute_train_batch_metrics,
+    record_train_batch_stats,
+    record_validation_stats,
+    validation_round,
+)
 from .helpers import iterate_dataloader
 
 logger = logging.getLogger("mlbench")
@@ -295,17 +300,22 @@ def train_round(
         if schedule_per == "batch":
             scheduler.step()
 
+        metrics_results = compute_train_batch_metrics(
+            loss.item(), output, target, metrics,
+        )
+
         if tracker:
+            tracker.record_batch_comp_metrics()
             tracker.batch_end()
 
         record_train_batch_stats(
             batch_idx,
             loss.item(),
             output,
-            target,
-            metrics,
+            metrics_results,
             tracker,
             num_batches_per_device_train,
         )
+
     if schedule_per == "epoch":
         scheduler.step()
