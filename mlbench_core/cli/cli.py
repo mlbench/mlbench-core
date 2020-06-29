@@ -1268,7 +1268,7 @@ def delete_aws_cluster(name):
     config.remove_section("aws.{}".format(name))
 
     if config.get("aws", "current-cluster", fallback=None):
-        config.set("aws", "current-cluster", None)
+        config.set("aws", "current-cluster", "")
 
     write_config(config)
 
