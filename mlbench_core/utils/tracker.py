@@ -273,35 +273,37 @@ class Tracker(object):
                 print(log_to_api)
                 print(goal_result)
 
-                if self.rank == 0:
-                    if log_to_api:
+                if self.rank == 0 and log_to_api:
+                    time.sleep(2)
+                    LogMetrics.log(
+                        self.run_id,
+                        self.rank,
+                        self.current_epoch,
+                        "TaskResult",
+                        goal_result,
+                    )
+
+                    time.sleep(1)
+                    LogMetrics.log(
+                        self.run_id,
+                        self.rank,
+                        self.current_epoch,
+                        "TotalCumulativeTrainTime",
+                        self.get_total_train_time(),
+                    )
+
+                    metrics = dict(self.epoch_metrics).items()
+                    metrics = sorted(metrics, key=lambda k: k[0])
+
+                    for k, v in metrics:
                         LogMetrics.log(
                             self.run_id,
                             self.rank,
                             self.current_epoch,
-                            "TaskResult",
-                            goal_result,
+                            "global_cum_{}".format(k),
+                            sum(v),
                         )
-
-                        LogMetrics.log(
-                            self.run_id,
-                            self.rank,
-                            self.current_epoch,
-                            "TotalCumulativeTrainTime",
-                            self.get_total_train_time(),
-                        )
-
-                        metrics = dict(self.epoch_metrics).items()
-                        metrics = sorted(metrics, key=lambda k: k[0])
-
-                        for k, v in metrics:
-                            LogMetrics.log(
-                                self.run_id,
-                                self.rank,
-                                self.current_epoch,
-                                "global_cum_{}".format(k),
-                                sum(v),
-                            )
+                        time.sleep(0.5)
 
     def record_loss(self, value, n=1, log_to_api=False):
         """Records a loss value

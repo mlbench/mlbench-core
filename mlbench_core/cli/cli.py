@@ -119,9 +119,10 @@ def cli_group(args=None):
 @click.argument("name", type=str)
 @click.argument("num_workers", nargs=-1, type=int, metavar="num-workers")
 @click.option("--gpu", "-g", default=False, type=bool, is_flag=True)
+@click.option("--num-cpus", "-c", default=4, type=int)
 @click.option("--light", "-l", default=False, type=bool, is_flag=True)
 @click.option("--dashboard-url", "-u", default=None, type=str)
-def run(name, num_workers, gpu, light, dashboard_url):
+def run(name, num_workers, gpu, num_cpus, light, dashboard_url):
     """Start a new run for a benchmark image"""
     current_run_inputs = {}
 
@@ -206,6 +207,7 @@ def run(name, num_workers, gpu, light, dashboard_url):
 
     benchmark["gpu_enabled"] = gpu
     benchmark["light_target"] = light
+    benchmark["num_cpus"] = num_cpus - 1
 
     loaded = setup_client_from_config()
 
