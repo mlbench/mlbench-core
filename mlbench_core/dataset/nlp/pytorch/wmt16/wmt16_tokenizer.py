@@ -4,7 +4,7 @@ from functools import partial
 
 import torch
 
-from . import wmt16_config
+from mlbench_core.dataset.nlp.pytorch.wmt16 import wmt16_config
 
 
 def _pad_vocabulary(vocab, math):

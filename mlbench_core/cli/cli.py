@@ -826,11 +826,8 @@ def create_gcloud(
 @click.argument("release", type=str)
 @click.option("--kubernetes-version", "-k", type=str, default="1.15")
 @click.option("--machine-type", "-t", default="t2.medium", type=str)
-@click.option("--disk-size", "-d", default=50, type=int)
 @click.option("--num-cpus", "-c", default=1, type=int)
 @click.option("--num-gpus", "-g", default=0, type=int)
-@click.option("--gpu-type", default="nvidia-tesla-k80", type=str)
-@click.option("--region", "-z", default="us-east-1", type=str)
 @click.option("--custom-value", "-v", multiple=True)
 @click.option("--ami-id", "-a", default="ami-06d4f570358b1b626", type=str)
 @click.option("--ssh-key", "-a", default="eksNodeKey", type=str)
@@ -839,11 +836,8 @@ def create_aws(
     release,
     kubernetes_version,
     machine_type,
-    disk_size,
     num_cpus,
     num_gpus,
-    gpu_type,
-    region,
     custom_value,
     ami_id,
     ssh_key,

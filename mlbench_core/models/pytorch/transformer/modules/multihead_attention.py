@@ -13,7 +13,7 @@ from torch import nn
 from torch.autograd.variable import Variable
 from torch.nn import Parameter
 
-from mlbench_core.models.pytorch.transformer.modules import strided_batched_gemm
+import mlbench_core.models.pytorch.transformer.modules.strided_batched_gemm as strided_batched_gemm
 
 
 class QueryLinear(torch.autograd.Function):
