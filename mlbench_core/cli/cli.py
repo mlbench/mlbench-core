@@ -303,9 +303,15 @@ def status(name, dashboard_url):
 
 @cli_group.command()
 @click.argument("folder", type=click.Path(exists=False, file_okay=False, dir_okay=True))
+@click.option(
+    "--filter", "-f", default=None, type=str, help="String filter to filter runs"
+)
 @click.option("--dashboard-url", "-u", default=None, type=str)
-def summary(folder, dashboard_url):
-    """Get the summary results of benchmark runs"""
+def charts(folder, filter, dashboard_url):
+    """Chart the results of benchmark runs
+
+    Save generated charts in FOLDER
+    """
     folder = Path(folder)
     if not folder.exists():
         folder.mkdir(parents=True)
@@ -317,11 +323,16 @@ def summary(folder, dashboard_url):
     runs = ret.result().json()
     runs = [r for r in runs if r["state"] == "finished"]
 
+    if filter:
+        runs = [r for r in runs if filter in r["name"]]
+
     options = {i: r for i, r in enumerate(runs, start=0)}
 
     if len(options) < 2:
         click.echo("At least two finished runs are needed to create a summary")
         return
+
+    options["all"] = {"name": "*all runs*"}
 
     prompt = 'Select the runs to generate a summary for (e.g. "0 1 2"): \n\t{}'.format(
         "\n\t".join("{} [{}]".format(r["name"], i) for i, r in options.items())
@@ -332,7 +343,9 @@ def summary(folder, dashboard_url):
         default=0,
         type=click.Choice([options.keys()]),
         show_choices=False,
-        value_proc=lambda x: [options[int(i)] for i in x.split(" ")],
+        value_proc=lambda x: runs
+        if "all" in x
+        else [options[int(i)] for i in x.split(" ")],
     )
 
     if len(choice) < 2:
@@ -341,34 +354,58 @@ def summary(folder, dashboard_url):
 
     results = []
 
-    for run in choice:
-        r = (
-            client.get_run_metrics(run["id"], metric_filter="TaskResult @ 0", last_n=1)
+    def _get_metric(name, run):
+        """Gets a metric from the dashboard."""
+        name = "global_cum_{} @ 0".format(name)
+        return float(
+            client.get_run_metrics(run["id"], metric_filter=name, last_n=1)
             .result()
-            .json()
-        )
-        r = r["TaskResult @ 0"][0]["value"]
-        match = re.search(
-            "Compute: ([\d.]+) seconds, Communication: ([\d.]+) seconds", r
+            .json()[name][0]["value"]
         )
 
-        if not match:
-            click.echo("Could not get result for run {}".format(run["name"]))
-            return
+    for run in choice:
+        agg = _get_metric("agg", run)
 
-        compute = float(match.group(1))
-        communicate = float(match.group(2))
+        backprop = _get_metric("backprop", run)
 
-        results.append((run["name"], compute, communicate, str(run["num_workers"])))
+        batch_load = _get_metric("batch_load", run)
 
-    results = sorted(results, key=lambda x: x[3])
+        comp_loss = _get_metric("comp_loss", run)
+
+        comp_metrics = _get_metric("comp_metrics", run)
+
+        fwd_pass = _get_metric("fwd_pass", run)
+
+        opt_step = _get_metric("opt_step", run)
+
+        compute = (
+            fwd_pass
+            + comp_loss
+            + backprop
+            + opt_step
+            + (agg if run["num_workers"] == 1 else 0)
+        )
+        communicate = agg if run["num_workers"] != 1 else 0
+
+        results.append(
+            (
+                run["name"],
+                compute,
+                communicate,
+                comp_metrics,
+                batch_load,
+                str(run["num_workers"]),
+            )
+        )
+
+    results = sorted(results, key=lambda x: x[5])
+    names, compute, communicate, metrics, batch_load, num_workers = zip(*results)
 
     width = 0.35
     fig, ax = plt.subplots()
-    names, compute, communicate, num_workers = zip(*results)
 
     ax.bar(num_workers, compute, width, label="Compute")
-    ax.bar(num_workers, communicate, width, label="Communcation")
+    ax.bar(num_workers, communicate, width, label="Communication")
 
     ax.set_ylabel("Time (s)")
     ax.set_title("Total time by number of workers")
@@ -377,7 +414,7 @@ def summary(folder, dashboard_url):
 
     fig, ax = plt.subplots()
 
-    combined = [c + r for _, c, r, _ in results]
+    combined = [c + r for _, c, r, _, _, _ in results]
 
     speedup = [combined[0] / c for c in combined]
 
@@ -386,6 +423,18 @@ def summary(folder, dashboard_url):
     ax.set_ylabel("Speedup factor")
     ax.set_title("Speedup")
     plt.savefig(folder / "speedup.png", dpi=150)
+
+    fig, ax = plt.subplots()
+
+    ax.bar(num_workers, compute, width, label="Compute")
+    ax.bar(num_workers, communicate, width, label="Communication")
+    ax.bar(num_workers, metrics, width, label="Metrics Computation")
+    ax.bar(num_workers, batch_load, width, label="Batch Loading")
+
+    ax.set_ylabel("Time (s)")
+    ax.set_title("Total time by number of workers")
+    ax.legend()
+    plt.savefig(folder / "time_for_all_phases.png", dpi=150)
 
     click.echo("Summary created in {}".format(folder))
 

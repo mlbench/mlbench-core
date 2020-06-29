@@ -363,9 +363,9 @@ def test_status_no_run(status_mock_no_run):
     assert not get_run_metrics.called
 
 
-def test_summary(status_mock, tmpdir):
-    """Tests "mlbench summary" command on 3 finished runs"""
-    folder = tmpdir.mkdir("summary")
+def test_charts(status_mock, tmpdir):
+    """Tests "mlbench charts" command on 3 finished runs"""
+    folder = tmpdir.mkdir("charts")
 
     client, rid, name = status_mock
 
@@ -381,22 +381,22 @@ def test_summary(status_mock, tmpdir):
     ]
 
     client.return_value.get_run_metrics.return_value.result.return_value.json.return_value = {
-        "TaskResult @ 0": [
-            {
-                "value": (
-                    "70% Top 1 Validation Accuracy reached in 1328.980 seconds, Compute:"
-                    " 1324.013419866562 seconds, Communication: 4.4704568844 seconds"
-                )
-            }
-        ]
+        "global_cum_agg @ 0": [{"value": "1.0"}],
+        "global_cum_backprop @ 0": [{"value": "1.0"}],
+        "global_cum_batch_load @ 0": [{"value": "1.0"}],
+        "global_cum_comp_loss @ 0": [{"value": "1.0"}],
+        "global_cum_comp_metrics @ 0": [{"value": "1.0"}],
+        "global_cum_fwd_pass @ 0": [{"value": "1.0"}],
+        "global_cum_opt_step @ 0": [{"value": "1.0"}],
     }
 
-    cmd = ["summary", str(folder)]
+    cmd = ["charts", str(folder)]
 
     runner.invoke(cli_group, cmd, input="0 1 2")
 
     assert folder.join("total_time.png").exists()
     assert folder.join("speedup.png").exists()
+    assert folder.join("time_for_all_phases.png").exists()
 
 
 def test_delete_no_run(status_mock_no_run):
