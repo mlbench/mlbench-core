@@ -204,15 +204,21 @@ class MultistepLearningRatesWithWarmup(LambdaLR):
         milestones (:obj:`list` of :obj:`int`): The epochs/steps at which to reduce the
             learning rate
         scaled_lr (float): The LR to reach after warmup
-        warmup_init_lr (float): The initial learning rate to use for the warmup epochs. Default: `None`
+        warmup_init_lr (float): The initial learning rate to use for the warmup epochs. Default: 0
         warmup_duration (int): The number of epochs to perform warmup before regular
-            lr scaling starts. Default: `None`
+            lr scaling starts. Default: 0
     Returns:
         A learning rate scheduler (:obj:`torch.optim.lr_scheduler.LambdaLR`)
     """
 
     def __init__(
-        self, optimizer, gamma, milestones, scaled_lr, warmup_init_lr, warmup_duration,
+        self,
+        optimizer,
+        gamma,
+        milestones,
+        scaled_lr,
+        warmup_init_lr=0,
+        warmup_duration=0,
     ):
         if list(milestones) != sorted(milestones):
             raise ValueError(
@@ -289,11 +295,6 @@ class ReduceLROnPlateauWithWarmup(ReduceLROnPlateau):
 
         self.base_lr = scaled_lr if self.finished_warmup else warmup_init_lr
         self._set_lr(self.base_lr)
-        print(
-            "Starting LR={}, warmup_epochs ={}, scaled_lr={}".format(
-                self.base_lr, warmup_epochs, scaled_lr
-            )
-        )
 
         super(ReduceLROnPlateauWithWarmup, self).__init__(optimizer, **kwargs)
 
@@ -335,6 +336,8 @@ class ReduceLROnPlateauWithWarmup(ReduceLROnPlateau):
             if epoch is not None:
                 raise ValueError("Epoch argument must be none")
             self.last_epoch += 1
+
+            # This means the warm-up is per epoch not batch, so we need to update it
             if (
                 self.warmup_epochs > 0 and self.warmup_epochs == self.warmup_duration
             ):  # warmup per epoch
