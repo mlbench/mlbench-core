@@ -32,7 +32,7 @@ def get_gcloud_cmd_line(args, option_dict=None):
 
     Returns command line as a list, e.g. ["3", "myrelease", "-g", "1", "--gpu-type", "nvidia-tesla-k80"].
 
-    Args: 
+    Args:
         args (list): command-line arguments (e.g. [3, "myrelease"])
         option_dict (dict): command-line options, as in CREATE_GCLOUD_DEFAULTS
 
@@ -109,12 +109,12 @@ def status_mock_helper(mocker, gcloud_mock, run_name):
 def create_gcloud_test_helper(mocker, gcloud_mock, args, option_dict=None):
     """Tests creation of gcloud cluster
 
-    Tests that the correct arguments are passed to Gcloud, Tiller, etc... based 
-    on the input arguments and options. 
+    Tests that the correct arguments are passed to Gcloud, Tiller, etc... based
+    on the input arguments and options.
 
     Args:
         args (list): command-line arguments
-        option_dict (dict): command-line options, as in CREATE_GCLOUD_DEFAULTS. Any 
+        option_dict (dict): command-line options, as in CREATE_GCLOUD_DEFAULTS. Any
                             missing options are substituted with the defaults.
     """
 
@@ -196,11 +196,11 @@ def gcloud_auth(mocker):
 def gcloud_mock(mocker, gcloud_auth):
     """Patches all gcloud objects and makes loops run once.
 
-    Loops like 
+    Loops like
 
         while response.status < response.DONE:
-            #do something 
-    
+            #do something
+
     are executed once.
 
     Returns:
@@ -361,6 +361,42 @@ def test_status_no_run(status_mock_no_run):
 
     client.assert_called_once_with(in_cluster=False, url=url, load_config=False)
     assert not get_run_metrics.called
+
+
+def test_charts(status_mock, tmpdir):
+    """Tests "mlbench charts" command on 3 finished runs"""
+    folder = tmpdir.mkdir("charts")
+
+    client, rid, name = status_mock
+
+    # skip reporting
+    client.return_value.get_run_metrics.return_value.result.return_value.status_code = (
+        301
+    )
+
+    client.return_value.get_runs.return_value.result.return_value.json.return_value = [
+        {"id": 1, "name": "test-0", "num_workers": 1, "state": "finished"},
+        {"id": 2, "name": "test-1", "num_workers": 2, "state": "finished"},
+        {"id": 3, "name": "test-2", "num_workers": 4, "state": "finished"},
+    ]
+
+    client.return_value.get_run_metrics.return_value.result.return_value.json.return_value = {
+        "global_cum_agg @ 0": [{"value": "1.0"}],
+        "global_cum_backprop @ 0": [{"value": "1.0"}],
+        "global_cum_batch_load @ 0": [{"value": "1.0"}],
+        "global_cum_comp_loss @ 0": [{"value": "1.0"}],
+        "global_cum_comp_metrics @ 0": [{"value": "1.0"}],
+        "global_cum_fwd_pass @ 0": [{"value": "1.0"}],
+        "global_cum_opt_step @ 0": [{"value": "1.0"}],
+    }
+
+    cmd = ["charts", str(folder)]
+
+    runner.invoke(cli_group, cmd, input="0 1 2")
+
+    assert folder.join("total_time.png").exists()
+    assert folder.join("speedup.png").exists()
+    assert folder.join("time_for_all_phases.png").exists()
 
 
 def test_delete_no_run(status_mock_no_run):
