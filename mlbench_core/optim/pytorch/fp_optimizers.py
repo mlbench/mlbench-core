@@ -189,7 +189,7 @@ class FP16Optimizer:
         loss *= self.loss_scaler.loss_scale
         loss.backward()
 
-    def step(self, closure=None, multiplier=1, denom=None):
+    def step(self, closure=None, tracker=None, multiplier=1, denom=None):
         """
         Performs one step of the optimizer.
         Applies loss scaling, computes gradients in fp16, converts gradients to
@@ -201,6 +201,7 @@ class FP16Optimizer:
 
         Args:
             closure (callable, optional): A closure that reevaluates the model and returns the loss.
+            tracker (:obj:`mlbench_core.utils.Tracker`, optional) The current tracker
             multiplier (float): Multiplier for gradient scaling. Gradient will be scaled using
                 `scaled_grad = reduced_grad / (loss_scaler * multiplier)`
             denom (Optional[:obj:`torch.Tensor`]): Custom denominator to average by
@@ -211,6 +212,9 @@ class FP16Optimizer:
 
         # Aggregate gradients
         self.agg(self.fp16_model, self.agg_mode, denom=denom)
+
+        if tracker:
+            tracker.record_batch_agg()
 
         # Cast fp16 grads to fp32 for optimizer
         self.fp16_to_fp32_flat_grad(self.fp32_params, self.fp16_model)
@@ -236,6 +240,8 @@ class FP16Optimizer:
                 )
             logger.info(f"Skipped batch, new scale: {self.loss_scaler.loss_scale}")
 
+        if tracker:
+            tracker.record_batch_opt_step()
         return updated
 
     def zero_grad(self):
@@ -289,16 +295,20 @@ class FP32Optimizer:
     def set_optimizer(self, optimizer):
         self.optimizer = optimizer
 
-    def step(self, closure=None, denom=None):
+    def step(self, closure=None, tracker=None, denom=None):
         """
         Performs one step of the optimizer.
 
         Args:
             closure (callable): Optimizer closure argument
+            tracker (:obj:`mlbench_core.utils.Tracker`, optional) The current tracker
             denom (Optional[:obj:`torch.Tensor`]): Custom denominator to reduce by
         """
         # Aggregate gradients
         self.agg(self.model, self.agg_mode, denom=denom)
+
+        if tracker:
+            tracker.record_batch_agg()
 
         # Clip norm
         if self.grad_clip != float("inf"):
@@ -306,6 +316,9 @@ class FP32Optimizer:
 
         # Optimizer step
         self.optimizer.step(closure=closure)
+
+        if tracker:
+            tracker.record_batch_opt_step()
         return True
 
     def backward_loss(self, loss):
@@ -378,15 +391,27 @@ class AMPOptimizer:
         with amp.scale_loss(loss, self.optimizer) as scaled_loss:
             scaled_loss.backward()
 
-    def step(self, closure=None, denom=None):
+    def step(self, closure=None, tracker=None, denom=None):
         """
         Performs one step of the optimizer.
+
+        Args:
+            closure (callable): Optimizer closure argument
+            tracker (:obj:`mlbench_core.utils.Tracker`, optional) The current tracker
+            denom (Optional[:obj:`torch.Tensor`]): Custom denominator to reduce by
         """
         self.agg(self.model, self.agg_mode, denom=denom)
+
+        if tracker:
+            tracker.record_batch_agg()
+
         if self.grad_clip != float("inf"):
             clip_grad_norm_(amp.master_params(self.optimizer), self.grad_clip)
 
         self.optimizer.step(closure=closure)
+
+        if tracker:
+            tracker.record_batch_opt_step()
         return not self.loss_scaler._has_overflow
 
     def zero_grad(self):

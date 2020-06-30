@@ -45,16 +45,16 @@ class BCELossRegularized(_WeightedLoss):
         validated.
         reduction (string, optional): Specifies the reduction to apply to
         the output:
-            'none' | 'elementwise_mean' | 'sum'. 'none': no reduction will
+            'none' | 'mean' | 'sum'. 'none': no reduction will
             be applied,
-            'elementwise_mean': the sum of the output will be divided by the
+            'mean': the sum of the output will be divided by the
             number of
             elements in the output, 'sum': the output will be summed. Note:
             :attr:`size_average`
             and :attr:`reduce` are in the process of being deprecated,
             and in the meantime,
             specifying either of those two args will override
-            :attr:`reduction`. Default: 'elementwise_mean'
+            :attr:`reduction`. Default: 'mean'
     """
 
     def __init__(
@@ -65,7 +65,7 @@ class BCELossRegularized(_WeightedLoss):
         l1=0.0,
         l2=0.0,
         model=None,
-        reduction="elementwise_mean",
+        reduction="mean",
     ):
         super(BCELossRegularized, self).__init__(
             weight, size_average, reduce, reduction
@@ -118,16 +118,16 @@ class MSELossRegularized(_WeightedLoss):
         validated.
         reduction (string, optional): Specifies the reduction to apply to
         the output:
-            'none' | 'elementwise_mean' | 'sum'. 'none': no reduction will
+            'none' | 'mean' | 'sum'. 'none': no reduction will
             be applied,
-            'elementwise_mean': the sum of the output will be divided by the
+            'mean': the sum of the output will be divided by the
             number of
             elements in the output, 'sum': the output will be summed. Note:
             :attr:`size_average`
             and :attr:`reduce` are in the process of being deprecated,
             and in the meantime,
             specifying either of those two args will override
-            :attr:`reduction`. Default: 'elementwise_mean'
+            :attr:`reduction`. Default: 'mean'
     """
 
     def __init__(
@@ -138,7 +138,7 @@ class MSELossRegularized(_WeightedLoss):
         l1=0.0,
         l2=0.0,
         model=None,
-        reduction="elementwise_mean",
+        reduction="mean",
     ):
         super(MSELossRegularized, self).__init__(
             weight, size_average, reduce, reduction

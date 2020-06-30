@@ -13,21 +13,21 @@ with open("CHANGELOG.md") as history_file:
 
 requirements = [
     "appdirs==1.4.4",
-    "boto3==1.14.2",
+    "boto3==1.14.6",
     "Click>=6.0",
     "deprecation>=2.0.6",
-    "dill==0.3.1.1",
+    "dill==0.3.2",
     "google-api-python-client==1.9.3",
     "google-auth==1.18.0",
     "google-cloud==0.34.0",
-    "google-cloud-container==0.5.0",
+    "google-cloud-container==1.0.1",
     "grpcio==1.29.0",
     "kubernetes==11.0.0",
     "matplotlib==3.2.1",
     "oauth2client==4.1.3",
     "pyhelm==2.14.5",
     "sklearn==0.0",
-    "spacy==2.2.4",
+    "spacy==2.3.0",
     "tabulate>=0.8.5",
     "torchtext==0.6.0",
 ]
@@ -79,6 +79,6 @@ setup(
     tests_require=test_requirements,
     extras_require=extras,
     url="https://github.com/mlbench/mlbench_core",
-    version="2.4.0-dev241",
+    version="2.4.0-dev264",
     zip_safe=False,
 )

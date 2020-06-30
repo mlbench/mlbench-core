@@ -121,9 +121,10 @@ def cli_group(args=None):
 @click.argument("name", type=str)
 @click.argument("num_workers", nargs=-1, type=int, metavar="num-workers")
 @click.option("--gpu", "-g", default=False, type=bool, is_flag=True)
+@click.option("--num-cpus", "-c", default=4, type=int)
 @click.option("--light", "-l", default=False, type=bool, is_flag=True)
 @click.option("--dashboard-url", "-u", default=None, type=str)
-def run(name, num_workers, gpu, light, dashboard_url):
+def run(name, num_workers, gpu, num_cpus, light, dashboard_url):
     """Start a new run for a benchmark image"""
     current_run_inputs = {}
 
@@ -208,6 +209,7 @@ def run(name, num_workers, gpu, light, dashboard_url):
 
     benchmark["gpu_enabled"] = gpu
     benchmark["light_target"] = light
+    benchmark["num_cpus"] = num_cpus - 1
 
     loaded = setup_client_from_config()
 
@@ -966,11 +968,8 @@ def create_gcloud(
 @click.argument("release", type=str)
 @click.option("--kubernetes-version", "-k", type=str, default="1.15")
 @click.option("--machine-type", "-t", default="t2.medium", type=str)
-@click.option("--disk-size", "-d", default=50, type=int)
 @click.option("--num-cpus", "-c", default=1, type=int)
 @click.option("--num-gpus", "-g", default=0, type=int)
-@click.option("--gpu-type", default="nvidia-tesla-k80", type=str)
-@click.option("--region", "-z", default="us-east-1", type=str)
 @click.option("--custom-value", "-v", multiple=True)
 @click.option("--ami-id", "-a", default="ami-06d4f570358b1b626", type=str)
 @click.option("--ssh-key", "-a", default="eksNodeKey", type=str)
@@ -979,11 +978,8 @@ def create_aws(
     release,
     kubernetes_version,
     machine_type,
-    disk_size,
     num_cpus,
     num_gpus,
-    gpu_type,
-    region,
     custom_value,
     ami_id,
     ssh_key,
