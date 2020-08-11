@@ -1,5 +1,5 @@
 appdirs==1.4.4
-boto3==1.14.6
+boto3==1.14.39
 click==7.1.2
 deprecation==2.1.0
 dill==0.3.2
