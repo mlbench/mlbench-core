@@ -524,7 +524,7 @@ class SequenceGenerator(object):
                         ),  # -1 so we never select pad
                         out=(cand_scores, cand_indices),
                     )
-                    torch.div(cand_indices, self.vocab_size, out=cand_beams)
+                    torch.floor_divide(cand_indices, self.vocab_size, out=cand_beams)
                     cand_indices.fmod_(self.vocab_size)
             else:
                 # finalize all active hypotheses once we hit maxlen
