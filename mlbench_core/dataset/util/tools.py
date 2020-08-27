@@ -6,7 +6,7 @@ from urllib.request import urlretrieve
 
 
 def progress_download(url, dest):
-    """ Downloads a file from `url` to `dest` and shows progress
+    """Downloads a file from `url` to `dest` and shows progress
 
     Args:
         url (src): Url to retrieve file from
@@ -26,7 +26,7 @@ def progress_download(url, dest):
 
 
 def extract_bz2_file(source, dest, delete=True):
-    """ Extracts a bz2 archive
+    """Extracts a bz2 archive
 
     Args:
         source (str): Source file (must have .bz2 extension)
@@ -46,7 +46,7 @@ def extract_bz2_file(source, dest, delete=True):
 
 
 def compress_to_bz2_file(source, delete=True):
-    """ Extracts a bz2 archive
+    """Extracts a bz2 archive
 
     Args:
         source (str): Source file to compress
@@ -64,7 +64,7 @@ def compress_to_bz2_file(source, delete=True):
 
 
 def maybe_download_and_extract_bz2(root, file_name, data_url):
-    """ Downloads file from given URL and extracts if bz2
+    """Downloads file from given URL and extracts if bz2
 
     Args:
         root (str): The root directory

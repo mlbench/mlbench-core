@@ -83,7 +83,7 @@ class SparsifiedSGD(Optimizer):
         return loss
 
     def sparsify_gradients(self, param, lr):
-        """ Calls one of the sparsification functions (random or blockwise)
+        """Calls one of the sparsification functions (random or blockwise)
 
         Args:
             random_sparse (bool): Indicates the way we want to make the gradients sparse
@@ -96,7 +96,7 @@ class SparsifiedSGD(Optimizer):
             return self._block_sparsify(param, lr)
 
     def _random_sparsify(self, param, lr):
-        """ Sparsify the gradients vector by selecting 'k' of them randomly.
+        """Sparsify the gradients vector by selecting 'k' of them randomly.
 
         Args:
             param (:obj: `torch.nn.Parameter`): Model parameter
@@ -119,7 +119,7 @@ class SparsifiedSGD(Optimizer):
         return sparse_tensor
 
     def _block_sparsify(self, param, lr):
-        """ Sparsify the gradients vector by selecting a block of them.
+        """Sparsify the gradients vector by selecting a block of them.
 
         Args:
             param (:obj: `torch.nn.Parameter`): Model parameter
@@ -146,7 +146,7 @@ class SparsifiedSGD(Optimizer):
         return sparse_tensor
 
     def update_estimated_weights(self, iteration, sparse_vector_size):
-        """ Updates the estimated parameters
+        """Updates the estimated parameters
 
         Args:
             iteration (int): Current global iteration
@@ -207,10 +207,10 @@ class CentralizedSparsifiedSGD(SparsifiedSGD):
         )
 
     def step(self, closure=None):
-        """ Aggregates the gradients and performs a single optimization step.
+        """Aggregates the gradients and performs a single optimization step.
 
-            Arguments:
-                closure (callable, optional): A closure that reevaluates the model and returns the loss.
+        Arguments:
+            closure (callable, optional): A closure that reevaluates the model and returns the loss.
         """
 
         loss = None
@@ -313,7 +313,7 @@ class DecentralizedSGD(SGD):
         ).agg_model(by_layer=by_layer)
 
     def step(self, closure=None, tracker=None):
-        """ Aggregates the gradients and performs a single optimization step.
+        """Aggregates the gradients and performs a single optimization step.
 
         Arguments:
             closure (callable, optional): A closure that reevaluates the model
@@ -384,7 +384,7 @@ class CentralizedSGD(SGD):
             self.agg(self.model, self.agg_mode)  # Agg params once at init
 
     def step(self, closure=None, tracker=None):
-        """ Aggregates the gradients and performs a single optimization step.
+        """Aggregates the gradients and performs a single optimization step.
 
         Arguments:
             closure (callable, optional): A closure that reevaluates the model
@@ -422,7 +422,7 @@ class SignSGD(SGD):
     """
 
     def step(self, closure=None):
-        """ Aggregates the gradients and performs a single optimization step.
+        """Aggregates the gradients and performs a single optimization step.
 
         Arguments:
             closure (callable, optional): A closure that reevaluates the model
@@ -514,7 +514,7 @@ class CentralizedAdam(Adam):
         ).agg_grad(by_layer=by_layer)
 
     def step(self, closure=None, tracker=None):
-        """ Aggregates the gradients and performs a single optimization step.
+        """Aggregates the gradients and performs a single optimization step.
 
         Arguments:
             closure (callable, optional): A closure that reevaluates the model
@@ -533,19 +533,19 @@ class CentralizedAdam(Adam):
 class PowerSGD(SGD):
     r"""Implements PowerSGD with error feedback (optionally with momentum).
 
-        Args:
-            model (:obj:`nn.Module`): Model which contains parameters for SGD
-            lr (float): learning rate
-            momentum (float, optional): momentum factor (default: 0)
-            weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
-            dampening (float, optional): dampening for momentum (default: 0)
-            nesterov (bool, optional): enables Nesterov momentum (default: False)
-            average_world (bool): Whether to average models on the world_size (default: `True`)
-            use_cuda (bool): Whether to use cuda tensors for aggregation
-            by_layer (bool): Aggregate by layer instead of all layers at once
-            reuse_query (bool): Whether to use warm start to initialize the power iteration
-            rank (int): The rank of the gradient approximation
-        """
+    Args:
+        model (:obj:`nn.Module`): Model which contains parameters for SGD
+        lr (float): learning rate
+        momentum (float, optional): momentum factor (default: 0)
+        weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
+        dampening (float, optional): dampening for momentum (default: 0)
+        nesterov (bool, optional): enables Nesterov momentum (default: False)
+        average_world (bool): Whether to average models on the world_size (default: `True`)
+        use_cuda (bool): Whether to use cuda tensors for aggregation
+        by_layer (bool): Aggregate by layer instead of all layers at once
+        reuse_query (bool): Whether to use warm start to initialize the power iteration
+        rank (int): The rank of the gradient approximation
+    """
 
     def __init__(
         self,
@@ -611,9 +611,9 @@ optimizers = {
 def get_optimizer(optimizer, **kwargs):
     r"""Returns an object of the class specified with the argument `optimizer`.
 
-        Args:
-            optimizer (str): name of the optimizer
-            **kwargs (dict, optional): additional optimizer-specific parameters. For the list of supported parameters
-                for each optimizer, please look at its documentation.
-        """
+    Args:
+        optimizer (str): name of the optimizer
+        **kwargs (dict, optional): additional optimizer-specific parameters. For the list of supported parameters
+            for each optimizer, please look at its documentation.
+    """
     return optimizers[optimizer](**kwargs)

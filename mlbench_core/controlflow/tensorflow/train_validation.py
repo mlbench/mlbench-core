@@ -16,7 +16,7 @@ def train_round(
     lr_scheduler_level=None,
     lr_tensor=None,
 ):
-    """ Performs num_batches_per_epoch_for_train batches of training (or full trainset if
+    """Performs num_batches_per_epoch_for_train batches of training (or full trainset if
     not specified)
 
     Args:
@@ -99,7 +99,7 @@ def validation_round(
     num_batches_per_epoch_for_validation,
     tracker,
 ):
-    """ Handles one full iteration of validation on the whole validation set.
+    """Handles one full iteration of validation on the whole validation set.
 
     Args:
         session (obj): The tensorflow session

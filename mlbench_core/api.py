@@ -66,7 +66,7 @@ class _CustomApiClient(client.ApiClient):
 
 
 class ApiClient(object):
-    """ Client for the mlbench Master/Dashboard REST API
+    """Client for the mlbench Master/Dashboard REST API
 
     When used inside a cluster, will use the API Pod IP directly
     for communication. When used outside of a cluster, will try to
@@ -210,7 +210,7 @@ class ApiClient(object):
         return "{ip}:{port}".format(ip=ip, port=self.port)
 
     def get_all_metrics(self):
-        """ Get all metrics ever recorded by the master node.
+        """Get all metrics ever recorded by the master node.
 
         Returns:
             A ``concurrent.futures.Future`` objects wrapping
@@ -225,7 +225,7 @@ class ApiClient(object):
     def get_run_metrics(
         self, run_id, since=None, summarize=None, metric_filter=None, last_n=None
     ):
-        """ Get all metrics for a run.
+        """Get all metrics for a run.
 
         Args:
             run_id(str): The id of the run to get metrics for
@@ -248,7 +248,7 @@ class ApiClient(object):
         )
 
     def get_pod_metrics(self, pod_id, since=None, summarize=None):
-        """ Get all metrics for a worker pod.
+        """Get all metrics for a worker pod.
 
         Args:
             pod_id(str): The id of the pod to get metrics for
@@ -311,7 +311,7 @@ class ApiClient(object):
         return future
 
     def download_run_metrics(self, run_id, since=None, summarize=None):
-        """ Get all metrics for a run as zip.
+        """Get all metrics for a run as zip.
 
         Args:
             run_id(str): The id of the run to get metrics for
@@ -332,7 +332,7 @@ class ApiClient(object):
     def post_metric(
         self, run_id, name, value, cumulative=False, metadata="", date=None
     ):
-        """ Save a metric to the master node for a run.
+        """Save a metric to the master node for a run.
 
         Args:
             run_id(str): The id of the run to save a metric for
@@ -373,7 +373,7 @@ class ApiClient(object):
         return future
 
     def get_runs(self):
-        """ Get all active, finished and failed benchmark runs
+        """Get all active, finished and failed benchmark runs
 
         Returns:
             A ``concurrent.futures.Future`` objects wrapping
@@ -386,7 +386,7 @@ class ApiClient(object):
         return future
 
     def get_run(self, run_id):
-        """ Get a specific benchmark run
+        """Get a specific benchmark run
 
         Args:
             run_id(str): The id of the run to get
@@ -418,7 +418,7 @@ class ApiClient(object):
         gpu_enabled=False,
         light_target=False,
     ):
-        """ Create a new benchmark run.
+        """Create a new benchmark run.
 
         Available official benchmarks can be found in
         the ``mlbench_core.api.MLBENCH_IMAGES`` dict.
@@ -491,7 +491,7 @@ class ApiClient(object):
         return future
 
     def delete_run(self, run_id):
-        """ Delete a benchmark run.
+        """Delete a benchmark run.
 
          Args:
             run_id(str): The id of the run to get
@@ -507,7 +507,7 @@ class ApiClient(object):
         return future
 
     def get_worker_pods(self):
-        """ Get information on all worker nodes.
+        """Get information on all worker nodes.
 
         Returns:
             A ``concurrent.futures.Future`` objects wrapping

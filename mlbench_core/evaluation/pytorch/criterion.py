@@ -185,7 +185,11 @@ class LabelSmoothing(_Loss):
                 x.dtype == torch.float32
             ), "Unsupported data types"
             loss = self.xentropy_func(
-                x, target, self.smoothing, self.padding_idx, x.dtype == torch.float16,
+                x,
+                target,
+                self.smoothing,
+                self.padding_idx,
+                x.dtype == torch.float16,
             )
 
         else:

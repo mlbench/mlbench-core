@@ -21,7 +21,9 @@ try:
             os.path.join(dir_1, "strided_batched_gemm_cuda.cu"),
         ],
         extra_compile_args={
-            "cxx": ["-O2",],
+            "cxx": [
+                "-O2",
+            ],
             "nvcc": [
                 "--gpu-architecture=compute_70",
                 "--gpu-code=sm_70",
@@ -38,7 +40,14 @@ try:
             os.path.join(dir_2, "attn_score_cuda.cpp"),
             os.path.join(dir_2, "attn_score_cuda_kernel.cu"),
         ],
-        extra_compile_args={"cxx": ["-O2",], "nvcc": ["--gpu-architecture=sm_70",]},
+        extra_compile_args={
+            "cxx": [
+                "-O2",
+            ],
+            "nvcc": [
+                "--gpu-architecture=sm_70",
+            ],
+        },
     )
     ext_modules.append(strided_batched_gemm)
     ext_modules.append(attn_score)

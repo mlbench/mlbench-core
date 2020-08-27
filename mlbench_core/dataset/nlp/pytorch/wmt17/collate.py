@@ -10,7 +10,7 @@ def _collate_tokens(
     n_seq_per_batch_multiple=8,
     seq_len_multiple=1,
 ):
-    """ Convert a list of 1d tensors into a padded 2d tensor.
+    """Convert a list of 1d tensors into a padded 2d tensor.
 
     Args:
         values (list[torch.Tensor]): A list of tensors
@@ -115,7 +115,9 @@ def collate_batch(
         # we create a shifted version of targets for feeding the
         # previous output token(s) into the next decoder step
         prev_output_tokens = merge(
-            "target", left_pad=left_pad_target, move_eos_to_beginning=True,
+            "target",
+            left_pad=left_pad_target,
+            move_eos_to_beginning=True,
         )
         ntokens = sum(len(s["target"]) for s in samples)
     else:

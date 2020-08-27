@@ -181,7 +181,7 @@ def sequential_synthetic_dataset(root_path, dataset_name, data_type):
 @click.argument("data_type")
 @click.argument("data_dir")
 def generate_lmdb_from_libsvm(data, data_type, data_dir):
-    """ Utility script that downloads data from LIBSVM and transforms them
+    """Utility script that downloads data from LIBSVM and transforms them
     into `.lmdb` files.
 
     Args:

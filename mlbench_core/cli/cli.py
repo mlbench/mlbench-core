@@ -776,15 +776,21 @@ def create_gcloud(
             machine_type=machine_type,
             disk_size_gb=disk_size,
             preemptible=preemptible,
-            oauth_scopes=["https://www.googleapis.com/auth/devstorage.full_control",],
+            oauth_scopes=[
+                "https://www.googleapis.com/auth/devstorage.full_control",
+            ],
             **extraargs,
         ),
         addons_config=container_v1.types.AddonsConfig(
-            http_load_balancing=container_v1.types.HttpLoadBalancing(disabled=True,),
+            http_load_balancing=container_v1.types.HttpLoadBalancing(
+                disabled=True,
+            ),
             horizontal_pod_autoscaling=container_v1.types.HorizontalPodAutoscaling(
                 disabled=True,
             ),
-            kubernetes_dashboard=container_v1.types.KubernetesDashboard(disabled=True,),
+            kubernetes_dashboard=container_v1.types.KubernetesDashboard(
+                disabled=True,
+            ),
             network_policy_config=container_v1.types.NetworkPolicyConfig(
                 disabled=False,
             ),
@@ -1030,7 +1036,10 @@ def create_aws(
     # ensure that public IP addresses are assigned on launch in each subnet
     for subnet in subnets:
         ec2.modify_subnet_attribute(
-            MapPublicIpOnLaunch={"Value": True,}, SubnetId=subnet,
+            MapPublicIpOnLaunch={
+                "Value": True,
+            },
+            SubnetId=subnet,
         )
 
     # create a role and assign the policy needed for creating the EKS cluster
@@ -1306,7 +1315,11 @@ def create_aws(
             {
                 "FromPort": mlbench_port,
                 "IpProtocol": "tcp",
-                "IpRanges": [{"CidrIp": "0.0.0.0/0",},],
+                "IpRanges": [
+                    {
+                        "CidrIp": "0.0.0.0/0",
+                    },
+                ],
                 "ToPort": mlbench_port,
             },
         ],
@@ -1495,7 +1508,10 @@ def setup_aws_client_from_config(config):
         ],
         "contexts": [
             {
-                "context": {"cluster": cluster_arn, "user": cluster_arn,},
+                "context": {
+                    "cluster": cluster_arn,
+                    "user": cluster_arn,
+                },
                 "name": cluster_arn,
             }
         ],
