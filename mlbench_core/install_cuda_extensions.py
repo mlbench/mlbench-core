@@ -7,7 +7,7 @@ import mlbench_core
 base__dir = os.path.dirname(mlbench_core.__file__)
 ext_modules = []
 try:
-    from torch.utils.cpp_extension import BuildExtension, CUDAExtension, CUDA_HOME
+    from torch.utils.cpp_extension import CUDA_HOME, BuildExtension, CUDAExtension
 
     dir_1 = os.path.join(
         base__dir, "models/pytorch/transformer/modules/strided_batched_gemm"

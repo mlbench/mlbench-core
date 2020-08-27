@@ -593,9 +593,9 @@ def delete_cluster():
 @click.option("--project", "-p", default=None, type=str)
 @click.option("--zone", "-z", default="europe-west1-b", type=str)
 def delete_gcloud(name, zone, project):
-    from google.cloud import container_v1
     import google.auth
     from google.auth.exceptions import DefaultCredentialsError
+    from google.cloud import container_v1
 
     try:
         credentials, default_project = google.auth.default()
@@ -711,9 +711,9 @@ def create_gcloud(
     preemptible,
     custom_value,
 ):
-    from google.cloud import container_v1
     import google.auth
     from google.auth.exceptions import DefaultCredentialsError
+    from google.cloud import container_v1
     from googleapiclient import discovery, http
 
     try:
