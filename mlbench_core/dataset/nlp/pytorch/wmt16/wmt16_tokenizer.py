@@ -44,7 +44,10 @@ class WMT16Tokenizer:
     """
 
     def __init__(
-        self, base_dir, math_precision=None, separator="@@",
+        self,
+        base_dir,
+        math_precision=None,
+        separator="@@",
     ):
         self.separator = separator
 

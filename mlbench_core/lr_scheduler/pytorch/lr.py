@@ -14,7 +14,7 @@ def const(optimizer):
 def triangular_learning_rates(
     optimizer, base_lr, max_lr, cycle_length, scale_fn, extra, mode
 ):
-    """ Linearily Scale Learning Rate
+    """Linearily Scale Learning Rate
 
     If one cycle is applied with length smaller than the total number of iterations, then
     use small learning rate for the remaining iterations.
@@ -67,7 +67,7 @@ def triangular_learning_rates(
 def cyclical_learning_rates(
     optimizer, mode, gamma, cycle_length, base_lr, max_lr, extra_epochs
 ):
-    """ Cyclically Scale Learning Rate
+    """Cyclically Scale Learning Rate
 
     If one cycle is applied with length smaller than the total number of iterations, then
     use small learning rate for the remaining iterations.
@@ -131,7 +131,7 @@ def multistep_learning_rates_with_warmup(
     warmup_lr=None,
     warmup_linear_scaling=False,
 ):
-    """ Multistep Learning Rate Schedule with warmup
+    """Multistep Learning Rate Schedule with warmup
 
     In :cite:`goyal2017accurate`, warmup is used in order to apply the ``Linear Scaling Rule``.
     Starting from the ``base_lr``, lr gradually increases to ``base_lr * scaling_factor``.
@@ -196,7 +196,7 @@ def multistep_learning_rates_with_warmup(
 
 
 class MultistepLearningRatesWithWarmup(LambdaLR):
-    """ Multistep Learningrate Scheduler with Warmup Period
+    """Multistep Learningrate Scheduler with Warmup Period
 
     Args:
         optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
@@ -349,7 +349,7 @@ class ReduceLROnPlateauWithWarmup(ReduceLROnPlateau):
 
 
 class SparsifiedSGDLR(LambdaLR):
-    """ Learning rate schedule for sparsifiedSGD (gamma / l2_coef * (t + shifting_param))
+    """Learning rate schedule for sparsifiedSGD (gamma / l2_coef * (t + shifting_param))
 
     Args:
         optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.

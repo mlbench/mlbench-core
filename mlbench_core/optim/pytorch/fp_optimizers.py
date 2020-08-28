@@ -120,7 +120,7 @@ class FP16Optimizer:
 
     # Flattening master weight
     def initialize_flat_fp32_weight(self):
-        """ Initializes the model's parameters in fp32
+        """Initializes the model's parameters in fp32
 
         Returns:
             (:obj:`torch.Tensor`): The Parameters in fp32
@@ -147,7 +147,7 @@ class FP16Optimizer:
 
     @staticmethod
     def fp16_to_fp32_flat_grad(fp32_params, fp16_model):
-        """ Copies the parameters in `fp16_model` into `fp32_params` in-place
+        """Copies the parameters in `fp16_model` into `fp32_params` in-place
 
         Args:
             fp32_params (torch.Tensor): Parameters in fp32
@@ -161,13 +161,13 @@ class FP16Optimizer:
 
     @staticmethod
     def fp32_to_fp16_weights(fp16_model, fp32_params):
-        """ Copies the parameters in `fp32_params` into `fp16_model` in-place
+        """Copies the parameters in `fp32_params` into `fp16_model` in-place
 
-         Args:
-             fp16_model (torch.nn.Module): Model in fp16
-             fp32_params (torch.Tensor): Parameters in fp32
+        Args:
+            fp16_model (torch.nn.Module): Model in fp16
+            fp32_params (torch.Tensor): Parameters in fp32
 
-         """
+        """
         with torch.no_grad():
             pointer = 0
             for p in fp16_model.parameters():
@@ -180,7 +180,7 @@ class FP16Optimizer:
                 pointer += nelem
 
     def backward_loss(self, loss):
-        """ Scales and performs backward on the given loss
+        """Scales and performs backward on the given loss
 
         Args:
             loss (torch.nn.Module): The loss

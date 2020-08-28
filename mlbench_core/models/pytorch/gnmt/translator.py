@@ -54,7 +54,7 @@ class Translator:
         return targets
 
     def translate(self, src, trg):
-        """ Given a source a target tokenized tensors, outputs the
+        """Given a source a target tokenized tensors, outputs the
         non-tokenized translation from the model, as well as the non-tokenized target
 
         Args:

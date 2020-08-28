@@ -335,7 +335,7 @@ class Tracker(object):
             self.update_primary_metric(value)
 
     def update_primary_metric(self, new_metric_value):
-        """ Updates the primary (main) metric
+        """Updates the primary (main) metric
 
         Args:
             new_metric_value (number): The new value of the metric

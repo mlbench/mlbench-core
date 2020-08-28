@@ -5,7 +5,7 @@ from mlbench_core.api import ApiClient
 
 
 class LogMetrics(object):
-    """ Use to write metric values to the Dashboard API and to Trackers
+    """Use to write metric values to the Dashboard API and to Trackers
 
     Caches API client for performance reasons
     """
@@ -17,7 +17,7 @@ class LogMetrics(object):
 
     @staticmethod
     def log(run_id, rank, epoch, metric_name, value):
-        """ Logs metrics to the Metrics API
+        """Logs metrics to the Metrics API
 
         Currently only logs inside of a cluster
 

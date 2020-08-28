@@ -55,7 +55,7 @@ class Partitioner(object):
 
 
 class DataPartitioner(Partitioner):
-    """ Partitions a dataset into different sized chunks.
+    """Partitions a dataset into different sized chunks.
 
     Used for train:test:validation split.
 

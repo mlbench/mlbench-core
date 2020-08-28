@@ -122,7 +122,7 @@ class Perplexity(MLBenchMetric):
 
 class DiceCoefficient(MLBenchMetric):
     def __call__(self, loss, output, target):
-        """ Computes the Dice Coefficient of a Binary classification problem
+        """Computes the Dice Coefficient of a Binary classification problem
 
         Args:
             loss (:obj:`torch.Tensor`): Not Used
@@ -148,7 +148,7 @@ class DiceCoefficient(MLBenchMetric):
 
 class F1Score(MLBenchMetric):
     def __init__(self, threshold=0.5, eps=1e-9):
-        """ F1-Score metric
+        """F1-Score metric
 
         Args:
             threshold (float): Threshold for prediction probability
@@ -158,7 +158,7 @@ class F1Score(MLBenchMetric):
         self.eps = eps
 
     def __call__(self, loss, output, target):
-        """ Computes the F1-Score of a Binary classification problem
+        """Computes the F1-Score of a Binary classification problem
 
         Args:
             loss (:obj:`torch.Tensor`): Not Used
@@ -192,7 +192,7 @@ class BLEUScore(MLBenchMetric):
         self.use_raw = use_raw
 
     def __call__(self, loss, output, target):
-        """ Computes the BLEU score of a translation task
+        """Computes the BLEU score of a translation task
 
         Args:
             loss (:obj:`torch.Tensor`): Not Used

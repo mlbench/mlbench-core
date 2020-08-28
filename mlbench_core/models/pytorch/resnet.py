@@ -395,7 +395,7 @@ def resnet18_bkj(num_classes):
 
 
 def get_resnet_model(model, version, dtype, num_classes=1000, use_cuda=False):
-    """ Create a resnet model
+    """Create a resnet model
 
     Args:
         model (str): The name of the model, e.g. `resnet18`

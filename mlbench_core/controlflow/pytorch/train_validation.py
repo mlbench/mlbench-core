@@ -95,7 +95,7 @@ class TrainValidation(object):
             self.tracker = Tracker(metrics, run_id, rank)
 
     def _get_dataloader_stats(self, dataloader_train, dataloader_val):
-        """ Sets the stats for the supplied dataloaders
+        """Sets the stats for the supplied dataloaders
 
         Args:
             dataloader_train (:obj:`torch.utils.data.DataLoader`): The train set
@@ -239,7 +239,7 @@ def train_round(
     max_batch_per_epoch=None,
     tracker=None,
 ):
-    """ Performs max_batch_per_epoch batches of training (or full trainset if
+    """Performs max_batch_per_epoch batches of training (or full trainset if
     not specified)
 
     Args:
@@ -301,7 +301,10 @@ def train_round(
             scheduler.step()
 
         metrics_results = compute_train_batch_metrics(
-            loss.item(), output, target, metrics,
+            loss.item(),
+            output,
+            target,
+            metrics,
         )
 
         if tracker:

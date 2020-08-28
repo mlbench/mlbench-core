@@ -66,7 +66,11 @@ setup(
         "Programming Language :: Python :: 3.6",
     ],
     description="A public and reproducible collection of reference implementations and benchmark suite for distributed machine learning systems.",
-    entry_points={"console_scripts": ["mlbench=mlbench_core.cli:cli_group",],},
+    entry_points={
+        "console_scripts": [
+            "mlbench=mlbench_core.cli:cli_group",
+        ],
+    },
     install_requires=requirements,
     license="Apache Software License 2.0",
     long_description=readme + "\n\n" + history,

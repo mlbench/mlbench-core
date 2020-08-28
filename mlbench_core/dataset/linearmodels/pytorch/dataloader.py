@@ -249,7 +249,7 @@ def get_dataset_info(name):
 
 
 def maybe_download_lmdb(name, data_type, dataset_dir):
-    """ Downloads the given dataset
+    """Downloads the given dataset
 
     Args:
         name (str): Name of the dataset, one of

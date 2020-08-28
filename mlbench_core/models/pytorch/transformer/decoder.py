@@ -69,7 +69,8 @@ class TransformerDecoder(nn.Module):
         # embed positions
         positions = (
             self.embed_positions(
-                prev_output_tokens, incremental_state=incremental_state,
+                prev_output_tokens,
+                incremental_state=incremental_state,
             )
             if self.embed_positions is not None
             else None
@@ -132,7 +133,8 @@ class TransformerDecoder(nn.Module):
         def apply_reorder_incremental_state(module):
             if module != self and hasattr(module, "reorder_incremental_state"):
                 module.reorder_incremental_state(
-                    incremental_state, new_order,
+                    incremental_state,
+                    new_order,
                 )
 
         self.apply(apply_reorder_incremental_state)
