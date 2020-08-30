@@ -44,7 +44,7 @@ test_requirements = [
     "pre-commit",
     "pytest>=3",
     "pytest-black==0.3.9",
-    "pytest-mock==3.1.1",
+    "pytest-mock==3.3.1",
     "wcwidth==0.1.9",
 ]
 
