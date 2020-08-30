@@ -21,7 +21,7 @@ requirements = [
     "google-auth==1.18.0",
     "google-cloud==0.34.0",
     "google-cloud-container==1.0.1",
-    "grpcio==1.29.0",
+    "grpcio==1.31.0",
     "kubernetes==11.0.0",
     "matplotlib==3.2.1",
     "oauth2client==4.1.3",
