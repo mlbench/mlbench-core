@@ -45,7 +45,7 @@ test_requirements = [
     "pytest>=3",
     "pytest-black==0.3.9",
     "pytest-mock==3.3.1",
-    "wcwidth==0.1.9",
+    "wcwidth==0.2.5",
 ]
 
 extras = {"test": test_requirements}
