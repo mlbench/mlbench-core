@@ -1,5 +1,5 @@
 black==19.10b0
 freezegun==0.3.15
 isort==5.4.2
-pytest-black==0.3.9
+pytest-black==0.3.10
 pytest-mock==3.3.1
