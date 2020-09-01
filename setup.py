@@ -17,7 +17,7 @@ requirements = [
     "Click>=6.0",
     "deprecation>=2.0.6",
     "dill==0.3.2",
-    "google-api-python-client==1.9.3",
+    "google-api-python-client==1.11.0",
     "google-auth==1.18.0",
     "google-cloud==0.34.0",
     "google-cloud-container==1.0.1",
