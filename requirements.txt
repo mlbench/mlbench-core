@@ -17,6 +17,6 @@ matplotlib==3.2.1
 spacy==2.3.2
 tabulate==0.8.7
 tensorflow==1.13.2
-torch==1.5.1
+torch==1.6.0
 torchtext==0.6.0
 torchvision==0.6.1
