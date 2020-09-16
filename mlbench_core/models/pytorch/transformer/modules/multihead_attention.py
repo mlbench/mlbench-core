@@ -13,7 +13,7 @@ from torch import nn
 from torch.autograd.variable import Variable
 from torch.nn import Parameter
 
-from mlbench_core.models.pytorch.transformer.modules import strided_batched_gemm
+import mlbench_core.models.pytorch.transformer.modules.strided_batched_gemm as strided_batched_gemm
 
 
 class QueryLinear(torch.autograd.Function):
@@ -525,11 +525,21 @@ class MultiheadAttention(nn.Module):
             self._set_input_buffer(incremental_state, input_buffer)
 
     def _get_input_buffer(self, incremental_state):
-        return get_incremental_state(self, incremental_state, "attn_state",) or {}
+        return (
+            get_incremental_state(
+                self,
+                incremental_state,
+                "attn_state",
+            )
+            or {}
+        )
 
     def _set_input_buffer(self, incremental_state, buffer):
         set_incremental_state(
-            self, incremental_state, "attn_state", buffer,
+            self,
+            incremental_state,
+            "attn_state",
+            buffer,
         )
 
 

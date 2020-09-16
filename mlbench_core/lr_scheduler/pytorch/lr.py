@@ -4,7 +4,7 @@ import math
 from bisect import bisect_right
 
 import numpy as np
-from torch.optim.lr_scheduler import LambdaLR
+from torch.optim.lr_scheduler import LambdaLR, ReduceLROnPlateau
 
 
 def const(optimizer):
@@ -14,7 +14,7 @@ def const(optimizer):
 def triangular_learning_rates(
     optimizer, base_lr, max_lr, cycle_length, scale_fn, extra, mode
 ):
-    """ Linearily Scale Learning Rate
+    """Linearily Scale Learning Rate
 
     If one cycle is applied with length smaller than the total number of iterations, then
     use small learning rate for the remaining iterations.
@@ -67,7 +67,7 @@ def triangular_learning_rates(
 def cyclical_learning_rates(
     optimizer, mode, gamma, cycle_length, base_lr, max_lr, extra_epochs
 ):
-    """ Cyclically Scale Learning Rate
+    """Cyclically Scale Learning Rate
 
     If one cycle is applied with length smaller than the total number of iterations, then
     use small learning rate for the remaining iterations.
@@ -131,7 +131,7 @@ def multistep_learning_rates_with_warmup(
     warmup_lr=None,
     warmup_linear_scaling=False,
 ):
-    """ Multistep Learning Rate Schedule with warmup
+    """Multistep Learning Rate Schedule with warmup
 
     In :cite:`goyal2017accurate`, warmup is used in order to apply the ``Linear Scaling Rule``.
     Starting from the ``base_lr``, lr gradually increases to ``base_lr * scaling_factor``.
@@ -196,20 +196,17 @@ def multistep_learning_rates_with_warmup(
 
 
 class MultistepLearningRatesWithWarmup(LambdaLR):
-    """ Multistep Learningrate Scheduler with Warmup Period
+    """Multistep Learningrate Scheduler with Warmup Period
 
     Args:
         optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
-        world_size (int): The total number of workers
         gamma (float): Decay factor for learning rate
         milestones (:obj:`list` of :obj:`int`): The epochs/steps at which to reduce the
             learning rate
-        lr (float): The initial learning rate
+        scaled_lr (float): The LR to reach after warmup
+        warmup_init_lr (float): The initial learning rate to use for the warmup epochs. Default: 0
         warmup_duration (int): The number of epochs to perform warmup before regular
-            lr scaling starts. Default: `None`
-        warmup_linear_scaling (bool): Whether or not to linearily scale lr during
-            warmup. Default: `False`
-        warmup_init_lr (float): The initial learning rate to use for the warmup epochs. Default: `None`
+            lr scaling starts. Default: 0
     Returns:
         A learning rate scheduler (:obj:`torch.optim.lr_scheduler.LambdaLR`)
     """
@@ -217,13 +214,11 @@ class MultistepLearningRatesWithWarmup(LambdaLR):
     def __init__(
         self,
         optimizer,
-        world_size,
         gamma,
         milestones,
-        lr,
-        warmup_duration,
-        warmup_linear_scaling=True,
-        warmup_init_lr=None,
+        scaled_lr,
+        warmup_init_lr=0,
+        warmup_duration=0,
     ):
         if list(milestones) != sorted(milestones):
             raise ValueError(
@@ -241,21 +236,21 @@ class MultistepLearningRatesWithWarmup(LambdaLR):
         self.gamma = gamma
         self.milestones = milestones
         self.warmup_duration = warmup_duration
-        self.warmup_init_lr = warmup_init_lr or lr
+        self.warmup_init_lr = warmup_init_lr
 
-        scaling_factor = world_size if warmup_linear_scaling else 1
-        self.warmup_scaled_lr = scaling_factor * lr
+        self.warmup_scaled_lr = scaled_lr
 
         # overwrite initial lr
-        self.base_lr = lr
+        self.base_lr = warmup_init_lr if warmup_duration > 0 else scaled_lr
         for group in self.optimizer.param_groups:
             group["initial_lr"] = self.base_lr
+            group["lr"] = self.base_lr
 
         super(MultistepLearningRatesWithWarmup, self).__init__(self.optimizer, self.f)
 
     def f(self, duration):
         # warmup_lr => lr or lr * world_size => ....
-        if duration <= self.warmup_duration:
+        if duration <= self.warmup_duration and self.warmup_duration > 0:
             progress = duration / self.warmup_duration
             lr = progress * self.warmup_scaled_lr + (1 - progress) * self.warmup_init_lr
         else:
@@ -265,8 +260,96 @@ class MultistepLearningRatesWithWarmup(LambdaLR):
         return lr / self.base_lr
 
 
+class ReduceLROnPlateauWithWarmup(ReduceLROnPlateau):
+    """ReduceLROnPlateau but with a linear warm-up period.
+
+    Args:
+        optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
+        warmup_init_lr (float): LR at beginning of warm-up
+        scaled_lr (float): LR at end of warm-up
+        warmup_epochs (int): Number of epochs for warm-up
+        batches_per_epoch (int, optional): Number of batches per epoch if we want a warm-up per batch
+        **kwargs: Arguments for ReduceLROnPlateau
+    """
+
+    def __init__(
+        self,
+        optimizer,
+        warmup_init_lr,
+        scaled_lr,
+        warmup_epochs,
+        batches_per_epoch=None,
+        **kwargs
+    ):
+        self.warmup_epochs = warmup_epochs
+        self.warmup_duration = warmup_epochs * (
+            batches_per_epoch or 1
+        )  # To get finer warmup
+        self.warmup_init_lr = warmup_init_lr
+
+        self.scaled_lr = scaled_lr
+        self.optimizer = optimizer
+
+        self.batch_idx = 0
+        self.finished_warmup = warmup_epochs <= 0  # If no warmup
+
+        self.base_lr = scaled_lr if self.finished_warmup else warmup_init_lr
+        self._set_lr(self.base_lr)
+
+        super(ReduceLROnPlateauWithWarmup, self).__init__(optimizer, **kwargs)
+
+    def batch_step(self):
+        """Function to call when the warm-up is per batch.
+
+        This function will change the learning rate to
+        ``
+        progress = batch_idx / warmup_duration
+        new_lr = progress * scaled_lr + (1 - progress) * warmup_init_lr
+        ``
+        """
+        if self.batch_idx >= self.warmup_duration:
+            return
+        else:
+            self.batch_idx += 1
+            progress = self.batch_idx / self.warmup_duration
+            new_lr = progress * self.scaled_lr + (1 - progress) * self.warmup_init_lr
+            self._set_lr(new_lr)
+
+        # Check if warmup done
+        self.finished_warmup = (
+            self.finished_warmup or self.batch_idx == self.warmup_duration
+        )
+
+    def step(self, metrics, epoch=None):
+        """Scheduler step at end of epoch.
+
+        This function will pass the arguments to ReduceLROnPlateau if the warmup is done, and call
+        `self.batch_step` if the warm-up is per epoch, to update the LR.
+
+        Args:
+            metrics (float): Current loss
+
+        """
+        if self.finished_warmup:  # Reduce only if we finished warmup
+            super(ReduceLROnPlateauWithWarmup, self).step(metrics, epoch=None)
+        else:  # Still in warmup
+            if epoch is not None:
+                raise ValueError("Epoch argument must be none")
+            self.last_epoch += 1
+
+            # This means the warm-up is per epoch not batch, so we need to update it
+            if (
+                self.warmup_epochs > 0 and self.warmup_epochs == self.warmup_duration
+            ):  # warmup per epoch
+                self.batch_step()
+
+    def _set_lr(self, new_lr):
+        for param_group in self.optimizer.param_groups:
+            param_group["lr"] = new_lr
+
+
 class SparsifiedSGDLR(LambdaLR):
-    """ Learning rate schedule for sparsifiedSGD (gamma / l2_coef * (t + shifting_param))
+    """Learning rate schedule for sparsifiedSGD (gamma / l2_coef * (t + shifting_param))
 
     Args:
         optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.

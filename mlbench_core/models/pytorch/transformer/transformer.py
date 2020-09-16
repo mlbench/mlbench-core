@@ -58,7 +58,10 @@ class TransformerModel(nn.Module):
         self.decoder = TransformerDecoder(args, trg_dict, decoder_embed_tokens)
 
     def forward(
-        self, src_tokens, src_lengths, prev_output_tokens,
+        self,
+        src_tokens,
+        src_lengths,
+        prev_output_tokens,
     ):
         """
         Run the forward pass of the transformer model.

@@ -1,7 +1,7 @@
 import torch
 from mosestokenizer import MosesDetokenizer
 
-from mlbench_core.dataset.nlp.pytorch.wmt16.wmt16_config import BOS, EOS
+import mlbench_core.dataset.nlp.pytorch.wmt16.wmt16_config as wmt16_config
 from mlbench_core.utils.pytorch.inference.beam_search import SequenceGenerator
 
 
@@ -28,9 +28,9 @@ class Translator:
 
         self.model = model
         self.tokenizer = trg_tokenizer
-        self.insert_target_start = [BOS]
-        self.insert_src_start = [BOS]
-        self.insert_src_end = [EOS]
+        self.insert_target_start = [wmt16_config.BOS]
+        self.insert_src_start = [wmt16_config.BOS]
+        self.insert_src_end = [wmt16_config.EOS]
         self.beam_size = beam_size
         self.trg_lang = trg_lang
 
@@ -54,7 +54,7 @@ class Translator:
         return targets
 
     def translate(self, src, trg):
-        """ Given a source a target tokenized tensors, outputs the
+        """Given a source a target tokenized tensors, outputs the
         non-tokenized translation from the model, as well as the non-tokenized target
 
         Args:

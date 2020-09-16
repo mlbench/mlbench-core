@@ -165,7 +165,11 @@ class SequenceGenerator(object):
         self.sampling_temperature = sampling_temperature
 
     def generate_batch_translations(
-        self, batch, maxlen_a=0.0, maxlen_b=None, prefix_size=0,
+        self,
+        batch,
+        maxlen_a=0.0,
+        maxlen_b=None,
+        prefix_size=0,
     ):
         """Yield individual translations of a batch.
 
@@ -530,7 +534,9 @@ class SequenceGenerator(object):
                 # finalize all active hypotheses once we hit maxlen
                 # pick the hypothesis with the highest prob of EOS right now
                 torch.sort(
-                    probs[:, self.eos], descending=True, out=(eos_scores, eos_bbsz_idx),
+                    probs[:, self.eos],
+                    descending=True,
+                    out=(eos_scores, eos_bbsz_idx),
                 )
                 num_remaining_sent -= len(
                     finalize_hypos(step, eos_bbsz_idx, eos_scores)
@@ -623,7 +629,10 @@ class SequenceGenerator(object):
             )
             active_bbsz_idx = buffer("active_bbsz_idx")
             torch.gather(
-                cand_bbsz_idx, dim=1, index=active_hypos, out=active_bbsz_idx,
+                cand_bbsz_idx,
+                dim=1,
+                index=active_hypos,
+                out=active_bbsz_idx,
             )
             active_scores = torch.gather(
                 cand_scores,
@@ -730,7 +739,10 @@ class SequenceGenerator(object):
             (list[str], list[str]): The translations and their targets for the given batch
         """
         translations = self.generate_batch_translations(
-            batch, maxlen_a=maxlen_a, maxlen_b=maxlen_b, prefix_size=prefix_size,
+            batch,
+            maxlen_a=maxlen_a,
+            maxlen_b=maxlen_b,
+            prefix_size=prefix_size,
         )
 
         ref_toks = []

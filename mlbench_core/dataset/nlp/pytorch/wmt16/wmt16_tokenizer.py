@@ -4,7 +4,7 @@ from functools import partial
 
 import torch
 
-from . import wmt16_config
+from mlbench_core.dataset.nlp.pytorch.wmt16 import wmt16_config
 
 
 def _pad_vocabulary(vocab, math):
@@ -44,7 +44,10 @@ class WMT16Tokenizer:
     """
 
     def __init__(
-        self, base_dir, math_precision=None, separator="@@",
+        self,
+        base_dir,
+        math_precision=None,
+        separator="@@",
     ):
         self.separator = separator
 

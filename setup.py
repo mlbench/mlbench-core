@@ -13,21 +13,23 @@ with open("CHANGELOG.md") as history_file:
 
 requirements = [
     "appdirs==1.4.4",
-    "boto3==1.14.2",
+    "boto3==1.14.50",
     "Click>=6.0",
     "deprecation>=2.0.6",
-    "dill==0.3.1.1",
+    "dill==0.3.2",
     "docker==4.2.0",
+    "dill==0.3.2",
     "google-api-python-client==1.9.3",
     "google-auth==1.18.0",
     "google-cloud==0.34.0",
-    "google-cloud-container==0.5.0",
-    "grpcio==1.29.0",
+    "google-cloud-container==1.0.1",
+    "grpcio==1.31.0",
     "kubernetes==11.0.0",
+    "matplotlib==3.2.1",
     "oauth2client==4.1.3",
     "pyhelm==2.14.5",
     "sklearn==0.0",
-    "spacy==2.2.4",
+    "spacy==2.3.2",
     "tabulate>=0.8.5",
     "torchtext==0.6.0",
 ]
@@ -40,12 +42,12 @@ test_requirements = [
     "black==19.10b0",
     "coverage",
     "freezegun==0.3.15",
-    "isort==4.3.21",
+    "isort==5.4.2",
     "pre-commit",
     "pytest>=3",
     "pytest-black==0.3.9",
-    "pytest-mock==3.1.1",
-    "wcwidth==0.1.9",
+    "pytest-mock==3.3.1",
+    "wcwidth==0.2.5",
 ]
 
 extras = {"test": test_requirements}
@@ -66,7 +68,11 @@ setup(
         "Programming Language :: Python :: 3.6",
     ],
     description="A public and reproducible collection of reference implementations and benchmark suite for distributed machine learning systems.",
-    entry_points={"console_scripts": ["mlbench=mlbench_core.cli:cli_group",],},
+    entry_points={
+        "console_scripts": [
+            "mlbench=mlbench_core.cli:cli_group",
+        ],
+    },
     install_requires=requirements,
     license="Apache Software License 2.0",
     long_description=readme + "\n\n" + history,
@@ -79,6 +85,6 @@ setup(
     tests_require=test_requirements,
     extras_require=extras,
     url="https://github.com/mlbench/mlbench_core",
-    version="2.4.0-dev241",
+    version="2.4.0-dev264",
     zip_safe=False,
 )

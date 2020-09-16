@@ -43,7 +43,7 @@ def time_to_accuracy_goal(threshold):
 
 
 def task1_time_to_accuracy_goal():
-    """ Accuracy over Time target for benchmark task 1: Image classification
+    """Accuracy over Time target for benchmark task 1: Image classification
 
     Target is 80% accuracy
 
@@ -54,7 +54,7 @@ def task1_time_to_accuracy_goal():
 
 
 def task1_time_to_accuracy_light_goal():
-    """ Accuracy over Time target for benchmark task 1: Image classification
+    """Accuracy over Time target for benchmark task 1: Image classification
     (Light)
 
     Light target is 70% accuracy

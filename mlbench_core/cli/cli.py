@@ -5,6 +5,7 @@ import configparser
 import json
 import os
 import pickle
+import re
 import subprocess
 import sys
 import tempfile
@@ -17,6 +18,7 @@ import boto3
 import botocore.exceptions
 import click
 import docker
+import matplotlib.pyplot as plt
 import urllib3
 import yaml
 from appdirs import user_data_dir
@@ -141,9 +143,10 @@ def cli_group(args=None):
 @click.argument("name", type=str)
 @click.argument("num_workers", nargs=-1, type=int, metavar="num-workers")
 @click.option("--gpu", "-g", default=False, type=bool, is_flag=True)
+@click.option("--num-cpus", "-c", default=4, type=int)
 @click.option("--light", "-l", default=False, type=bool, is_flag=True)
 @click.option("--dashboard-url", "-u", default=None, type=str)
-def run(name, num_workers, gpu, light, dashboard_url):
+def run(name, num_workers, gpu, num_cpus, light, dashboard_url):
     """Start a new run for a benchmark image"""
     current_run_inputs = {}
 
@@ -228,6 +231,7 @@ def run(name, num_workers, gpu, light, dashboard_url):
 
     benchmark["gpu_enabled"] = gpu
     benchmark["light_target"] = light
+    benchmark["num_cpus"] = num_cpus - 1
 
     loaded = setup_client_from_config()
 
@@ -319,6 +323,144 @@ def status(name, dashboard_url):
         )
     else:
         click.echo("No Validation Precision Data yet")
+
+
+@cli_group.command()
+@click.argument("folder", type=click.Path(exists=False, file_okay=False, dir_okay=True))
+@click.option(
+    "--filter", "-f", default=None, type=str, help="String filter to filter runs"
+)
+@click.option("--dashboard-url", "-u", default=None, type=str)
+def charts(folder, filter, dashboard_url):
+    """Chart the results of benchmark runs
+
+    Save generated charts in FOLDER
+    """
+    folder = Path(folder)
+    if not folder.exists():
+        folder.mkdir(parents=True)
+    loaded = setup_client_from_config()
+
+    client = ApiClient(in_cluster=False, url=dashboard_url, load_config=not loaded)
+
+    ret = client.get_runs()
+    runs = ret.result().json()
+    runs = [r for r in runs if r["state"] == "finished"]
+
+    if filter:
+        runs = [r for r in runs if filter in r["name"]]
+
+    options = {i: r for i, r in enumerate(runs, start=0)}
+
+    if len(options) < 2:
+        click.echo("At least two finished runs are needed to create a summary")
+        return
+
+    options["all"] = {"name": "*all runs*"}
+
+    prompt = 'Select the runs to generate a summary for (e.g. "0 1 2"): \n\t{}'.format(
+        "\n\t".join("{} [{}]".format(r["name"], i) for i, r in options.items())
+    )
+
+    choice = click.prompt(
+        prompt,
+        default=0,
+        type=click.Choice([options.keys()]),
+        show_choices=False,
+        value_proc=lambda x: runs
+        if "all" in x
+        else [options[int(i)] for i in x.split(" ")],
+    )
+
+    if len(choice) < 2:
+        click.echo("At least two finished runs are needed to create a summary")
+        return
+
+    results = []
+
+    def _get_metric(name, run):
+        """Gets a metric from the dashboard."""
+        name = "global_cum_{} @ 0".format(name)
+        return float(
+            client.get_run_metrics(run["id"], metric_filter=name, last_n=1)
+            .result()
+            .json()[name][0]["value"]
+        )
+
+    for run in choice:
+        agg = _get_metric("agg", run)
+
+        backprop = _get_metric("backprop", run)
+
+        batch_load = _get_metric("batch_load", run)
+
+        comp_loss = _get_metric("comp_loss", run)
+
+        comp_metrics = _get_metric("comp_metrics", run)
+
+        fwd_pass = _get_metric("fwd_pass", run)
+
+        opt_step = _get_metric("opt_step", run)
+
+        compute = (
+            fwd_pass
+            + comp_loss
+            + backprop
+            + opt_step
+            + (agg if run["num_workers"] == 1 else 0)
+        )
+        communicate = agg if run["num_workers"] != 1 else 0
+
+        results.append(
+            (
+                run["name"],
+                compute,
+                communicate,
+                comp_metrics,
+                batch_load,
+                str(run["num_workers"]),
+            )
+        )
+
+    results = sorted(results, key=lambda x: x[5])
+    names, compute, communicate, metrics, batch_load, num_workers = zip(*results)
+
+    width = 0.35
+    fig, ax = plt.subplots()
+
+    ax.bar(num_workers, compute, width, label="Compute")
+    ax.bar(num_workers, communicate, width, label="Communication")
+
+    ax.set_ylabel("Time (s)")
+    ax.set_title("Total time by number of workers")
+    ax.legend()
+    plt.savefig(folder / "total_time.png", dpi=150)
+
+    fig, ax = plt.subplots()
+
+    combined = [c + r for _, c, r, _, _, _ in results]
+
+    speedup = [combined[0] / c for c in combined]
+
+    ax.bar(num_workers, speedup, width)
+
+    ax.set_ylabel("Speedup factor")
+    ax.set_title("Speedup")
+    plt.savefig(folder / "speedup.png", dpi=150)
+
+    fig, ax = plt.subplots()
+
+    ax.bar(num_workers, compute, width, label="Compute")
+    ax.bar(num_workers, communicate, width, label="Communication")
+    ax.bar(num_workers, metrics, width, label="Metrics Computation")
+    ax.bar(num_workers, batch_load, width, label="Batch Loading")
+
+    ax.set_ylabel("Time (s)")
+    ax.set_title("Total time by number of workers")
+    ax.legend()
+    plt.savefig(folder / "time_for_all_phases.png", dpi=150)
+
+    click.echo("Summary created in {}".format(folder))
 
 
 @cli_group.command()
@@ -498,9 +640,9 @@ def delete_cluster():
 @click.option("--project", "-p", default=None, type=str)
 @click.option("--zone", "-z", default="europe-west1-b", type=str)
 def delete_gcloud(name, zone, project):
-    from google.cloud import container_v1
     import google.auth
     from google.auth.exceptions import DefaultCredentialsError
+    from google.cloud import container_v1
 
     try:
         credentials, default_project = google.auth.default()
@@ -635,9 +777,9 @@ def create_gcloud(
     preemptible,
     custom_value,
 ):
-    from google.cloud import container_v1
     import google.auth
     from google.auth.exceptions import DefaultCredentialsError
+    from google.cloud import container_v1
     from googleapiclient import discovery, http
 
     try:
@@ -700,15 +842,21 @@ def create_gcloud(
             machine_type=machine_type,
             disk_size_gb=disk_size,
             preemptible=preemptible,
-            oauth_scopes=["https://www.googleapis.com/auth/devstorage.full_control",],
+            oauth_scopes=[
+                "https://www.googleapis.com/auth/devstorage.full_control",
+            ],
             **extraargs,
         ),
         addons_config=container_v1.types.AddonsConfig(
-            http_load_balancing=container_v1.types.HttpLoadBalancing(disabled=True,),
+            http_load_balancing=container_v1.types.HttpLoadBalancing(
+                disabled=True,
+            ),
             horizontal_pod_autoscaling=container_v1.types.HorizontalPodAutoscaling(
                 disabled=True,
             ),
-            kubernetes_dashboard=container_v1.types.KubernetesDashboard(disabled=True,),
+            kubernetes_dashboard=container_v1.types.KubernetesDashboard(
+                disabled=True,
+            ),
             network_policy_config=container_v1.types.NetworkPolicyConfig(
                 disabled=False,
             ),
@@ -892,11 +1040,8 @@ def create_gcloud(
 @click.argument("release", type=str)
 @click.option("--kubernetes-version", "-k", type=str, default="1.15")
 @click.option("--machine-type", "-t", default="t2.medium", type=str)
-@click.option("--disk-size", "-d", default=50, type=int)
 @click.option("--num-cpus", "-c", default=1, type=int)
 @click.option("--num-gpus", "-g", default=0, type=int)
-@click.option("--gpu-type", default="nvidia-tesla-k80", type=str)
-@click.option("--region", "-z", default="us-east-1", type=str)
 @click.option("--custom-value", "-v", multiple=True)
 @click.option("--ami-id", "-a", default="ami-06d4f570358b1b626", type=str)
 @click.option("--ssh-key", "-a", default="eksNodeKey", type=str)
@@ -905,11 +1050,8 @@ def create_aws(
     release,
     kubernetes_version,
     machine_type,
-    disk_size,
     num_cpus,
     num_gpus,
-    gpu_type,
-    region,
     custom_value,
     ami_id,
     ssh_key,
@@ -960,7 +1102,10 @@ def create_aws(
     # ensure that public IP addresses are assigned on launch in each subnet
     for subnet in subnets:
         ec2.modify_subnet_attribute(
-            MapPublicIpOnLaunch={"Value": True,}, SubnetId=subnet,
+            MapPublicIpOnLaunch={
+                "Value": True,
+            },
+            SubnetId=subnet,
         )
 
     # create a role and assign the policy needed for creating the EKS cluster
@@ -1236,7 +1381,11 @@ def create_aws(
             {
                 "FromPort": mlbench_port,
                 "IpProtocol": "tcp",
-                "IpRanges": [{"CidrIp": "0.0.0.0/0",},],
+                "IpRanges": [
+                    {
+                        "CidrIp": "0.0.0.0/0",
+                    },
+                ],
                 "ToPort": mlbench_port,
             },
         ],
@@ -1676,7 +1825,10 @@ def setup_aws_client_from_config(config):
         ],
         "contexts": [
             {
-                "context": {"cluster": cluster_arn, "user": cluster_arn,},
+                "context": {
+                    "cluster": cluster_arn,
+                    "user": cluster_arn,
+                },
                 "name": cluster_arn,
             }
         ],
