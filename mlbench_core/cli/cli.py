@@ -5,7 +5,6 @@ import configparser
 import json
 import os
 import pickle
-import re
 import subprocess
 import sys
 import tempfile
@@ -25,12 +24,11 @@ from appdirs import user_data_dir
 from kubernetes import client
 from kubernetes import config as kube_config
 from kubernetes.client.rest import ApiException
-from pyhelm.chartbuilder import ChartBuilder
-from pyhelm.tiller import Tiller
 from tabulate import tabulate
 
 import mlbench_core
 from mlbench_core.api import MLBENCH_BACKENDS, MLBENCH_IMAGES, ApiClient
+from mlbench_core.cli.utils import create_tiller, deploy_chart, deploy_tiller
 
 GCLOUD_NVIDIA_DAEMONSET = (
     "https://raw.githubusercontent.com/"
@@ -39,85 +37,17 @@ GCLOUD_NVIDIA_DAEMONSET = (
     "daemonset-preloaded.yaml"
 )
 
-
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-TILLER_MANIFEST_DEPLOYMENT = """apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  creationTimestamp: null
-  labels:
-    app: helm
-    name: tiller
-  name: tiller-deploy
-  namespace: kube-system
-spec:
-  replicas: 1
-  strategy: {}
-  template:
-    metadata:
-      creationTimestamp: null
-      labels:
-        app: helm
-        name: tiller
-    spec:
-      serviceAccount: tiller
-      containers:
-      - env:
-        - name: TILLER_NAMESPACE
-          value: kube-system
-        - name: TILLER_HISTORY_MAX
-          value: '0'
-        image: gcr.io/kubernetes-helm/tiller:v2.14.3
-        imagePullPolicy: IfNotPresent
-        livenessProbe:
-          httpGet:
-            path: /liveness
-            port: 44135
-          initialDelaySeconds: 1
-          timeoutSeconds: 1
-        name: tiller
-        ports:
-        - containerPort: 44134
-          name: tiller
-        - containerPort: 44135
-          name: http
-        readinessProbe:
-          httpGet:
-            path: /readiness
-            port: 44135
-          initialDelaySeconds: 1
-          timeoutSeconds: 1
-        resources: {}
-status: {}"""
 
-TILLER_MANIFEST_SERVICE = """apiVersion: v1
-kind: Service
-metadata:
-  creationTimestamp: null
-  labels:
-    app: helm
-    name: tiller
-  name: tiller-deploy
-  namespace: kube-system
-spec:
-  ports:
-  - name: tiller
-    port: 44134
-    targetPort: tiller
-  selector:
-    app: helm
-    name: tiller
-  type: ClusterIP
-status:
-  loadBalancer: {}"""
 
+KIND_NODE_IMAGE = "kindest/node:v1.15.12@sha256:d9b939055c1e852fe3d86955ee24976cab46cba518abcb8b13ba70917e6547a6"
 KIND_CONFIG = """
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:{reg_port}"]
-    endpoint = ["http://{reg_ip}:{reg_port}"]
+    endpoint = ["http://{reg_name}:{reg_port}"]
 kubeadmConfigPatches:
 - |
   kind: ClusterConfiguration
@@ -128,6 +58,7 @@ kubeadmConfigPatches:
       "runtime-config": "apps/v1beta1=true,apps/v1beta2=true,extensions/v1beta1/daemonsets=true,extensions/v1beta1/deployments=true,extensions/v1beta1/replicasets=true,extensions/v1beta1/networkpolicies=true,extensions/v1beta1/podsecuritypolicies=true"
 nodes:
 - role: control-plane
+  image: {kind_node_image}
 {workers_config}
 """
 
@@ -682,6 +613,7 @@ def delete_gcloud(name, zone, project):
 @delete_cluster.command("kind")
 @click.argument("name", type=str)
 def delete_kind(name):
+    # Delete cluster using kind
     p = subprocess.Popen(
         ["kind", "delete", "cluster", "--name", name],
         stdout=subprocess.PIPE,
@@ -697,6 +629,17 @@ def delete_kind(name):
         )
 
     delete_kind_cluster(name)
+
+    # Disconnect from local registry
+    docker_client = docker.from_env()
+
+    kind_network = [x for x in docker_client.networks.list() if x.name == "kind"]
+    if len(kind_network) == 0:
+        raise ValueError("Kind network not found")
+    kind_network = kind_network[0]
+
+    kind_network.disconnect("kind-registry")
+
     click.echo("Cluster deleted.")
 
 
@@ -897,59 +840,10 @@ def create_gcloud(
             k8s_client.create_namespaced_daemon_set("kube-system", body=dep)
 
     # create tiller service account
-    client.CoreV1Api().create_namespaced_service_account(
-        "kube-system",
-        {
-            "apiVersion": "v1",
-            "kind": "ServiceAccount",
-            "metadata": {
-                "name": "tiller",
-                "generateName": "tiller",
-                "namespace": "kube-system",
-            },
-        },
-    )
-
-    client.RbacAuthorizationV1beta1Api().create_cluster_role_binding(
-        {
-            "apiVersion": "rbac.authorization.k8s.io/v1beta1",
-            "kind": "ClusterRoleBinding",
-            "metadata": {"name": "tiller"},
-            "roleRef": {
-                "apiGroup": "rbac.authorization.k8s.io",
-                "kind": "ClusterRole",
-                "name": "cluster-admin",
-            },
-            "subjects": [
-                {"kind": "ServiceAccount", "name": "tiller", "namespace": "kube-system"}
-            ],
-        }
-    )
+    create_tiller(client)
 
     # deploy tiller
-    tiller_service = yaml.safe_load(TILLER_MANIFEST_SERVICE)
-    tiller_dep = yaml.safe_load(TILLER_MANIFEST_DEPLOYMENT)
-    client.CoreV1Api().create_namespaced_service("kube-system", tiller_service)
-    client.ExtensionsV1beta1Api().create_namespaced_deployment(
-        "kube-system", tiller_dep
-    )
-
-    sleep(1)
-
-    pods = client.CoreV1Api().list_namespaced_pod(
-        namespace="kube-system", label_selector="app=helm"
-    )
-
-    tiller_pod = pods.items[0]
-
-    while True:
-        # Wait for tiller
-        resp = client.CoreV1Api().read_namespaced_pod(
-            namespace="kube-system", name=tiller_pod.metadata.name
-        )
-        if resp.status.phase != "Pending":
-            break
-        sleep(5)
+    tiller_pod = deploy_tiller(client)
 
     # kubernetes python doesn't currently support port forward
     # https://github.com/kubernetes-client/python/issues/166
@@ -975,46 +869,12 @@ def create_gcloud(
         ]
     ) as portforward:
 
-        sleep(5)
-        # install chart
-        tiller = Tiller("localhost")
-        chart = ChartBuilder(
-            {
-                "name": "mlbench-helm",
-                "source": {
-                    "type": "git",
-                    "location": "https://github.com/mlbench/mlbench-helm",
-                },
-            }
-        )
-
-        values = {
-            "limits": {"workers": num_workers - 1, "gpu": num_gpus, "cpu": num_cpus - 1}
-        }
-
-        if custom_value:
-            # merge custom values with values
-            for cv in custom_value:
-                key, v = cv.split("=", 1)
-
-                current = values
-                key_path = key.split(".")
-
-                for k in key_path[:-1]:
-                    if k not in current:
-                        current[k] = {}
-
-                    current = current[k]
-
-                current[key_path[-1]] = v
-
-        tiller.install_release(
-            chart.get_helm_chart(),
-            name=name,
-            wait=True,
-            dry_run=False,
-            namespace="default",
-            values=values,
+        deploy_chart(
+            num_workers=num_workers - 1,
+            num_gpus=num_gpus,
+            num_cpus=num_cpus - 1,
+            release_name=name,
+            custom_value=custom_value,
         )
 
         portforward.terminate()
@@ -1253,59 +1113,10 @@ def create_aws(
 
     kube_config.load_kube_config()
     # create tiller service account
-    client.CoreV1Api().create_namespaced_service_account(
-        "kube-system",
-        {
-            "apiVersion": "v1",
-            "kind": "ServiceAccount",
-            "metadata": {
-                "name": "tiller",
-                "generateName": "tiller",
-                "namespace": "kube-system",
-            },
-        },
-    )
-
-    client.RbacAuthorizationV1beta1Api().create_cluster_role_binding(
-        {
-            "apiVersion": "rbac.authorization.k8s.io/v1beta1",
-            "kind": "ClusterRoleBinding",
-            "metadata": {"name": "tiller"},
-            "roleRef": {
-                "apiGroup": "rbac.authorization.k8s.io",
-                "kind": "ClusterRole",
-                "name": "cluster-admin",
-            },
-            "subjects": [
-                {"kind": "ServiceAccount", "name": "tiller", "namespace": "kube-system"}
-            ],
-        }
-    )
+    create_tiller(client)
 
     # deploy tiller
-    tiller_service = yaml.safe_load(TILLER_MANIFEST_SERVICE)
-    tiller_dep = yaml.safe_load(TILLER_MANIFEST_DEPLOYMENT)
-    client.CoreV1Api().create_namespaced_service("kube-system", tiller_service)
-    client.ExtensionsV1beta1Api().create_namespaced_deployment(
-        "kube-system", tiller_dep
-    )
-
-    sleep(5)
-
-    pods = client.CoreV1Api().list_namespaced_pod(
-        namespace="kube-system", label_selector="app=helm"
-    )
-
-    tiller_pod = pods.items[0]
-
-    while True:
-        # Wait for tiller
-        resp = client.CoreV1Api().read_namespaced_pod(
-            namespace="kube-system", name=tiller_pod.metadata.name
-        )
-        if resp.status.phase != "Pending":
-            break
-        sleep(5)
+    tiller_pod = deploy_tiller(client)
 
     # kubernetes python doesn't currently support port forward
     # https://github.com/kubernetes-client/python/issues/166
@@ -1321,46 +1132,12 @@ def create_aws(
         ]
     ) as portforward:
 
-        sleep(5)
-        # install chart
-        tiller = Tiller("localhost")
-        chart = ChartBuilder(
-            {
-                "name": "mlbench-helm",
-                "source": {
-                    "type": "git",
-                    "location": "https://github.com/mlbench/mlbench-helm",
-                },
-            }
-        )
-
-        values = {
-            "limits": {"workers": num_workers - 1, "gpu": num_gpus, "cpu": num_cpus}
-        }
-
-        if custom_value:
-            # merge custom values with values
-            for cv in custom_value:
-                key, v = cv.split("=", 1)
-
-                current = values
-                key_path = key.split(".")
-
-                for k in key_path[:-1]:
-                    if k not in current:
-                        current[k] = {}
-
-                    current = current[k]
-
-                current[key_path[-1]] = v
-
-        tiller.install_release(
-            chart.get_helm_chart(),
-            name=name,
-            wait=True,
-            dry_run=False,
-            namespace="default",
-            values=values,
+        deploy_chart(
+            num_workers=num_workers - 1,
+            num_gpus=num_gpus,
+            num_cpus=num_cpus - 1,
+            release_name=name,
+            custom_value=custom_value,
         )
 
         portforward.terminate()
@@ -1396,6 +1173,7 @@ def create_aws(
 @create_cluster.command("kind")
 @click.argument("num_workers", type=int, metavar="num-workers")
 @click.argument("release", type=str)
+@click.option("--chart-location", "-cl", default=None, type=str)
 @click.option("--registry_name", "-r", default="kind-registry", type=str)
 @click.option("--registry_port", "-p", default="5000", type=str)
 @click.option("--host_port", "-h", default="5000", type=str)
@@ -1405,6 +1183,7 @@ def create_aws(
 def create_kind(
     num_workers,
     release,
+    chart_location,
     registry_name,
     registry_port,
     host_port,
@@ -1424,7 +1203,7 @@ def create_kind(
 
     if not registry_exists:
         # create local registry
-        click.echo("Creating registry {}".format((registry_name)))
+        click.echo("Creating registry {}".format(registry_name))
         docker_client.containers.run(
             image="registry:2",
             name=registry_name,
@@ -1437,23 +1216,26 @@ def create_kind(
                 raise click.UsageError("Failed to create local registry")
             sleep(1)
 
-    reg_ip = docker_client.containers.get(registry_name).attrs["NetworkSettings"][
-        "IPAddress"
-    ]
-
     # create cluster
     with tempfile.TemporaryDirectory() as temp_directory:
         kind_config_file_location = os.path.join(temp_directory, "kind_config.yml")
 
         with open(kind_config_file_location, "w") as f:
-            workers_config = "\n".join(["- role: worker"] * (num_workers - 1))
+            workers_config = "\n".join(
+                ["- role: worker\n  image: {kind_node_image}"] * (num_workers - 1)
+            )
             f.write(
                 KIND_CONFIG.format(
-                    reg_port=registry_port, reg_ip=reg_ip, workers_config=workers_config
+                    reg_port=registry_port,
+                    reg_name=registry_name,
+                    workers_config=workers_config.format(
+                        kind_node_image=KIND_NODE_IMAGE
+                    ),
+                    kind_node_image=KIND_NODE_IMAGE,
                 )
             )
 
-        click.echo("Creating cluster {}".format((name)))
+        click.echo("Creating cluster {}".format(name))
 
         p = subprocess.Popen(
             [
@@ -1476,66 +1258,22 @@ def create_kind(
                     error.decode()
                 )
             )
+    # Connect local registry to kind cluster
+    kind_network = [x for x in docker_client.networks.list() if x.name == "kind"]
+    if len(kind_network) == 0:
+        raise ValueError("Kind network not found")
+    kind_network = kind_network[0]
+    kind_network.connect(registry_name)
 
     kube_config.load_kube_config(context="kind-{}".format(name))
 
     click.echo("Creating service account")
 
     # create tiller service account
-    client.CoreV1Api().create_namespaced_service_account(
-        "kube-system",
-        {
-            "apiVersion": "v1",
-            "kind": "ServiceAccount",
-            "metadata": {
-                "name": "tiller",
-                "generateName": "tiller",
-                "namespace": "kube-system",
-            },
-        },
-    )
-
-    client.RbacAuthorizationV1beta1Api().create_cluster_role_binding(
-        {
-            "apiVersion": "rbac.authorization.k8s.io/v1beta1",
-            "kind": "ClusterRoleBinding",
-            "metadata": {"name": "tiller"},
-            "roleRef": {
-                "apiGroup": "rbac.authorization.k8s.io",
-                "kind": "ClusterRole",
-                "name": "cluster-admin",
-            },
-            "subjects": [
-                {"kind": "ServiceAccount", "name": "tiller", "namespace": "kube-system"}
-            ],
-        }
-    )
+    create_tiller(client)
 
     # deploy tiller
-    click.echo("Deploying Tiller")
-    tiller_service = yaml.safe_load(TILLER_MANIFEST_SERVICE)
-    tiller_dep = yaml.safe_load(TILLER_MANIFEST_DEPLOYMENT)
-    client.CoreV1Api().create_namespaced_service("kube-system", tiller_service)
-    client.ExtensionsV1beta1Api().create_namespaced_deployment(
-        "kube-system", tiller_dep
-    )
-
-    sleep(5)
-
-    pods = client.CoreV1Api().list_namespaced_pod(
-        namespace="kube-system", label_selector="app=helm"
-    )
-
-    tiller_pod = pods.items[0]
-
-    while True:
-        # Wait for tiller
-        resp = client.CoreV1Api().read_namespaced_pod(
-            namespace="kube-system", name=tiller_pod.metadata.name
-        )
-        if resp.status.phase != "Pending":
-            break
-        sleep(5)
+    tiller_pod = deploy_tiller(client)
 
     ports = 44134
     with subprocess.Popen(
@@ -1549,47 +1287,22 @@ def create_kind(
         ]
     ) as portforward:
 
-        sleep(5)
-        # install chart
-        tiller = Tiller("localhost")
-        chart = ChartBuilder(
-            {
-                "name": "mlbench-helm",
-                "source": {
-                    "type": "git",
-                    "location": "https://github.com/mlbench/mlbench-helm",
-                },
-            }
-        )
-
-        values = {
-            "limits": {"workers": num_workers - 1, "gpu": num_gpus, "cpu": num_cpus}
+        custom_chart = {
+            "name": "mlbench-helm",
+            "source": {
+                "type": "git" if chart_location is None else "directory",
+                "location": "https://github.com/mlbench/mlbench-helm"
+                if chart_location is None
+                else chart_location,
+            },
         }
-
-        if custom_value:
-            # merge custom values with values
-            for cv in custom_value:
-                key, v = cv.split("=", 1)
-
-                current = values
-                key_path = key.split(".")
-
-                for k in key_path[:-1]:
-                    if k not in current:
-                        current[k] = {}
-
-                    current = current[k]
-
-                current[key_path[-1]] = v
-
-        click.echo("Installing release")
-        tiller.install_release(
-            chart.get_helm_chart(),
-            name=name,
-            wait=True,
-            dry_run=False,
-            namespace="default",
-            values=values,
+        deploy_chart(
+            num_workers=num_workers - 1,
+            num_gpus=num_gpus,
+            num_cpus=num_cpus,
+            release_name=name,
+            custom_value=custom_value,
+            custom_chart=custom_chart,
         )
 
         portforward.terminate()
@@ -1622,6 +1335,9 @@ def get_config():
 
     if not config.has_section("aws"):
         config.add_section("aws")
+
+    if not config.has_section("kind"):
+        config.add_section("kind")
 
     return config
 
@@ -1704,6 +1420,8 @@ def add_kind_cluster(name):
     if not config.has_section(section):
         config.add_section(section)
 
+    config.set(section, "cluster", name)
+
     write_config(config)
 
 
@@ -1741,14 +1459,14 @@ def setup_client_from_config():
 def setup_kind_client_from_config(config):
     """Setup a kubernrtes cluster for kind from current config."""
 
-    cluster = config.get("gke", "current-cluster", fallback=None)
+    cluster = config.get("kind", "current-cluster", fallback=None)
     if not cluster:
         raise click.UsageError(
             "No kind cluster selected, create a new one with `mlbench create-cluster`"
             " or set one with `mlbench set-cluster`"
         )
 
-    cluster = config.get("gke.{}".format(cluster), "cluster", fallback=None)
+    cluster = config.get("kind.{}".format(cluster), "cluster", fallback=None)
     if not cluster:
         return False
 
