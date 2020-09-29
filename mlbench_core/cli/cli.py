@@ -26,6 +26,7 @@ from kubernetes.client.rest import ApiException
 from pyhelm.chartbuilder import ChartBuilder
 from pyhelm.tiller import Tiller
 from tabulate import tabulate
+from google.api_core.exceptions import NotFound
 
 import mlbench_core
 from mlbench_core.api import MLBENCH_BACKENDS, MLBENCH_IMAGES, ApiClient
@@ -616,8 +617,16 @@ def delete_gcloud(name, zone, project):
     name_path = "projects/{}/locations/{}/".format(project, zone)
 
     cluster_path = "{}clusters/{}".format(name_path, name)
-
-    response = gclient.delete_cluster(None, None, None, name=cluster_path)
+    
+    try:
+        response = gclient.delete_cluster(None, None, None, name=cluster_path)
+    except NotFound as e:
+        click.echo("Exception from Google: " + str(e))
+        click.echo("Double-check your project, zone and cluster name")
+        click.echo(
+            "Try running 'gcloud container clusters list' to list all active clusters"
+        )
+        sys.exit(1)
 
     # wait for operation to complete
     while response.status < response.DONE:
@@ -715,6 +724,7 @@ def create_gcloud(
     from google.auth.exceptions import DefaultCredentialsError
     from google.cloud import container_v1
     from googleapiclient import discovery, http
+    from google.api_core.exceptions import AlreadyExists
 
     try:
         credentials, default_project = google.auth.default()
@@ -798,7 +808,17 @@ def create_gcloud(
         logging_service=None,
         monitoring_service=None,
     )
-    response = gclient.create_cluster(cluster, parent=name_path)
+    try:
+        response = gclient.create_cluster(cluster, parent=name_path)
+    except AlreadyExists as e:
+        click.echo("Exception from Google: " + str(e))
+        click.echo(
+            "A cluster with this name already exists in the specified project and zone"
+        )
+        click.echo(
+            "Try running 'gcloud container clusters list' to list all active clusters"
+        )
+        sys.exit(1)
 
     # wait for cluster to load
     while response.status < response.DONE:
