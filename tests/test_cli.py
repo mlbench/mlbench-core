@@ -5,7 +5,6 @@
 
 import pytest
 from click.testing import CliRunner
-from google.auth.exceptions import DefaultCredentialsError
 
 from mlbench_core.cli import cli_group
 
@@ -141,7 +140,10 @@ def create_gcloud_test_helper(mocker, gcloud_mock, args, option_dict=None):
             if k not in option_dict:
                 option_dict[k] = CREATE_GCLOUD_DEFAULTS[k]
 
-    result = runner.invoke(cli_group, ["create-cluster", "gcloud"] + cmd_line)
+    result = runner.invoke(
+        cli_group, ["create-cluster", "gcloud"] + cmd_line, catch_exceptions=False
+    )
+
     assert result.exit_code == 0
 
     cluster.assert_called_once()
@@ -223,18 +225,12 @@ def gcloud_mock(mocker, gcloud_auth):
         "discovery": mocker.patch("mlbench_core.cli.gcloud_utils.discovery"),
         "http": mocker.patch("mlbench_core.cli.gcloud_utils.http"),
         "apiclient": mocker.patch("mlbench_core.cli.cli.ApiClient"),
-        "k8sclient": mocker.patch("mlbench_core.cli.cli.kube_client"),
         "k8sclient_gcloud": mocker.patch("mlbench_core.cli.gcloud_utils.kube_client"),
         "deploy_chart": mocker.patch("mlbench_core.cli.cli.deploy_chart"),
         "create_kubeconfig": mocker.patch(
             "mlbench_core.cli.cli.create_kube_config_gcloud_entry",
         ),
-        "sleep": mocker.patch("time.sleep"),
-        "popen": mocker.patch("subprocess.Popen"),
-        "usrdatadir": mocker.patch("appdirs.user_data_dir"),
         "configparser": mocker.patch("configparser.ConfigParser"),
-        "makedirs": mocker.patch("os.makedirs"),
-        "pathexists": mocker.patch("os.path.exists"),
     }
 
 

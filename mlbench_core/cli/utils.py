@@ -27,7 +27,6 @@ def deploy_chart(
     sleep(5)
 
     # install chart
-    # tiller = Tiller("localhost")
     chart = ChartBuilder(
         {
             "name": "mlbench-helm",
@@ -58,6 +57,7 @@ def deploy_chart(
             current[key_path[-1]] = v
 
     chart_path = chart.get_chart(release_name, values)
+
     output = subprocess.check_output(
         [
             "kubectl",
