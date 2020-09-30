@@ -7,60 +7,38 @@ import os
 import pickle
 import subprocess
 import sys
-import tempfile
 from os.path import expanduser
 from pathlib import Path
 from time import sleep
-from urllib import request
 
 import boto3
 import botocore.exceptions
 import click
-import docker
 import matplotlib.pyplot as plt
 import urllib3
 import yaml
 from appdirs import user_data_dir
-from kubernetes import client
+from kubernetes import client as kube_client
 from kubernetes import config as kube_config
 from kubernetes.client.rest import ApiException
 from tabulate import tabulate
 
 import mlbench_core
 from mlbench_core.api import MLBENCH_BACKENDS, MLBENCH_IMAGES, ApiClient
-from mlbench_core.cli.utils import create_tiller, deploy_chart, deploy_tiller
-
-GCLOUD_NVIDIA_DAEMONSET = (
-    "https://raw.githubusercontent.com/"
-    "GoogleCloudPlatform/container-engine-accelerators/"
-    "stable/nvidia-driver-installer/cos/"
-    "daemonset-preloaded.yaml"
+from mlbench_core.cli.gcloud_utils import (
+    create_kube_config_gcloud_entry,
+    deploy_nvidia_daemonset,
+    gcloud_create_cluster,
+    gcloud_delete_cluster,
 )
+from mlbench_core.cli.kind_utils import (
+    create_local_registry,
+    kind_create_cluster,
+    kind_delete_cluster,
+)
+from mlbench_core.cli.utils import deploy_chart
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-
-KIND_NODE_IMAGE = "kindest/node:v1.15.12@sha256:d9b939055c1e852fe3d86955ee24976cab46cba518abcb8b13ba70917e6547a6"
-KIND_CONFIG = """
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-containerdConfigPatches:
-- |-
-  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:{reg_port}"]
-    endpoint = ["http://{reg_name}:{reg_port}"]
-kubeadmConfigPatches:
-- |
-  kind: ClusterConfiguration
-  metadata:
-    name: config
-  apiServer:
-    extraArgs:
-      "runtime-config": "apps/v1beta1=true,apps/v1beta2=true,extensions/v1beta1/daemonsets=true,extensions/v1beta1/deployments=true,extensions/v1beta1/replicasets=true,extensions/v1beta1/networkpolicies=true,extensions/v1beta1/podsecuritypolicies=true"
-nodes:
-- role: control-plane
-  image: {kind_node_image}
-{workers_config}
-"""
 
 
 @click.group()
@@ -571,74 +549,22 @@ def delete_cluster():
 @click.option("--project", "-p", default=None, type=str)
 @click.option("--zone", "-z", default="europe-west1-b", type=str)
 def delete_gcloud(name, zone, project):
-    import google.auth
-    from google.auth.exceptions import DefaultCredentialsError
-    from google.cloud import container_v1
-
-    try:
-        credentials, default_project = google.auth.default()
-    except DefaultCredentialsError:
-        raise click.UsageError(
-            "Couldn't find gcloud credentials. Install the gcloud"
-            " sdk ( https://cloud.google.com/sdk/docs/quickstart-linux ) and "
-            "run 'gcloud auth application-default login' to login and create "
-            "your credentials."
-        )
-
-    if not project:
-        project = default_project
-
-    # delete cluster
-    gclient = container_v1.ClusterManagerClient()
-
-    name_path = "projects/{}/locations/{}/".format(project, zone)
-
-    cluster_path = "{}clusters/{}".format(name_path, name)
-
-    response = gclient.delete_cluster(None, None, None, name=cluster_path)
-
-    # wait for operation to complete
-    while response.status < response.DONE:
-        response = gclient.get_operation(
-            None, None, None, name=name_path + "/" + response.name
-        )
-        sleep(1)
-
-    if response.status != response.DONE:
-        raise ValueError("Cluster deletion failed!")
-
+    gcloud_create_cluster(name, zone, project)
     delete_gcloud_cluster(name)
 
 
 @delete_cluster.command("kind")
 @click.argument("name", type=str)
 def delete_kind(name):
-    # Delete cluster using kind
-    p = subprocess.Popen(
-        ["kind", "delete", "cluster", "--name", name],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
+    # Get registry name
+    config = get_config()
+    registry_name = config.get("kind.{}".format(name), "registry_name")
 
-    _, error = p.communicate()
-    if p.returncode != 0:
-        raise click.UsageError(
-            "Failed to delete cluster with the following error:\n {}".format(
-                error.decode()
-            )
-        )
+    # Delete cluster
+    kind_delete_cluster(name, registry_name)
 
+    # Delete cluster from config
     delete_kind_cluster(name)
-
-    # Disconnect from local registry
-    docker_client = docker.from_env()
-
-    kind_network = [x for x in docker_client.networks.list() if x.name == "kind"]
-    if len(kind_network) == 0:
-        raise ValueError("Kind network not found")
-    kind_network = kind_network[0]
-
-    kind_network.disconnect("kind-registry")
 
     click.echo("Cluster deleted.")
 
@@ -696,7 +622,7 @@ def create_cluster():
 @create_cluster.command("gcloud")
 @click.argument("num_workers", type=int, metavar="num-workers")
 @click.argument("release", type=str)
-@click.option("--kubernetes-version", "-k", type=str, default="1.13")
+@click.option("--kubernetes-version", "-k", type=str, default="1.15")
 @click.option("--machine-type", "-t", default="n1-standard-4", type=str)
 @click.option("--disk-size", "-d", default=50, type=int)
 @click.option("--num-cpus", "-c", default=4, type=int)
@@ -706,6 +632,7 @@ def create_cluster():
 @click.option("--project", "-p", default=None, type=str)
 @click.option("--preemptible", "-e", is_flag=True)
 @click.option("--custom-value", "-v", multiple=True)
+@click.option("--chart-location", "-cl", default=None, type=str)
 def create_gcloud(
     num_workers,
     release,
@@ -719,11 +646,10 @@ def create_gcloud(
     project,
     preemptible,
     custom_value,
+    chart_location,
 ):
     import google.auth
     from google.auth.exceptions import DefaultCredentialsError
-    from google.cloud import container_v1
-    from googleapiclient import discovery, http
 
     try:
         credentials, default_project = google.auth.default()
@@ -735,149 +661,61 @@ def create_gcloud(
             "your credentials."
         )
 
-    assert num_workers >= 2, "Number of workers should be at least 2"
-
     if not project:
         project = default_project
 
-    # create cluster
-    gclient = container_v1.ClusterManagerClient()
-
     name = "{}-{}".format(release, num_workers)
-    name_path = "projects/{}/locations/{}/".format(project, zone)
+    name_path = "projects/{}/locations/{}/clusters/".format(project, zone)
 
-    extraargs = {}
+    click.echo("Creating Cluster")
 
-    if num_gpus > 0:
-        extraargs["accelerators"] = [
-            container_v1.types.AcceleratorConfig(
-                accelerator_count=num_gpus, accelerator_type=gpu_type
-            )
-        ]
-
-    # delete existing firewall, if any
-    firewalls = discovery.build("compute", "v1", cache_discovery=False).firewalls()
-
-    existing_firewalls = firewalls.list(project=project).execute()
-    fw_name = "{}-firewall".format(name)
-
-    if any(f["name"] == fw_name for f in existing_firewalls["items"]):
-        response = {}
-        while not hasattr(response, "status"):
-            try:
-                response = firewalls.delete(project=project, firewall=fw_name).execute()
-            except http.HttpError as e:
-                if e.resp.status == 404:
-                    response = {}
-                    break
-                click.echo("Wait for firewall to be available for deletion")
-                sleep(5)
-                response = {}
-        while hasattr(response, "status") and response.status < response.DONE:
-            response = gclient.get_operation(None, None, None, name=response.selfLink)
-            sleep(1)
-
-    # create cluster
-    cluster = container_v1.types.Cluster(
+    gclient, fw_name, firewalls = gcloud_create_cluster(
         name=name,
-        initial_node_count=num_workers,
-        node_config=container_v1.types.NodeConfig(
-            machine_type=machine_type,
-            disk_size_gb=disk_size,
-            preemptible=preemptible,
-            oauth_scopes=[
-                "https://www.googleapis.com/auth/devstorage.full_control",
-            ],
-            **extraargs,
-        ),
-        addons_config=container_v1.types.AddonsConfig(
-            http_load_balancing=container_v1.types.HttpLoadBalancing(
-                disabled=True,
-            ),
-            horizontal_pod_autoscaling=container_v1.types.HorizontalPodAutoscaling(
-                disabled=True,
-            ),
-            kubernetes_dashboard=container_v1.types.KubernetesDashboard(
-                disabled=True,
-            ),
-            network_policy_config=container_v1.types.NetworkPolicyConfig(
-                disabled=False,
-            ),
-        ),
-        logging_service=None,
-        monitoring_service=None,
+        name_path=name_path,
+        num_workers=num_workers,
+        num_gpus=num_gpus,
+        gpu_type=gpu_type,
+        machine_type=machine_type,
+        disk_size=disk_size,
+        preemptible=preemptible,
+        kubernetes_version=kubernetes_version,
+        project=project,
     )
-    response = gclient.create_cluster(cluster, parent=name_path)
 
-    # wait for cluster to load
-    while response.status < response.DONE:
-        response = gclient.get_operation(
-            None, None, None, name=name_path + "/" + response.name
-        )
-        sleep(1)
-
-    if response.status != response.DONE:
-        raise ValueError("Cluster creation failed!")
-
-    cluster = gclient.get_cluster(None, None, None, name=name_path + "/" + name)
-
+    cluster = gclient.get_cluster(None, None, None, name=os.path.join(name_path, name))
+    # Setup kube client
     auth_req = google.auth.transport.requests.Request()
     credentials.refresh(auth_req)
-    configuration = client.Configuration()
+    configuration = kube_client.Configuration()
     configuration.host = f"https://{cluster.endpoint}:443"
     configuration.verify_ssl = False
     configuration.api_key = {"authorization": "Bearer " + credentials.token}
-    client.Configuration.set_default(configuration)
+    kube_client.Configuration.set_default(configuration)
 
+    kube_context = create_kube_config_gcloud_entry(cluster, project)
     if num_gpus > 0:
-        with request.urlopen(GCLOUD_NVIDIA_DAEMONSET) as r:
-            dep = yaml.safe_load(r)
-            dep["spec"]["selector"] = {
-                "matchLabels": dep["spec"]["template"]["metadata"]["labels"]
-            }
-            dep = client.ApiClient()._ApiClient__deserialize(dep, "V1DaemonSet")
-            k8s_client = client.AppsV1Api()
-            k8s_client.create_namespaced_daemon_set("kube-system", body=dep)
+        deploy_nvidia_daemonset()
 
-    # create tiller service account
-    create_tiller(client)
+    custom_chart = {
+        "name": "mlbench-helm",
+        "source": {
+            "type": "git" if chart_location is None else "directory",
+            "location": "https://github.com/mlbench/mlbench-helm"
+            if chart_location is None
+            else chart_location,
+        },
+    }
 
-    # deploy tiller
-    tiller_pod = deploy_tiller(client)
-
-    # kubernetes python doesn't currently support port forward
-    # https://github.com/kubernetes-client/python/issues/166
-    ports = 44134
-
-    # resp = stream(
-    #     client.CoreV1Api().connect_get_namespaced_pod_portforward,
-    #     name=tiller_pod.metadata.name,
-    #     namespace=tiller_pod.metadata.namespace,
-    #     ports=ports
-    #     )
-
-    with subprocess.Popen(
-        [
-            "kubectl",
-            "port-forward",
-            "--namespace={}".format(tiller_pod.metadata.namespace),
-            tiller_pod.metadata.name,
-            "{0}:{0}".format(ports),
-            "--server={}".format(configuration.host),
-            "--token={}".format(credentials.token),
-            "--insecure-skip-tls-verify=true",
-        ]
-    ) as portforward:
-
-        deploy_chart(
-            num_workers=num_workers - 1,
-            num_gpus=num_gpus,
-            num_cpus=num_cpus - 1,
-            release_name=name,
-            custom_value=custom_value,
-        )
-
-        portforward.terminate()
+    click.echo("Deploying chart")
+    deploy_chart(
+        num_workers=num_workers - 1,
+        num_gpus=num_gpus,
+        num_cpus=num_cpus - 1,
+        release_name=name,
+        custom_value=custom_value,
+        custom_chart=custom_chart,
+        kube_context=kube_context,
+    )
 
     # open port in firewall
     mlbench_client = ApiClient(in_cluster=False, load_config=False)
@@ -1081,12 +919,12 @@ def create_aws(
             nodeInstanceRole = i["OutputValue"]
 
     # create config map to connect the nodes to the cluster
-    v1 = client.CoreV1Api()
+    v1 = kube_client.CoreV1Api()
     namespace = "kube-system"
     configMapName = "aws-auth"
 
     # Delete old config maps in case it exists
-    body = client.V1DeleteOptions()
+    body = kube_client.V1DeleteOptions()
     body.api_version = "v1"
     try:
         v1.delete_namespaced_config_map(
@@ -1096,7 +934,7 @@ def create_aws(
         pass
 
     # Create new config map
-    body = client.V1ConfigMap()
+    body = kube_client.V1ConfigMap()
     body.api_version = "v1"
     body.metadata = {}
     body.metadata["name"] = configMapName
@@ -1113,10 +951,10 @@ def create_aws(
 
     kube_config.load_kube_config()
     # create tiller service account
-    create_tiller(client)
-
-    # deploy tiller
-    tiller_pod = deploy_tiller(client)
+    # create_tiller()
+    #
+    # # deploy tiller
+    # tiller_pod = deploy_tiller()
 
     # kubernetes python doesn't currently support port forward
     # https://github.com/kubernetes-client/python/issues/166
@@ -1180,6 +1018,7 @@ def create_aws(
 @click.option("--num-cpus", "-c", default=1, type=int)
 @click.option("--num-gpus", "-g", default=0, type=int)
 @click.option("--custom-value", "-v", multiple=True)
+@click.option("--kubernetes-version", "-k", type=str, default="1.15")
 def create_kind(
     num_workers,
     release,
@@ -1190,124 +1029,44 @@ def create_kind(
     num_cpus,
     num_gpus,
     custom_value,
+    kubernetes_version,
 ):
     name = "{}-{}".format(release, num_workers)
 
-    docker_client = docker.from_env()
+    create_local_registry(registry_name, registry_port, host_port)
 
-    # check if local registry exists
-    existing_containers = [
-        container.name for container in docker_client.containers.list()
-    ]
-    registry_exists = registry_name in existing_containers
+    kind_create_cluster(
+        name=name,
+        num_workers=num_workers,
+        registry_name=registry_name,
+        registry_port=registry_port,
+        kubernetes_version=kubernetes_version,
+    )
 
-    if not registry_exists:
-        # create local registry
-        click.echo("Creating registry {}".format(registry_name))
-        docker_client.containers.run(
-            image="registry:2",
-            name=registry_name,
-            restart_policy={"Name": "always"},
-            ports={registry_port: host_port},
-            detach=True,
-        )
-        while docker_client.containers.get(registry_name).status != "running":
-            if docker_client.containers.get(registry_name).status == "exited":
-                raise click.UsageError("Failed to create local registry")
-            sleep(1)
+    kube_context = "kind-{}".format(name)
+    kube_config.load_kube_config(context=kube_context)
 
-    # create cluster
-    with tempfile.TemporaryDirectory() as temp_directory:
-        kind_config_file_location = os.path.join(temp_directory, "kind_config.yml")
+    custom_chart = {
+        "name": "mlbench-helm",
+        "source": {
+            "type": "git" if chart_location is None else "directory",
+            "location": "https://github.com/mlbench/mlbench-helm"
+            if chart_location is None
+            else chart_location,
+        },
+    }
+    click.echo("Deploying chart")
+    deploy_chart(
+        num_workers=num_workers - 1,
+        num_gpus=num_gpus,
+        num_cpus=num_cpus,
+        release_name=name,
+        custom_value=custom_value,
+        custom_chart=custom_chart,
+        kube_context=kube_context,
+    )
 
-        with open(kind_config_file_location, "w") as f:
-            workers_config = "\n".join(
-                ["- role: worker\n  image: {kind_node_image}"] * (num_workers - 1)
-            )
-            f.write(
-                KIND_CONFIG.format(
-                    reg_port=registry_port,
-                    reg_name=registry_name,
-                    workers_config=workers_config.format(
-                        kind_node_image=KIND_NODE_IMAGE
-                    ),
-                    kind_node_image=KIND_NODE_IMAGE,
-                )
-            )
-
-        click.echo("Creating cluster {}".format(name))
-
-        p = subprocess.Popen(
-            [
-                "kind",
-                "create",
-                "cluster",
-                "--name",
-                name,
-                "--config",
-                kind_config_file_location,
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-
-        output, error = p.communicate()
-        if p.returncode != 0:
-            raise click.UsageError(
-                "Failed to create cluster with the following error:\n {}".format(
-                    error.decode()
-                )
-            )
-    # Connect local registry to kind cluster
-    kind_network = [x for x in docker_client.networks.list() if x.name == "kind"]
-    if len(kind_network) == 0:
-        raise ValueError("Kind network not found")
-    kind_network = kind_network[0]
-    kind_network.connect(registry_name)
-
-    kube_config.load_kube_config(context="kind-{}".format(name))
-
-    click.echo("Creating service account")
-
-    # create tiller service account
-    create_tiller(client)
-
-    # deploy tiller
-    tiller_pod = deploy_tiller(client)
-
-    ports = 44134
-    with subprocess.Popen(
-        [
-            "kubectl",
-            "port-forward",
-            "--namespace={}".format(tiller_pod.metadata.namespace),
-            tiller_pod.metadata.name,
-            "{0}:{0}".format(ports),
-            "--insecure-skip-tls-verify=true",
-        ]
-    ) as portforward:
-
-        custom_chart = {
-            "name": "mlbench-helm",
-            "source": {
-                "type": "git" if chart_location is None else "directory",
-                "location": "https://github.com/mlbench/mlbench-helm"
-                if chart_location is None
-                else chart_location,
-            },
-        }
-        deploy_chart(
-            num_workers=num_workers - 1,
-            num_gpus=num_gpus,
-            num_cpus=num_cpus,
-            release_name=name,
-            custom_value=custom_value,
-            custom_chart=custom_chart,
-        )
-
-        portforward.terminate()
-
-    add_kind_cluster(name)
+    add_kind_cluster(name, registry_name)
 
     click.echo("MLBench successfully deployed")
 
@@ -1408,7 +1167,7 @@ def delete_aws_cluster(name):
     write_config(config)
 
 
-def add_kind_cluster(name):
+def add_kind_cluster(name, registry_name):
     """Add an kind cluster to config."""
     config = get_config()
 
@@ -1421,6 +1180,7 @@ def add_kind_cluster(name):
         config.add_section(section)
 
     config.set(section, "cluster", name)
+    config.set(section, "registry_name", registry_name)
 
     write_config(config)
 
@@ -1501,11 +1261,11 @@ def setup_gke_client_from_config(config):
         )
     auth_req = google.auth.transport.requests.Request()
     credentials.refresh(auth_req)
-    configuration = client.Configuration()
+    configuration = kube_client.Configuration()
     configuration.host = f"https://{cluster}:443"
     configuration.verify_ssl = False
     configuration.api_key = {"authorization": "Bearer " + credentials.token}
-    client.Configuration.set_default(configuration)
+    kube_client.Configuration.set_default(configuration)
 
     return True
 
