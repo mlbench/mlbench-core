@@ -1,6 +1,5 @@
 import os
 import subprocess
-import traceback
 from time import sleep
 from urllib import request
 

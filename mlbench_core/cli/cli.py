@@ -549,7 +549,7 @@ def delete_cluster():
 @click.option("--project", "-p", default=None, type=str)
 @click.option("--zone", "-z", default="europe-west1-b", type=str)
 def delete_gcloud(name, zone, project):
-    gcloud_create_cluster(name, zone, project)
+    gcloud_delete_cluster(name, zone, project)
     delete_gcloud_cluster(name)
 
 

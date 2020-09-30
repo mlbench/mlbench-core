@@ -119,15 +119,13 @@ def create_gcloud_test_helper(mocker, gcloud_mock, args, option_dict=None):
     """
 
     container_v1 = gcloud_mock["containerv1"]
-    tiller = gcloud_mock["tiller"]
+    deploy_chart = gcloud_mock["deploy_chart"]
     auth = gcloud_mock["auth"]
 
     cluster = container_v1.types.Cluster
     get_operation = container_v1.ClusterManagerClient.return_value.get_operation
     nodeconfig = container_v1.types.NodeConfig
     accelerator = container_v1.types.AcceleratorConfig
-
-    install_release = tiller.return_value.install_release
 
     if option_dict is not None and "project" in option_dict:
         project = option_dict["project"]
@@ -154,18 +152,10 @@ def create_gcloud_test_helper(mocker, gcloud_mock, args, option_dict=None):
     assert nodeconfig.call_args[1]["disk_size_gb"] == option_dict["disk_size"]
     assert nodeconfig.call_args[1]["preemptible"] == option_dict["preemptible"]
 
-    tiller.assert_called_once()
-    install_release.assert_called_once()
-
-    assert install_release.call_args[1]["values"]["limits"]["workers"] == args[0] - 1
-    assert (
-        install_release.call_args[1]["values"]["limits"]["gpu"]
-        == option_dict["num_gpus"]
-    )
-    assert (
-        install_release.call_args[1]["values"]["limits"]["cpu"]
-        == option_dict["num_cpus"] - 1
-    )
+    deploy_chart.assert_called_once()
+    assert deploy_chart.call_args[1]["num_workers"] == args[0] - 1
+    assert deploy_chart.call_args[1]["num_gpus"] == option_dict["num_gpus"]
+    assert deploy_chart.call_args[1]["num_cpus"] == option_dict["num_cpus"] - 1
 
     get_operation.assert_called()
     assert option_dict["zone"] in get_operation.call_args[1]["name"]
@@ -208,7 +198,7 @@ def gcloud_mock(mocker, gcloud_auth):
     """
 
     # One response loop
-    container_v1 = mocker.patch("google.cloud.container_v1")
+    container_v1 = mocker.patch("mlbench_core.cli.gcloud_utils.container_v1")
     gclient = container_v1.ClusterManagerClient.return_value
     response_create = gclient.create_cluster.return_value
     response_delete = gclient.delete_cluster.return_value
@@ -230,19 +220,21 @@ def gcloud_mock(mocker, gcloud_auth):
         "auth": gcloud_auth,
         "gclient": gclient,
         "containerv1": container_v1,
-        "discovery": mocker.patch("googleapiclient.discovery"),
-        "http": mocker.patch("googleapiclient.http"),
-        "tiller": mocker.patch("mlbench_core.cli.utils.Tiller"),
-        "chartbuilder": mocker.patch("mlbench_core.cli.utils.ChartBuilder"),
+        "discovery": mocker.patch("mlbench_core.cli.gcloud_utils.discovery"),
+        "http": mocker.patch("mlbench_core.cli.gcloud_utils.http"),
         "apiclient": mocker.patch("mlbench_core.cli.cli.ApiClient"),
-        "k8sclient": mocker.patch("mlbench_core.cli.cli.client"),
+        "k8sclient": mocker.patch("mlbench_core.cli.cli.kube_client"),
+        "k8sclient_gcloud": mocker.patch("mlbench_core.cli.gcloud_utils.kube_client"),
+        "deploy_chart": mocker.patch("mlbench_core.cli.cli.deploy_chart"),
+        "create_kubeconfig": mocker.patch(
+            "mlbench_core.cli.cli.create_kube_config_gcloud_entry",
+        ),
         "sleep": mocker.patch("time.sleep"),
         "popen": mocker.patch("subprocess.Popen"),
         "usrdatadir": mocker.patch("appdirs.user_data_dir"),
         "configparser": mocker.patch("configparser.ConfigParser"),
         "makedirs": mocker.patch("os.makedirs"),
         "pathexists": mocker.patch("os.path.exists"),
-        "pathjoin": mocker.patch("os.path.join"),
     }
 
 
