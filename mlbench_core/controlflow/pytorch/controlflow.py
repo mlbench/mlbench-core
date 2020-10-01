@@ -42,8 +42,8 @@ def record_train_batch_stats(
         batch_idx (int): The id of the current batch
         loss (float): The loss of the batch
         output (:obj:`torch.Tensor`): The model output
-        metric_results (dict of :obj:`mlbench_core.evaluation.pytorch.metrics.MLBenchMetric`: float): Metrics and their values
-        tracker (`obj`:mlbench_core.utils.Tracker): Tracker object to use.
+        metric_results (dict): of :obj:`mlbench_core.evaluation.pytorch.metrics.MLBenchMetric`: float Metrics and their values
+        tracker (:obj:`mlbench_core.utils.Tracker`): Tracker object to use.
         num_batches_per_device_train (int): Number of batches per train epoch
     """
     progress = batch_idx / num_batches_per_device_train
@@ -157,7 +157,7 @@ def record_validation_stats(metrics_values, loss, tracker=None, rank=0):
     Args:
         metrics_values (dict): Dictionary of each metric's average.
         loss (float): Validation loss
-        tracker (`obj`:mlbench_core.utils.Tracker | None): Tracker object to use.
+        tracker (`obj`:mlbench_core.utils.Tracker, optional): Tracker object to use.
         rank (int): Current distributed rank
 
     Returns:

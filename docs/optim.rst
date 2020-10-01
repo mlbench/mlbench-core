@@ -53,6 +53,10 @@ CentralizedAdam
 .. autoapiclass:: CentralizedAdam
     :members:
 
+.. rubric:: References
+
+.. bibliography:: optim.bib
+   :cited:
 
 fp_optimizers
 +++++++++++++

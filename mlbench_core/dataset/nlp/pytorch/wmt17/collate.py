@@ -82,11 +82,7 @@ def collate_batch(
         seq_len_multiple (int): Sequence length multiple
 
     Returns:
-        (dict): `{'id' (list[int]): list of indexes,
-                  'ntokens' (int): total number of tokens,
-                  'net_input' (dict): input of net, containing 'src_tokens', 'src_lengths'
-                                      and 'prev_output_tokens', all tensors,
-                  'target' (Tensor): Target Tensor}`
+        (dict): Containing keys `id` (list of indices), `ntokens` (total num tokens), `net_input` and `target`
 
     """
     if len(samples) == 0:
