@@ -52,7 +52,7 @@ clean-test: ## remove test and coverage artifacts
 
 lint: ## check style with black, sort imports
 	black --check .
-	isort --check-only --recursive .
+	isort --check-only .
 
 test: ## run tests quickly with the default Python
 	py.test
