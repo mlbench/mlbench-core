@@ -9,7 +9,6 @@ import subprocess
 import sys
 from os.path import expanduser
 from pathlib import Path
-from time import sleep
 
 import boto3
 import botocore.exceptions

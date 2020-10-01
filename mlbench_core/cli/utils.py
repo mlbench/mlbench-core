@@ -6,13 +6,43 @@ from kubernetes import client
 from mlbench_core.cli.chartbuilder import ChartBuilder
 
 
-def get_master_pod(release_name, pods):
+def _get_master_pod(release_name, pods):
+    """Given a release name and a list of pods, returns the master pod of the release
+
+    Args:
+        release_name (str): Release name
+        pods (:obj:`V1PodList`): List of pods
+
+    Returns:
+        (:obj:`Pod`, optional): The master pod
+    """
+
     master_pod_name = "{}-mlbench-master-".format(release_name)
     for pod in pods.items:
         if master_pod_name in pod.metadata.name:
             return pod
 
     return None
+
+
+def _wait_for_deployment(release_name):
+    """Given a release name, waits for the master pod to be running
+
+    Args:
+        release_name (str): Release name
+
+    Raises:
+        ValueError: If the master pod is not running
+    """
+    kube_api = client.CoreV1Api()
+    pods = kube_api.list_namespaced_pod(namespace="default")
+    master_pod = _get_master_pod(release_name, pods)
+    while master_pod is None or master_pod.status.phase == "Pending":
+        pods = kube_api.list_namespaced_pod(namespace="default")
+        master_pod = _get_master_pod(release_name, pods)
+        sleep(1)
+    if master_pod is None or master_pod.status.phase in ["Failed", "Unknown"]:
+        raise ValueError("Could not deploy chart")
 
 
 def deploy_chart(
@@ -24,6 +54,17 @@ def deploy_chart(
     kube_context,
     custom_chart=None,
 ):
+    """Deploys the mlbench-helm chart given its values
+
+    Args:
+        num_workers (int): Number of worker nodes (excluding master)
+        num_gpus (int): Number of GPUs per node
+        num_cpus (int): Number of CPUs per node
+        release_name (str): Release name
+        custom_value (str): Custom values for chart
+        kube_context (str): Current kube-context (must be saved in kubeconfig)
+        custom_chart (dict, optional): Custom chart to use (e.g. local chart)
+    """
     sleep(5)
 
     # install chart
@@ -70,15 +111,4 @@ def deploy_chart(
     )
     sleep(1)
 
-    kube_api = client.CoreV1Api()
-
-    pods = kube_api.list_namespaced_pod(namespace="default")
-    master_pod = get_master_pod(release_name, pods)
-
-    while master_pod is None or master_pod.status.phase == "Pending":
-        pods = kube_api.list_namespaced_pod(namespace="default")
-        master_pod = get_master_pod(release_name, pods)
-        sleep(1)
-
-    if master_pod is None or master_pod.status.phase in ["Failed", "Unknown"]:
-        raise ValueError("Could not deploy chart")
+    _wait_for_deployment(release_name)

@@ -117,6 +117,13 @@ def kind_create_cluster(
 
 
 def kind_delete_cluster(name, registry_name):
+    """Deletes the cluster using the kind command `kind delete cluster`
+    Also disconnects from the local registry
+
+    Args:
+        name (str): Cluster name
+        registry_name (str): Registry name
+    """
     # Delete cluster using kind
     p = subprocess.Popen(
         ["kind", "delete", "cluster", "--name", name],
@@ -136,6 +143,11 @@ def kind_delete_cluster(name, registry_name):
 
 
 def _connect_to_local_registry(registry_name):
+    """Connects the kind network in docker to the given registry name
+
+    Args:
+        registry_name (str): Local registry name
+    """
     docker_client = docker.from_env()
     # Connect local registry to kind cluster
     kind_network = [x for x in docker_client.networks.list() if x.name == "kind"]
@@ -146,6 +158,11 @@ def _connect_to_local_registry(registry_name):
 
 
 def _disconnect_from_local_registry(registry_name):
+    """Disconnects the kind network in docker to the given registry name
+
+    Args:
+        registry_name (str): Local registry name
+    """
     # Disconnect from local registry
     docker_client = docker.from_env()
 

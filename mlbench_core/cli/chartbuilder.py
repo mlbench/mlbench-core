@@ -18,6 +18,22 @@ def git_clone(repo_url, branch="master", path=""):
 
 
 class ChartBuilder:
+    """Class that allows building helm charts either from a repository or a local folder
+
+    Args:
+        chart (dict): Dictionary describing the location. Should look like:
+            ```
+            {
+             "name": [chart_name],
+             "source": {
+                        "type": ["git" or "directory"],
+                        "location": [repo_url or directory path]
+                        "reference": [optional, to select the branch]
+                        }
+            }
+            ```
+    """
+
     def __init__(self, chart):
         self.chart = dotify(chart)
         self.source_directory = self.source_clone()
@@ -59,10 +75,19 @@ class ChartBuilder:
 
         return os.path.join(self._source_tmp_dir, subpath)
 
-    def ensure_helm(self):
-        pass
-
     def _get_values_string(self, vals, parent=None):
+        """Given a dictionary of values, recursively returns the arguments to pass to `helm template`.
+
+        For example: {"key1": "value1", "key2": {"key3":"value3"}}
+            gives ["--set", "key1=value1", "--set", "key2.key3=value3"]
+
+        Args:
+            vals (dict): Dictionary of values
+            parent (str, optional): The parent key
+
+        Returns:
+            (list[str]): The command list
+        """
         values = []
         for k, v in vals.items():
             if type(v) == dict:
@@ -76,7 +101,16 @@ class ChartBuilder:
         return values
 
     def get_chart(self, release_name, values):
+        """Executes the command `helm template {args}` to generate the chart
+        and saves the yaml to a temporary directory
 
+        Args:
+            release_name (str): Release name
+            values (dict): Values to overwrite
+
+        Returns:
+            (str): Path of generated template
+        """
         values_options = self._get_values_string(values)
         output = subprocess.check_output(
             ["helm", "template", release_name, self.source_directory] + values_options
