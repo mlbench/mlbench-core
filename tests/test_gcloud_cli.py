@@ -197,7 +197,7 @@ def gcloud_mock(mocker, gcloud_auth):
         "k8sclient_gcloud": mocker.patch("mlbench_core.cli.gcloud_utils.kube_client"),
         "deploy_chart": mocker.patch("mlbench_core.cli.cli.deploy_chart"),
         "create_kubeconfig": mocker.patch(
-            "mlbench_core.cli.cli.create_kube_config_gcloud_entry",
+            "mlbench_core.cli.cli.setup_gcloud_kube_client",
         ),
         "configparser": mocker.patch("configparser.ConfigParser"),
     }

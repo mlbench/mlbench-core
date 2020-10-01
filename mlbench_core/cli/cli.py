@@ -17,18 +17,17 @@ import matplotlib.pyplot as plt
 import urllib3
 import yaml
 from appdirs import user_data_dir
-from kubernetes import client as kube_client
 from kubernetes import config as kube_config
-from kubernetes.client.rest import ApiException
 from tabulate import tabulate
 
 import mlbench_core
 from mlbench_core.api import MLBENCH_BACKENDS, MLBENCH_IMAGES, ApiClient
+from mlbench_core.cli.aws_utils import aws_create_cluster, setup_aws_kube_client
 from mlbench_core.cli.gcloud_utils import (
-    create_kube_config_gcloud_entry,
     deploy_nvidia_daemonset,
     gcloud_create_cluster,
     gcloud_delete_cluster,
+    setup_gcloud_kube_client,
 )
 from mlbench_core.cli.kind_utils import (
     create_local_registry,
@@ -682,16 +681,10 @@ def create_gcloud(
     )
 
     cluster = gclient.get_cluster(None, None, None, name=os.path.join(name_path, name))
-    # Setup kube client
-    auth_req = google.auth.transport.requests.Request()
-    credentials.refresh(auth_req)
-    configuration = kube_client.Configuration()
-    configuration.host = f"https://{cluster.endpoint}:443"
-    configuration.verify_ssl = False
-    configuration.api_key = {"authorization": "Bearer " + credentials.token}
-    kube_client.Configuration.set_default(configuration)
+    kube_context = setup_gcloud_kube_client(
+        cluster.endpoint, cluster.name, cluster.zone, project
+    )
 
-    kube_context = create_kube_config_gcloud_entry(cluster, project)
     if num_gpus > 0:
         deploy_nvidia_daemonset()
 
@@ -727,7 +720,7 @@ def create_gcloud(
 
     firewalls.insert(project=project, body=firewall_body).execute()
 
-    add_gcloud_cluster(name, cluster)
+    add_gcloud_cluster(name, cluster, project)
 
     click.echo("MLBench successfully deployed")
 
@@ -763,224 +756,30 @@ def create_aws(
             "run 'aws configure' to login and create "
             "your credentials."
         )
-
-    assert num_workers >= 2, "Number of workers should be at least 2."
-
     name = "{}-{}".format(release, num_workers)
     nodeGroupName = name + "-node-group"
 
-    # create VPC stack for cluster
-    stack_name = name + "-stack"
-    CF_TEMPLATE_URL = "https://amazon-eks.s3-us-west-2.amazonaws.com/cloudformation/2019-02-11/amazon-eks-vpc-sample.yaml"
-    cf_client = boto3.client("cloudformation")
-    cf_client.create_stack(StackName=stack_name, TemplateURL=CF_TEMPLATE_URL)
-    waiter = cf_client.get_waiter("stack_create_complete")
-    click.echo("Waiting for the VPC stack to be created.")
-    # will throw an exception if the creation fails
-    waiter.wait(StackName=stack_name)
-
-    # obtain vpc id, security group id and subnet ids
-    r = cf_client.describe_stack_resources(
-        StackName=stack_name, LogicalResourceId="VPC"
+    kube_context, cf_client, stackName, cluster = aws_create_cluster(
+        name,
+        nodeGroupName,
+        num_workers,
+        machine_type,
+        ssh_key,
+        ami_id,
+        kubernetes_version,
     )
-    vpcId = r["StackResources"][0]["PhysicalResourceId"]
+    kube_config.load_kube_config(context=kube_context)
 
-    r = cf_client.describe_stack_resources(
-        StackName=stack_name, LogicalResourceId="ControlPlaneSecurityGroup"
+    deploy_chart(
+        num_workers=num_workers - 1,
+        num_gpus=num_gpus,
+        num_cpus=num_cpus - 1,
+        release_name=name,
+        custom_value=custom_value,
+        kube_context=kube_context,
     )
-    secGroupId = r["StackResources"][0]["PhysicalResourceId"]
-
-    ec2 = boto3.resource("ec2")
-    vpc = ec2.Vpc(vpcId)
-    subnets = [subnet.id for subnet in vpc.subnets.all()]
-
-    ec2 = boto3.client("ec2")
-
-    # ensure that public IP addresses are assigned on launch in each subnet
-    for subnet in subnets:
-        ec2.modify_subnet_attribute(
-            MapPublicIpOnLaunch={
-                "Value": True,
-            },
-            SubnetId=subnet,
-        )
-
-    # create a role and assign the policy needed for creating the EKS cluster
-    iam = boto3.client("iam")
-    try:
-        assume_role_policy_document = """{
-            "Version": "2012-10-17",
-            "Statement": [
-                {
-                    "Effect": "Allow",
-                    "Principal": {"Service": "eks.amazonaws.com"},
-                    "Action": "sts:AssumeRole"
-                }
-            ]
-        }"""
-        iam.create_role(
-            RoleName="EKSClusterRole",
-            AssumeRolePolicyDocument=assume_role_policy_document,
-        )
-    except botocore.exceptions.ClientError as error:
-        if error.response["Error"]["Code"] == "EntityAlreadyExists":
-            # the role has already been created
-            pass
-        else:
-            click.UsageError(error)
-
-    iam.attach_role_policy(
-        RoleName="EKSClusterRole",
-        PolicyArn="arn:aws:iam::aws:policy/AmazonEKSClusterPolicy",
-    )
-
-    roleArn = iam.get_role(RoleName="EKSClusterRole")["Role"]["Arn"]
-
-    # create the EKS cluster
-    eks = boto3.client("eks")
-    eks.create_cluster(
-        name=name,
-        version=kubernetes_version,
-        roleArn=roleArn,
-        resourcesVpcConfig={"subnetIds": subnets, "securityGroupIds": [secGroupId]},
-    )
-    waiter = eks.get_waiter("cluster_active")
-    click.echo("Waiting for cluster to be created. This can take up to ten minutes.")
-    waiter.wait(name=name)
-
-    # connect kubernetes to the EKS cluster
-    add_aws_cluster(name, name)
-
-    setup_client_from_config()
-
-    # create ssh key
-    ec2 = boto3.client("ec2")
-    try:
-        keypair = ec2.create_key_pair(KeyName=ssh_key)
-        file_location = expanduser("~") + "/.ssh/{}.pem".format(ssh_key)
-        click.echo("Writing ssh key to " + file_location)
-        with open(file_location, "w") as file:
-            file.write(keypair["KeyMaterial"])
-    except botocore.exceptions.ClientError as error:
-        if error.response["Error"]["Code"] == "InvalidKeyPair.Duplicate":
-            # the key has already been created
-            pass
-        else:
-            click.UsageError(error)
-
-    # create EKS nodegroup
-    params = [
-        {"ParameterKey": "KeyName", "ParameterValue": ssh_key},
-        {"ParameterKey": "NodeImageId", "ParameterValue": ami_id},
-        {"ParameterKey": "NodeInstanceType", "ParameterValue": machine_type},
-        {
-            "ParameterKey": "NodeAutoScalingGroupMinSize",
-            "ParameterValue": str(num_workers),
-        },
-        {
-            "ParameterKey": "NodeAutoScalingGroupMaxSize",
-            "ParameterValue": str(num_workers),
-        },
-        {
-            "ParameterKey": "NodeAutoScalingGroupDesiredCapacity",
-            "ParameterValue": str(num_workers),
-        },
-        {"ParameterKey": "ClusterName", "ParameterValue": name},
-        {"ParameterKey": "NodeGroupName", "ParameterValue": nodeGroupName},
-        {
-            "ParameterKey": "ClusterControlPlaneSecurityGroup",
-            "ParameterValue": secGroupId,
-        },
-        {"ParameterKey": "VpcId", "ParameterValue": vpcId},
-        {"ParameterKey": "Subnets", "ParameterValue": ",".join(subnets)},
-    ]
-
-    stackName = "eks-auto-scaling-group-" + name
-    templateURL = "https://amazon-eks.s3-us-west-2.amazonaws.com/cloudformation/2019-02-11/amazon-eks-nodegroup.yaml"
-
-    cloudFormation = boto3.client("cloudformation")
-    cloudFormation.create_stack(
-        StackName=stackName,
-        TemplateURL=templateURL,
-        Parameters=params,
-        Capabilities=["CAPABILITY_IAM"],
-    )
-
-    waiter = cloudFormation.get_waiter("stack_create_complete")
-    click.echo("Waiting for nodegroup to be created.")
-    waiter.wait(StackName=stackName)
-
-    resource = boto3.resource("cloudformation")
-    stack = resource.Stack(stackName)
-
-    for i in stack.outputs:
-        if i["OutputKey"] == "NodeInstanceRole":
-            nodeInstanceRole = i["OutputValue"]
-
-    # create config map to connect the nodes to the cluster
-    v1 = kube_client.CoreV1Api()
-    namespace = "kube-system"
-    configMapName = "aws-auth"
-
-    # Delete old config maps in case it exists
-    body = kube_client.V1DeleteOptions()
-    body.api_version = "v1"
-    try:
-        v1.delete_namespaced_config_map(
-            name="aws-auth", namespace="kube-system", body=body
-        )
-    except ApiException as e:
-        pass
-
-    # Create new config map
-    body = kube_client.V1ConfigMap()
-    body.api_version = "v1"
-    body.metadata = {}
-    body.metadata["name"] = configMapName
-    body.metadata["namespace"] = namespace
-
-    body.data = {}
-    body.data["mapRoles"] = (
-        "- rolearn: "
-        + nodeInstanceRole
-        + "\n  username: system:node:{{EC2PrivateDNSName}}\n  groups:\n    - system:bootstrappers\n    - system:nodes\n"
-    )
-
-    response = v1.create_namespaced_config_map(namespace, body)
-
-    kube_config.load_kube_config()
-    # create tiller service account
-    # create_tiller()
-    #
-    # # deploy tiller
-    # tiller_pod = deploy_tiller()
-
-    # kubernetes python doesn't currently support port forward
-    # https://github.com/kubernetes-client/python/issues/166
-    ports = 44134
-
-    with subprocess.Popen(
-        [
-            "kubectl",
-            "port-forward",
-            "--namespace={}".format(tiller_pod.metadata.namespace),
-            tiller_pod.metadata.name,
-            "{0}:{0}".format(ports),
-        ]
-    ) as portforward:
-
-        deploy_chart(
-            num_workers=num_workers - 1,
-            num_gpus=num_gpus,
-            num_cpus=num_cpus - 1,
-            release_name=name,
-            custom_value=custom_value,
-        )
-
-        portforward.terminate()
 
     # open port in firewall
-    kube_config.load_kube_config()
     mlbench_client = ApiClient(in_cluster=False, load_config=False)
     mlbench_port = mlbench_client.port
     r = cf_client.describe_stack_resources(
@@ -1004,6 +803,7 @@ def create_aws(
             },
         ],
     )
+    add_aws_cluster(name, cluster)
     click.echo("MLBench successfully deployed")
 
 
@@ -1111,7 +911,7 @@ def write_config(config):
         config.write(configfile)
 
 
-def add_gcloud_cluster(name, cluster):
+def add_gcloud_cluster(name, cluster, project):
     """Add a gcloud cluster to config."""
     config = get_config()
 
@@ -1122,7 +922,10 @@ def add_gcloud_cluster(name, cluster):
 
     if not config.has_section(section):
         config.add_section(section)
-    config.set(section, "cluster", cluster.endpoint)
+    config.set(section, "endpoint", cluster.endpoint)
+    config.set(section, "name", cluster.name)
+    config.set(section, "zone", cluster.zone)
+    config.set(section, "project", project)
 
     write_config(config)
 
@@ -1235,9 +1038,6 @@ def setup_kind_client_from_config(config):
 
 def setup_gke_client_from_config(config):
     """Setup a kubernetes cluster for gke from current config."""
-    import google.auth
-    from google.auth.exceptions import DefaultCredentialsError
-
     cluster = config.get("gke", "current-cluster", fallback=None)
     if not cluster:
         raise click.UsageError(
@@ -1245,27 +1045,27 @@ def setup_gke_client_from_config(config):
             " or set one with `mlbench set-cluster`"
         )
 
-    cluster = config.get("gke.{}".format(cluster), "cluster", fallback=None)
+    section = "gke.{}".format(cluster)
+    cluster_endpoint = config.get(section, "endpoint", fallback=None)
     if not cluster:
         return False
 
-    try:
-        credentials, default_project = google.auth.default()
-    except DefaultCredentialsError:
-        raise click.UsageError(
-            "Couldn't find gcloud credentials. Install the gcloud"
-            " sdk ( https://cloud.google.com/sdk/docs/quickstart-linux ) and "
-            "run 'gcloud auth application-default login' to login and create "
-            "your credentials."
-        )
-    auth_req = google.auth.transport.requests.Request()
-    credentials.refresh(auth_req)
-    configuration = kube_client.Configuration()
-    configuration.host = f"https://{cluster}:443"
-    configuration.verify_ssl = False
-    configuration.api_key = {"authorization": "Bearer " + credentials.token}
-    kube_client.Configuration.set_default(configuration)
+    cluster_name = config.get(section, "name", fallback=None)
+    if not cluster_name:
+        return False
 
+    cluster_zone = config.get(section, "zone", fallback=None)
+    if not cluster_zone:
+        return False
+
+    project = config.get(section, "project", fallback=None)
+    if not project:
+        return False
+
+    kube_context = setup_gcloud_kube_client(
+        cluster_endpoint, cluster_name, cluster_zone, project
+    )
+    kube_config.load_kube_config(context=kube_context)
     return True
 
 
@@ -1282,55 +1082,8 @@ def setup_aws_client_from_config(config):
     if not name:
         return False
 
-    eks = boto3.client("eks")
-    cluster = eks.describe_cluster(name=name)
-    cluster_cert = cluster["cluster"]["certificateAuthority"]["data"]
-    cluster_ep = cluster["cluster"]["endpoint"]
-    cluster_arn = cluster["cluster"]["arn"]
-
-    cluster_config = {
-        "apiVersion": "v1",
-        "kind": "Config",
-        "clusters": [
-            {
-                "cluster": {
-                    "server": str(cluster_ep),
-                    "certificate-authority-data": str(cluster_cert),
-                },
-                "name": cluster_arn,
-            }
-        ],
-        "contexts": [
-            {
-                "context": {
-                    "cluster": cluster_arn,
-                    "user": cluster_arn,
-                },
-                "name": cluster_arn,
-            }
-        ],
-        "current-context": cluster_arn,
-        "preferences": {},
-        "users": [
-            {
-                "name": cluster_arn,
-                "user": {
-                    "exec": {
-                        "apiVersion": "client.authentication.k8s.io/v1alpha1",
-                        "command": "aws-iam-authenticator",
-                        "args": ["token", "-i", name],
-                    }
-                },
-            }
-        ],
-    }
-
-    config_text = yaml.dump(cluster_config, default_flow_style=False)
-    config_file = expanduser("~") + "/.kube/config"
-    click.echo("Writing kubectl configuration to " + config_file)
-    open(config_file, "w").write(config_text)
-    kube_config.load_kube_config()
-
+    kube_context = setup_aws_kube_client(name)
+    kube_config.load_kube_config(context=kube_context)
     return True
 
 

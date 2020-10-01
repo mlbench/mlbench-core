@@ -19,13 +19,14 @@ GCLOUD_NVIDIA_DAEMONSET = (
 )
 
 
-def create_kube_config_gcloud_entry(cluster, project):
+def _create_kube_config_gcloud_entry(cluster_name, cluster_zone, project):
     """Uses GCloud CLI to create an entry for Kubectl.
 
     This is needed as we install the charts using kubectl, and it needs the correct config
 
     Args:
-        cluster (:obj:`google.cloud.container_v1.types.Cluster`): The created cluster
+        cluster_name (str): Name of cluster
+        cluster_zone (str): Zone of cluster
         project (str): Current used project
 
     Returns:
@@ -37,9 +38,9 @@ def create_kube_config_gcloud_entry(cluster, project):
             "container",
             "clusters",
             "get-credentials",
-            cluster.name,
+            cluster_name,
             "--zone",
-            cluster.zone,
+            cluster_zone,
             "--project",
             project,
         ],
@@ -54,8 +55,44 @@ def create_kube_config_gcloud_entry(cluster, project):
             "Failed to add kube config entry:\n {}".format(error.decode())
         )
 
-    context_name = "gke_{}_{}_{}".format(project, cluster.zone, cluster.name)
+    context_name = "gke_{}_{}_{}".format(project, cluster_zone, cluster_name)
     return context_name
+
+
+def setup_gcloud_kube_client(cluster_endpoint, cluster_name, cluster_zone, project):
+    """Sets up the kube configuration on the given cluster
+
+    Args:
+        cluster_endpoint (str): Endpoint of cluster
+        cluster_name (str): Cluster name
+        cluster_zone (str): Cluster zone
+        project (str): Cluster project
+
+    Returns:
+        (str): Kube context for this cluster
+    """
+    try:
+        credentials, _ = google.auth.default()
+    except DefaultCredentialsError:
+        raise click.UsageError(
+            "Couldn't find gcloud credentials. Install the gcloud"
+            " sdk ( https://cloud.google.com/sdk/docs/quickstart-linux ) and "
+            "run 'gcloud auth application-default login' to login and create "
+            "your credentials."
+        )
+
+    # Setup kube client
+    auth_req = google.auth.transport.requests.Request()
+    credentials.refresh(auth_req)
+    configuration = kube_client.Configuration()
+    configuration.host = f"https://{cluster_endpoint}:443"
+    configuration.verify_ssl = False
+    configuration.api_key = {"authorization": "Bearer " + credentials.token}
+    kube_client.Configuration.set_default(configuration)
+
+    kube_context = _create_kube_config_gcloud_entry(cluster_name, cluster_zone, project)
+
+    return kube_context
 
 
 def gcloud_create_cluster(
