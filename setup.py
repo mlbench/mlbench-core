@@ -19,7 +19,7 @@ requirements = [
     "dill==0.3.2",
     "docker==4.2.0",
     "dill==0.3.2",
-    "google-api-python-client==1.12.1",
+    "google-api-python-client==1.12.3",
     "google-auth==1.21.1",
     "google-cloud==0.34.0",
     "google-cloud-container==1.0.1",
