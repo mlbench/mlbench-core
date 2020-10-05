@@ -945,7 +945,7 @@ def add_aws_cluster(name, cluster):
     """Add an aws cluster to config."""
     config = get_config()
 
-    config.set("general", "provider", "gke")
+    config.set("general", "provider", "aws")
     config.set("aws", "current-cluster", name)
 
     section = "aws.{}".format(name)
@@ -1077,10 +1077,6 @@ def setup_aws_client_from_config(config):
             "No gcloud cluster selected, create a new one with `mlbench create-cluster`"
             " or set one with `mlbench set-cluster`"
         )
-
-    name = config.get("gke.{}".format(name), "cluster", fallback=None)
-    if not name:
-        return False
 
     kube_context = setup_aws_kube_client(name)
     kube_config.load_kube_config(context=kube_context)
