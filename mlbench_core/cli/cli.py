@@ -953,7 +953,7 @@ def add_aws_cluster(name, cluster):
     if not config.has_section(section):
         config.add_section(section)
 
-    config.set(section, "cluster", cluster['cluster']['endpoint'])
+    config.set(section, "cluster", cluster["cluster"]["endpoint"])
 
     write_config(config)
 
