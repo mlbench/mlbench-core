@@ -1,5 +1,5 @@
 appdirs==1.4.4
-boto3==1.14.50
+boto3==1.15.11
 click==7.1.2
 deprecation==2.1.0
 docker==4.2.0
