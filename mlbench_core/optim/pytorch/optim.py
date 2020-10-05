@@ -476,7 +476,7 @@ class CentralizedAdam(Adam):
             numerical stability (default: 1e-8)
         weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
         amsgrad (boolean, optional): whether to use the AMSGrad variant of this
-            algorithm from the paper `On the Convergence of Adam and Beyond`_
+            algorithm from the paper :cite:`adam_convergence`
             (default: False)
         average_world (bool): Whether to average models on the world_size (default: `True`)
         use_cuda (bool): Whether to use cuda tensors for aggregation

@@ -47,13 +47,6 @@ ResNetCIFAR
     :members:
 
 
-ResNet18_CIFAR10
-''''''''''''''''
-
-.. autoapiclass:: ResNetCIFAR
-    :members:
-
-
 RNN
 +++
 ---

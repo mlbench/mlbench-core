@@ -18,7 +18,7 @@ requirements = [
     "deprecation>=2.0.6",
     "dill==0.3.2",
     "docker==4.2.0",
-    "dill==0.3.2",
+    "GitPython==3.1.7",
     "google-api-python-client==1.12.1",
     "google-auth==1.21.1",
     "google-cloud==0.34.0",
@@ -26,31 +26,37 @@ requirements = [
     "grpcio==1.31.0",
     "kubernetes==11.0.0",
     "matplotlib==3.2.1",
+    "numpy==1.19.2",
     "oauth2client==4.1.3",
-    "pyhelm==2.14.5",
     "sklearn==0.0",
     "spacy==2.3.2",
+    "supermutes==0.2.5",
     "tabulate>=0.8.5",
+    "tensorflow==1.13.2",
+    "torch==1.5.1",
     "torchtext==0.6.0",
+    "torchvision==0.6.1",
 ]
 
 setup_requirements = [
     "pytest-runner",
 ]
 
-test_requirements = [
-    "black==19.10b0",
-    "coverage",
-    "freezegun==0.3.15",
-    "isort==5.4.2",
-    "pre-commit",
-    "pytest>=3",
-    "pytest-black==0.3.9",
-    "pytest-mock==3.3.1",
-    "wcwidth==0.2.5",
+lint_requirements = [
+    "black==20.8b1",
+    "isort==5.5.4",
 ]
 
-extras = {"test": test_requirements}
+test_requirements = [
+    "coverage==5.3",
+    "freezegun==1.0.0",
+    "pre-commit",
+    "pytest>=3",
+    "pytest-mock==3.3.1",
+    "wcwidth==0.2.5",
+] + lint_requirements
+
+extras = {"test": test_requirements, "lint": lint_requirements}
 
 setup(
     author="Ralf Grubenmann",
