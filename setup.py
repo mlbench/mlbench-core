@@ -31,7 +31,7 @@ requirements = [
     "sklearn==0.0",
     "spacy==2.3.2",
     "tabulate>=0.8.5",
-    "torchtext==0.6.0",
+    "torchtext==0.7.0",
 ]
 
 setup_requirements = [

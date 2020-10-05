@@ -19,5 +19,5 @@ spacy==2.3.2
 tabulate==0.8.7
 tensorflow==1.13.2
 torch==1.5.1
-torchtext==0.6.0
+torchtext==0.7.0
 torchvision==0.6.1
