@@ -48,6 +48,7 @@ lint_requirements = [
 ]
 
 test_requirements = [
+    "codecov==2.1.9",
     "coverage==5.3",
     "freezegun==1.0.0",
     "pre-commit",
