@@ -76,16 +76,17 @@ def generate_sidebar(conf, conf_api):
     #
 
     toctree("MLBench")
+    write("Benchmarks", "benchmark-tasks")
     write("Prerequisites", "prerequisites")
     write("Installation", "installation")
     write("Component Overview", "overview")
-    write("Benchmarking Tasks", "benchmark-tasks")
+    write("Tutorials", "tutorials")
     endl()
 
     toctree("Components")
     write_ref("mlbench_helm", "Helm Chart")
     write_ref("mlbench_dashboard", "Dashboard")
-    write_ref("mlbench_benchmarks", "Benchmarks")
+    write_ref("mlbench_benchmarks", "Benchmark Implementations")
     write_api("mlbench_core", "Core")
     endl()
 
@@ -93,10 +94,6 @@ def generate_sidebar(conf, conf_api):
     write("Developer Guide", "devguide")
     write("Contributing", "contributing")
     write("Changelog", "changelog")
-    endl()
-
-    toctree("MLBench Developers")
-    write("Authors", "authors")
     endl()
 
     write_if_changed("_sidebar.rst.inc", "\n".join(lines))

@@ -48,10 +48,12 @@ lint_requirements = [
 ]
 
 test_requirements = [
+    "codecov==2.1.9",
     "coverage==5.3",
     "freezegun==1.0.0",
     "pre-commit",
     "pytest>=3",
+    "pytest-cov==2.10.1",
     "pytest-mock==3.3.1",
     "wcwidth==0.2.5",
 ] + lint_requirements
