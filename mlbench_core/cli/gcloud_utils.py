@@ -1,11 +1,13 @@
 import os
 import subprocess
+import sys
 from time import sleep
 from urllib import request
 
 import click
 import google.auth
 import yaml
+from google.api_core.exceptions import AlreadyExists, NotFound
 from google.auth.exceptions import DefaultCredentialsError
 from google.cloud import container_v1
 from googleapiclient import discovery, http
@@ -191,7 +193,17 @@ def gcloud_create_cluster(
         monitoring_service=None,
         initial_cluster_version=kubernetes_version,
     )
-    response = gclient.create_cluster(cluster, parent=name_path)
+    try:
+        response = gclient.create_cluster(cluster, parent=name_path)
+    except AlreadyExists as e:
+        click.echo("Exception from Google: " + str(e))
+        click.echo(
+            "A cluster with this name already exists in the specified project and zone"
+        )
+        click.echo(
+            "Try running 'gcloud container clusters list' to list all active clusters"
+        )
+        sys.exit(1)
 
     # wait for cluster to load
     while response.status < response.DONE:
@@ -245,7 +257,15 @@ def gcloud_delete_cluster(name, zone, project):
     name_path = "projects/{}/locations/{}/clusters/".format(project, zone)
     cluster_path = os.path.join(name_path, name)
 
-    response = gclient.delete_cluster(None, None, None, name=cluster_path)
+    try:
+        response = gclient.delete_cluster(None, None, None, name=cluster_path)
+    except NotFound as e:
+        click.echo("Exception from Google: " + str(e))
+        click.echo("Double-check your project, zone and cluster name")
+        click.echo(
+            "Try running 'gcloud container clusters list' to list all active clusters"
+        )
+        sys.exit(1)
 
     # wait for operation to complete
     while response.status < response.DONE:
