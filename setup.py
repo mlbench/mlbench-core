@@ -53,6 +53,7 @@ test_requirements = [
     "freezegun==1.0.0",
     "pre-commit",
     "pytest>=3",
+    "pytest-cov==2.10.1",
     "pytest-mock==3.3.1",
     "wcwidth==0.2.5",
 ] + lint_requirements
