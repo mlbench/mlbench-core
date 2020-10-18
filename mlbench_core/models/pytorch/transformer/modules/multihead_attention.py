@@ -288,7 +288,7 @@ class MultiheadAttention(nn.Module):
     """
 
     def __init__(
-        self, embed_dim, num_heads, dropout=0.0, softmax_type="default", bias=False
+        self, embed_dim, num_heads, dropout=0.0, softmax_type="default", l_ind=-1, bias=False
     ):
         super().__init__()
         self.embed_dim = embed_dim
@@ -301,7 +301,7 @@ class MultiheadAttention(nn.Module):
         ), "embed_dim must be divisible by num_heads"
         self.scaling = self.head_dim ** -0.5
         self._mask = None
-
+        self.l_ind = l_ind
         self.in_proj_weight_q = Parameter(torch.Tensor(embed_dim, embed_dim))
         self.in_proj_weight_k = Parameter(torch.Tensor(embed_dim, embed_dim))
         self.in_proj_weight_v = Parameter(torch.Tensor(embed_dim, embed_dim))
