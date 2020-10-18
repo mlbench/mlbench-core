@@ -48,7 +48,7 @@ class TransformerEncoder(nn.Module):
         )
 
         self.layers = nn.ModuleList(
-            [TransformerEncoderLayer(args) for i in range(args.encoder_layers)]
+            [TransformerEncoderLayer(args, i) for i in range(args.encoder_layers)]
         )
 
         self.normalize = args.encoder_normalize_before

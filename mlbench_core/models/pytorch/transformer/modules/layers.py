@@ -38,7 +38,7 @@ class TransformerEncoderLayer(nn.Module):
         args (argparse.Namespace): parsed command-line arguments
     """
 
-    def __init__(self, args):
+    def __init__(self, args, l_ind):
         super().__init__()
         self.embed_dim = args.encoder_embed_dim
         self.self_attn = MultiheadAttention(
@@ -47,6 +47,7 @@ class TransformerEncoderLayer(nn.Module):
             dropout=args.attention_dropout,
             bias=False,
             softmax_type=args.softmax_type,
+            l_ind = l_ind
         )
         self.dropout = args.dropout
         self.relu_dropout = args.relu_dropout
@@ -109,7 +110,7 @@ class TransformerDecoderLayer(nn.Module):
             (default: False).
     """
 
-    def __init__(self, args, no_encoder_attn=False):
+    def __init__(self, args, no_encoder_attn=False, l_ind=-1):
         super().__init__()
         self.embed_dim = args.decoder_embed_dim
         self.self_attn = MultiheadAttention(
@@ -118,6 +119,7 @@ class TransformerDecoderLayer(nn.Module):
             dropout=args.attention_dropout,
             bias=False,
             softmax_type=args.softmax_type,
+            l_ind = l_ind
         )
         self.dropout = args.dropout
         self.relu_dropout = args.relu_dropout
@@ -135,6 +137,7 @@ class TransformerDecoderLayer(nn.Module):
                 dropout=args.attention_dropout,
                 softmax_type=args.softmax_type,
                 bias=False,
+                l_ind = l_ind
             )
             self.encoder_attn_layer_norm = nn.LayerNorm(self.embed_dim)
 

@@ -52,7 +52,7 @@ class TransformerDecoder(nn.Module):
 
         self.layers = nn.ModuleList(
             [
-                TransformerDecoderLayer(args, no_encoder_attn)
+                TransformerDecoderLayer(args, no_encoder_attn, _)
                 for _ in range(args.decoder_layers)
             ]
         )
