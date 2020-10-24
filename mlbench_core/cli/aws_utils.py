@@ -1,6 +1,7 @@
 import os
 import subprocess
 from os.path import expanduser
+from urllib import request
 
 import boto3
 import botocore
@@ -11,7 +12,8 @@ from kubernetes import config as kube_config
 from kubernetes.client.rest import ApiException
 from kubernetes.config.kube_config import KUBE_CONFIG_DEFAULT_LOCATION
 
-CF_TEMPLATE_URL = "https://amazon-eks.s3-us-west-2.amazonaws.com/cloudformation/2019-02-11/amazon-eks-vpc-sample.yaml"
+CF_TEMPLATE_URL = "https://amazon-eks.s3-us-west-2.amazonaws.com/cloudformation/2020-08-12/amazon-eks-vpc-sample.yaml"
+AWS_NVIDIA_DAEMONSET = "https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/v0.6.0/nvidia-device-plugin.yml"
 
 
 def _create_ssh_key(ssh_key):
@@ -74,7 +76,7 @@ def _create_eks_nodegroup(
     ]
 
     stackName = "eks-auto-scaling-group-" + name
-    templateURL = "https://amazon-eks.s3-us-west-2.amazonaws.com/cloudformation/2019-02-11/amazon-eks-nodegroup.yaml"
+    templateURL = "https://amazon-eks.s3.us-west-2.amazonaws.com/cloudformation/2020-08-12/amazon-eks-nodegroup.yaml"
 
     cloudFormation = boto3.client("cloudformation")
     cloudFormation.create_stack(
@@ -327,6 +329,18 @@ def _create_kube_config_aws_entry(name):
         p.communicate()
 
     return (cluster_arn, cluster)
+
+
+def deploy_nvidia_daemonset_aws():
+    """ Deploys the NVIDIA daemon set to the AWS cluster"""
+    with request.urlopen(AWS_NVIDIA_DAEMONSET) as r:
+        dep = yaml.safe_load(r)
+        dep["spec"]["selector"] = {
+            "matchLabels": dep["spec"]["template"]["metadata"]["labels"]
+        }
+        dep = kube_client.ApiClient()._ApiClient__deserialize(dep, "V1DaemonSet")
+        k8s_client = kube_client.AppsV1Api()
+        k8s_client.create_namespaced_daemon_set("kube-system", body=dep)
 
 
 def setup_aws_kube_client(name):
