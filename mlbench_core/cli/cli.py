@@ -24,8 +24,8 @@ import mlbench_core
 from mlbench_core.api import MLBENCH_BACKENDS, MLBENCH_IMAGES, ApiClient
 from mlbench_core.cli.aws_utils import (
     aws_create_cluster,
-    setup_aws_kube_client,
     deploy_nvidia_daemonset_aws,
+    setup_aws_kube_client,
 )
 from mlbench_core.cli.gcloud_utils import (
     deploy_nvidia_daemonset,
