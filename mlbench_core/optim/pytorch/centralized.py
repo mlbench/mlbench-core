@@ -206,7 +206,7 @@ class CentralizedSGD(GenericCentralizedOptimizer):
         by_layer=False,
         agg_grad=True,
     ):
-        super().__init__(
+        super(CentralizedSGD).__init__(
             model=model,
             world_size=world_size,
             use_cuda=use_cuda,
@@ -374,7 +374,7 @@ class CustomCentralizedOptimizer(GenericCentralizedOptimizer):
         average_custom=False,
         divide_before=False,
     ):
-        super(GenericCentralizedOptimizer, self).__init__(
+        super(CustomCentralizedOptimizer, self).__init__(
             model=model,
             world_size=world_size,
             use_cuda=use_cuda,
