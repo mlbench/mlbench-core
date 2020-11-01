@@ -33,7 +33,7 @@ requirements = [
     "supermutes==0.2.5",
     "tabulate>=0.8.5",
     "tensorflow==1.13.2",
-    "torch==1.5.1",
+    "torch==1.7.0",
     "torchtext==0.6.0",
     "torchvision==0.6.1",
 ]
