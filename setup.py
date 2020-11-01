@@ -35,7 +35,7 @@ requirements = [
     "tensorflow==1.13.2",
     "torch==1.5.1",
     "torchtext==0.6.0",
-    "torchvision==0.6.1",
+    "torchvision==0.8.1",
 ]
 
 setup_requirements = [
