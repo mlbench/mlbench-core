@@ -4,6 +4,8 @@ import torch
 from torch.nn.utils import clip_grad_norm_
 
 from mlbench_core.aggregation.pytorch.centralized import (
+    AVG_CUSTOM,
+    AVG_WORLD,
     AllReduceAggregation,
     AllReduceAggregationHVD,
 )
@@ -104,9 +106,9 @@ class FP16Optimizer:
             ).agg_grad(by_layer=by_layer)
 
         if average_world:
-            self.agg_mode = "avg_world"
+            self.agg_mode = AVG_WORLD
         elif average_custom:
-            self.agg_mode = "custom_avg"
+            self.agg_mode = AVG_CUSTOM
         else:
             raise NotImplementedError("Only average model is supported right now.")
 
