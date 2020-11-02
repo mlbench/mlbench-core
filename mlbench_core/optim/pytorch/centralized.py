@@ -1,17 +1,93 @@
 import torch
 import torch.distributed as dist
+from torch.nn.utils import clip_grad_norm_
 from torch.optim import SGD, Adam
 from torch.optim.optimizer import required
 
 from mlbench_core.aggregation.pytorch.centralized import (
+    AVG_CUSTOM,
+    AVG_WORLD,
     AllReduceAggregation,
     PowerAggregation,
 )
 from mlbench_core.optim.pytorch.optim import SparsifiedSGD
 
 
+class GenericCentralizedOptimizer:
+    """Implements a generic centralized (synchronous) optimizer with `AllReduceAggregation`.
+    Averages the reduced parameters over the world size, after aggregation.
+    Can aggregate gradients or weights, by layers or all at once.
+
+    Args:
+        world_size (int): Size of the network
+        model (:obj:`nn.Module`): Model which contains parameters for SGD
+        use_cuda (bool): Whether to use cuda tensors for aggregation
+        by_layer (bool): Aggregate by layer instead of all layers at once
+        agg_grad (bool): Aggregate the gradients before updating weights. If `False`,
+            weights will be updated and then reduced across all workers. (default: `True`)
+    """
+
+    def __init__(
+        self,
+        world_size,
+        model,
+        use_cuda=False,
+        by_layer=False,
+        divide_before=False,
+        agg_grad=True,
+    ):
+        if not world_size:
+            raise ValueError('"world_size" not set for optimizer')
+        if not model:
+            raise ValueError('"model" not set for optimizer')
+
+        self.agg_mode = AVG_WORLD
+        self.model = model
+        self.agg_grad = agg_grad
+        agg = AllReduceAggregation(
+            world_size=world_size, use_cuda=use_cuda, divide_before=divide_before
+        )  # Divide after reduction
+        if agg_grad:
+            self.agg = agg.agg_grad(by_layer=by_layer)
+        else:
+            self.agg = agg.agg_model(by_layer=by_layer)
+            self.agg(self.model, self.agg_mode)  # Agg params once at init
+
+        self.optimizer = None
+
+    def step(self, closure=None, tracker=None):
+        """Aggregates the gradients and performs a single optimization step.
+
+        Arguments:
+            closure (callable, optional): A closure that reevaluates the model
+                and returns the loss.
+            tracker (:obj:`mlbench_core.utils.Tracker`, optional) The current tracker
+        """
+        if self.agg_grad:
+            self.agg(self.model, self.agg_mode)
+            if tracker:
+                tracker.record_batch_agg()
+            loss = self.optimizer.step(closure=closure)
+            if tracker:
+                tracker.record_batch_opt_step()
+        else:
+            loss = self.optimizer.step(closure=closure)
+            if tracker:
+                tracker.record_batch_opt_step()
+            self.agg(self.model, self.agg_mode)
+            if tracker:
+                tracker.record_batch_agg()
+        return loss
+
+    def __getattr__(self, item):
+        """Any call to unknown function/members will be redirected to the optimizer"""
+        if self.optimizer is None:
+            raise ValueError("Undefined Optimizer")
+        return self.optimizer.__getattribute__(item)
+
+
 class CentralizedSparsifiedSGD(SparsifiedSGD):
-    r"""Implements centralized sparsified version of stochastic gradient descent.
+    """Implements centralized sparsified version of stochastic gradient descent.
 
     Args:
         params (iterable): iterable of parameters to optimize or dicts defining
@@ -97,8 +173,9 @@ class CentralizedSparsifiedSGD(SparsifiedSGD):
         return loss
 
 
-class CentralizedSGD(SGD):
-    r"""Implements centralized stochastic gradient descent (optionally with momentum).
+class CentralizedSGD(GenericCentralizedOptimizer):
+    """Implements centralized stochastic gradient descent (optionally with momentum).
+    Averages the reduced parameters over the world size.
 
     Args:
         world_size (int): Size of the network
@@ -108,7 +185,6 @@ class CentralizedSGD(SGD):
         weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
         dampening (float, optional): dampening for momentum (default: 0)
         nesterov (bool, optional): enables Nesterov momentum (default: False)
-        average_world (bool): Whether to average models on the world_size (default: `True`)
         use_cuda (bool): Whether to use cuda tensors for aggregation
         by_layer (bool): Aggregate by layer instead of all layers at once
         agg_grad (bool): Aggregate the gradients before updating weights. If `False`,
@@ -124,59 +200,31 @@ class CentralizedSGD(SGD):
         dampening=0,
         weight_decay=0,
         nesterov=False,
-        average_world=True,
         use_cuda=False,
         by_layer=False,
         agg_grad=True,
     ):
-        if not world_size:
-            raise ValueError('"world_size" not set for optimizer')
-        if not model:
-            raise ValueError('"model" not set for optimizer')
-        super(CentralizedSGD, self).__init__(
-            model.parameters(), lr, momentum, dampening, weight_decay, nesterov
+        super().__init__(
+            model=model,
+            world_size=world_size,
+            use_cuda=use_cuda,
+            by_layer=by_layer,
+            agg_grad=agg_grad,
         )
-        if average_world:
-            self.agg_mode = "avg_world"
-        else:
-            raise NotImplementedError("Only average model is supported right now.")
 
-        self.model = model
-        self.agg_grad = agg_grad
-        agg = AllReduceAggregation(world_size=world_size, use_cuda=use_cuda)
-        if agg_grad:
-            self.agg = agg.agg_grad(by_layer=by_layer)
-        else:
-            self.agg = agg.agg_model(by_layer=by_layer)
-            self.agg(self.model, self.agg_mode)  # Agg params once at init
-
-    def step(self, closure=None, tracker=None):
-        """Aggregates the gradients and performs a single optimization step.
-
-        Arguments:
-            closure (callable, optional): A closure that reevaluates the model
-                and returns the loss.
-            tracker (:obj:`mlbench_core.utils.Tracker`, optional) The current tracker
-        """
-        if self.agg_grad:
-            self.agg(self.model, self.agg_mode)
-            if tracker:
-                tracker.record_batch_agg()
-            loss = super(CentralizedSGD, self).step(closure=closure)
-            if tracker:
-                tracker.record_batch_opt_step()
-        else:
-            loss = super(CentralizedSGD, self).step(closure=closure)
-            if tracker:
-                tracker.record_batch_opt_step()
-            self.agg(self.model, self.agg_mode)
-            if tracker:
-                tracker.record_batch_agg()
-        return loss
+        self.optimizer = SGD(
+            lr=lr,
+            momentum=momentum,
+            dampening=dampening,
+            weight_decay=weight_decay,
+            nesterov=nesterov,
+            params=model.parameters(),
+        )
 
 
-class CentralizedAdam(Adam):
-    r"""Implements centralized Adam algorithm.
+class CentralizedAdam(GenericCentralizedOptimizer):
+    """Implements centralized Adam algorithm.
+    Averages the reduced parameters over the world size
 
     Args:
         world_size (int): Size of the network
@@ -190,7 +238,6 @@ class CentralizedAdam(Adam):
         amsgrad (boolean, optional): whether to use the AMSGrad variant of this
             algorithm from the paper :cite:`adam_convergence`
             (default: False)
-        average_world (bool): Whether to average models on the world_size (default: `True`)
         use_cuda (bool): Whether to use cuda tensors for aggregation
         by_layer (bool): Aggregate by layer instead of all layers at once
     """
@@ -204,46 +251,30 @@ class CentralizedAdam(Adam):
         eps=1e-8,
         weight_decay=0,
         amsgrad=False,
-        average_world=True,
         use_cuda=False,
         by_layer=False,
+        agg_grad=True,
     ):
-        if not world_size:
-            raise ValueError('"world_size" not set for optimizer')
-        if not model:
-            raise ValueError('"model" not set for optimizer')
-        super(CentralizedAdam, self).__init__(
-            model.parameters(), lr, betas, eps, weight_decay, amsgrad
+        super(GenericCentralizedOptimizer, self).__init__(
+            model=model,
+            world_size=world_size,
+            use_cuda=use_cuda,
+            by_layer=by_layer,
+            agg_grad=agg_grad,
         )
-        if average_world:
-            self.agg_mode = "avg_world"
-        else:
-            raise NotImplementedError("Only average model is supported right now.")
 
-        self.model = model
-        self.agg = AllReduceAggregation(
-            world_size=world_size, use_cuda=use_cuda
-        ).agg_grad(by_layer=by_layer)
-
-    def step(self, closure=None, tracker=None):
-        """Aggregates the gradients and performs a single optimization step.
-
-        Arguments:
-            closure (callable, optional): A closure that reevaluates the model
-                and returns the loss.
-            tracker (:obj:`mlbench_core.utils.Tracker`, optional) The current tracker
-        """
-        self.agg(self.model, self.agg_mode)
-        if tracker:
-            tracker.record_batch_agg()
-        loss = super(CentralizedAdam, self).step(closure=closure)
-        if tracker:
-            tracker.record_batch_opt_step()
-        return loss
+        self.optimizer = Adam(
+            lr=lr,
+            betas=betas,
+            eps=eps,
+            weight_decay=weight_decay,
+            amsgrad=amsgrad,
+            params=model.parameters(),
+        )
 
 
 class PowerSGD(SGD):
-    r"""Implements PowerSGD with error feedback (optionally with momentum).
+    """Implements PowerSGD with error feedback (optionally with momentum).
 
     Args:
         model (:obj:`nn.Module`): Model which contains parameters for SGD
@@ -308,3 +339,85 @@ class PowerSGD(SGD):
         if tracker:
             tracker.record_batch_opt_step()
         return loss
+
+
+class CustomCentralizedOptimizer(GenericCentralizedOptimizer):
+    """Custom Centralized Optimizer. Can be used with any optimizer passed as argument.
+    Adds the gradient clipping option, as well as custom average
+
+    Args:
+        model (:obj:`torch.nn.Module`): model
+        world_size (int): Distributed world size
+        use_cuda (bool): Use cuda tensors for aggregation
+        by_layer (bool): Aggregate by layer
+        agg_grad (bool): Aggregate the gradients before updating weights. If `False`,
+            weights will be updated and then reduced across all workers. (default: `True`)
+        grad_clip (float): coefficient for gradient clipping, max L2 norm of the gradients
+        average_world (bool): Average the gradients by world size
+        average_custom (bool): Divide gradients by given denominator at each step, instead
+            of `world_size`
+        divide_before (bool): Divide gradients before reduction (default: False)
+    """
+
+    def __init__(
+        self,
+        model,
+        world_size,
+        optimizer,
+        use_cuda=False,
+        by_layer=False,
+        agg_grad=True,
+        grad_clip=float("inf"),
+        average_world=False,
+        average_custom=False,
+        divide_before=False,
+    ):
+        super(GenericCentralizedOptimizer, self).__init__(
+            model=model,
+            world_size=world_size,
+            use_cuda=use_cuda,
+            by_layer=by_layer,
+            agg_grad=agg_grad,
+            divide_before=divide_before,
+        )
+        self.grad_clip = grad_clip
+
+        if average_world:
+            self.agg_mode = AVG_WORLD
+        elif average_custom:
+            self.agg_mode = AVG_CUSTOM
+        else:
+            raise NotImplementedError("Please choose aggregation method")
+
+        self.optimizer = optimizer
+
+    def step(self, closure=None, tracker=None, denom=None):
+        """Performs one step of the optimizer.
+
+        Args:
+            closure (callable): Optimizer closure argument
+            tracker (:obj:`mlbench_core.utils.Tracker`, optional) The current tracker
+            denom (Optional[:obj:`torch.Tensor`]): Custom denominator to reduce by
+        """
+
+        if self.agg_grad:
+            self.agg(self.model, self.agg_mode)
+            if tracker:
+                tracker.record_batch_agg()
+
+            # Clip norm
+            if self.grad_clip != float("inf"):
+                clip_grad_norm_(self.model.parameters(), self.grad_clip)
+
+            self.optimizer.step(closure=closure)
+            if tracker:
+                tracker.record_batch_opt_step()
+        else:
+            self.optimizer.step(closure=closure)
+            if tracker:
+                tracker.record_batch_opt_step()
+            self.agg(self.model, self.agg_mode)
+            if tracker:
+                tracker.record_batch_agg()
+
+        return True

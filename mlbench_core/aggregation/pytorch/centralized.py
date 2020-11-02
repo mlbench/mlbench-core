@@ -11,7 +11,9 @@ except ImportError as e:
 
 from mlbench_core.aggregation.pytorch.aggregation import Aggregation
 
-ALLREDUCE_AGGREGATION_OPS = ["avg_world", "custom_avg"]
+AVG_WORLD = "avg_world"
+AVG_CUSTOM = "avg_custom"
+ALLREDUCE_AGGREGATION_OPS = [AVG_WORLD, AVG_CUSTOM]
 """
 All possible aggregations for AllReduceAggregation
 """
@@ -61,9 +63,9 @@ class AllReduceAggregation(Aggregation):
         if op not in ALLREDUCE_AGGREGATION_OPS:
             raise NotImplementedError("Allreduce not implemented for op={}".format(op))
 
-        if op == "avg_world":
+        if op == AVG_WORLD:
             data.div_(self.world_size)
-        elif op == "custom_avg":
+        elif op == AVG_CUSTOM:
             if denom is None or denom == 0:
                 raise ValueError("Denominator should be one element tensor")
             data.div_(denom)

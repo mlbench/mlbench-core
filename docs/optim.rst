@@ -35,22 +35,37 @@ Centralized (Synchronous) Optimizers
 .. autoapimodule:: mlbench_core.optim.pytorch.centralized
 .. currentmodule:: mlbench_core.optim.pytorch.centralized
 
-CentralizedSparsifiedSGD
-''''''''''''''''''''''''
+Generic Centralized Optimizer
++++++++++++++++++++++++++++++
 
-.. autoapiclass:: CentralizedSparsifiedSGD
+.. autoapiclass:: GenericCentralizedOptimizer
     :members:
 
 CentralizedSGD
 ''''''''''''''
 
 .. autoapiclass:: CentralizedSGD
+    :show-inheritance:
     :members:
 
 CentralizedAdam
 '''''''''''''''
 
 .. autoapiclass:: CentralizedAdam
+    :show-inheritance:
+    :members:
+
+CustomCentralizedOptimizer
+''''''''''''''''''''''''''
+
+.. autoapiclass:: CustomCentralizedOptimizer
+    :show-inheritance:
+    :members:
+
+CentralizedSparsifiedSGD
+''''''''''''''''''''''''
+
+.. autoapiclass:: CentralizedSparsifiedSGD
     :members:
 
 PowerSGD
@@ -77,8 +92,8 @@ DecentralizedSGD
 .. bibliography:: optim.bib
    :cited:
 
-fp_optimizers
-+++++++++++++
+Mixed Precision Optimizers
+++++++++++++++++++++++++++
 
 .. autoapimodule:: mlbench_core.optim.pytorch.fp_optimizers
 .. currentmodule:: mlbench_core.optim.pytorch.fp_optimizers
@@ -87,10 +102,4 @@ FP16Optimizer
 '''''''''''''
 
 .. autoapiclass:: FP16Optimizer
-    :members:
-
-.. autoapiclass:: FP32Optimizer
-    :members:
-
-.. autoapiclass:: AMPOptimizer
     :members:
