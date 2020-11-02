@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.distributed as dist
 
@@ -101,6 +102,8 @@ class AllReduceAggregation(Aggregation):
 
 
 class AllReduceAggregationHVD(AllReduceAggregation):
+    """Implements `AllReduceAggregation` using horovod for communication"""
+
     def _reduce(self, data):
         data = hvd.allreduce(data, op=hvd.Sum)
         return data

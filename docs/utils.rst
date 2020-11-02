@@ -30,33 +30,31 @@ Checkpointer
 
 .. autoapiclass:: Checkpointer
 
+helpers
+'''''''
 
-Distributed
-'''''''''''
+.. autoapimodule:: mlbench_core.utils.pytorch.helpers
+.. currentmodule:: mlbench_core.utils.pytorch.helpers
 
-.. autoapimodule:: mlbench_core.utils.pytorch.distributed
-.. currentmodule:: mlbench_core.utils.pytorch.distributed
+.. autoapifunction:: config_logging
 
-.. autoapiclass:: Aggregation
-    :members:
-    :private-members:
-    :undoc-members:
+.. autoapifunction:: config_pytorch
 
-.. autoapiclass:: AllReduceAggregation
-    :show-inheritance:
-    :private-members:
+.. autoapifunction:: config_path
 
-.. autoapiclass:: DecentralizedAggregation
-    :show-inheritance:
-    :private-members:
+utils
+'''''
 
-.. autoapiclass:: SparsifiedAggregation
-    :show-inheritance:
-    :private-members:
+.. autoapimodule:: mlbench_core.utils.pytorch.utils
+.. currentmodule:: mlbench_core.utils.pytorch.utils
 
 .. autoapifunction:: pack_tensors
 
 .. autoapifunction:: unpack_tensors
+
+.. autoapifunction:: orthogonalize
+
+
 
 
 Inference
