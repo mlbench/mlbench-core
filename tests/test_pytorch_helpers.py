@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 """Tests for `mlbench_core.utils.pytorch.helpers` package."""
 
 from mlbench_core.utils import LogMetrics
