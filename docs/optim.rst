@@ -11,8 +11,8 @@ pytorch
 .. currentmodule:: mlbench_core.optim.pytorch
 
 
-optim
-+++++
+Optimizers
+++++++++++
 .. autoapimodule:: mlbench_core.optim.pytorch.optim
 .. currentmodule:: mlbench_core.optim.pytorch.optim
 
@@ -23,16 +23,22 @@ SparsifiedSGD
 .. autoapiclass:: SparsifiedSGD
     :members:
 
+SignSGD
+'''''''''''''
+
+.. autoapiclass:: SignSGD
+    :members:
+
+Centralized (Synchronous) Optimizers
+++++++++++++++++++++++++++++++++++++
+
+.. autoapimodule:: mlbench_core.optim.pytorch.centralized
+.. currentmodule:: mlbench_core.optim.pytorch.centralized
+
 CentralizedSparsifiedSGD
 ''''''''''''''''''''''''
 
 .. autoapiclass:: CentralizedSparsifiedSGD
-    :members:
-
-DecentralizedSGD
-''''''''''''''''
-
-.. autoapiclass:: DecentralizedSGD
     :members:
 
 CentralizedSGD
@@ -41,17 +47,30 @@ CentralizedSGD
 .. autoapiclass:: CentralizedSGD
     :members:
 
-SignSGD
-'''''''
-
-.. autoapiclass:: SignSGD
-    :members:
-
 CentralizedAdam
 '''''''''''''''
 
 .. autoapiclass:: CentralizedAdam
     :members:
+
+PowerSGD
+''''''''
+
+.. autoapiclass:: PowerSGD
+    :members:
+
+Decentralized (Asynchronous) Optimizers
++++++++++++++++++++++++++++++++++++++++
+
+.. autoapimodule:: mlbench_core.optim.pytorch.decentralized
+.. currentmodule:: mlbench_core.optim.pytorch.decentralized
+
+DecentralizedSGD
+''''''''''''''''
+
+.. autoapiclass:: DecentralizedSGD
+    :members:
+
 
 .. rubric:: References
 
