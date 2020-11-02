@@ -3,8 +3,9 @@ import logging
 
 import torch
 
+from mlbench_core.aggregation.pytorch.centralized import AllReduceAggregation
 from mlbench_core.controlflow.pytorch.helpers import iterate_dataloader
-from mlbench_core.utils.pytorch.distributed import AllReduceAggregation, global_average
+from mlbench_core.utils.pytorch.distributed import global_average
 
 logger = logging.getLogger("mlbench")
 

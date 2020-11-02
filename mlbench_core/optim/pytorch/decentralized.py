@@ -1,7 +1,7 @@
 from torch.optim import SGD
 from torch.optim.optimizer import required
 
-from mlbench_core.utils.pytorch.distributed import DecentralizedAggregation
+from mlbench_core.aggregation.pytorch.decentralized import DecentralizedAggregation
 
 
 class DecentralizedSGD(SGD):

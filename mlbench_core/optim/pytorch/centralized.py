@@ -3,11 +3,11 @@ import torch.distributed as dist
 from torch.optim import SGD, Adam
 from torch.optim.optimizer import required
 
-from mlbench_core.optim.pytorch.optim import SparsifiedSGD
-from mlbench_core.utils.pytorch.distributed import (
+from mlbench_core.aggregation.pytorch.centralized import (
     AllReduceAggregation,
     PowerAggregation,
 )
+from mlbench_core.optim.pytorch.optim import SparsifiedSGD
 
 
 class CentralizedSparsifiedSGD(SparsifiedSGD):

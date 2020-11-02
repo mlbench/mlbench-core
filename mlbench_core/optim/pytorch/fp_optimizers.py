@@ -3,7 +3,7 @@ import logging
 import torch
 from torch.nn.utils import clip_grad_norm_
 
-from mlbench_core.utils.pytorch.distributed import (
+from mlbench_core.aggregation.pytorch.centralized import (
     AllReduceAggregation,
     AllReduceAggregationHVD,
 )
