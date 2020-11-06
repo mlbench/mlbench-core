@@ -181,7 +181,7 @@ class SignSGD(SGD):
     """
 
     def step(self, closure=None):
-        """Aggregates the gradients and performs a single optimization step.
+        """Performs a single optimization step.
 
         Arguments:
             closure (callable, optional): A closure that reevaluates the model

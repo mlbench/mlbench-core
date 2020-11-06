@@ -1,3 +1,5 @@
+from abc import ABC
+
 import torch
 import torch.distributed as dist
 from torch.nn.utils import clip_grad_norm_
@@ -13,7 +15,7 @@ from mlbench_core.aggregation.pytorch.centralized import (
 from mlbench_core.optim.pytorch.optim import SparsifiedSGD
 
 
-class GenericCentralizedOptimizer:
+class GenericCentralizedOptimizer(ABC):
     """Implements a generic centralized (synchronous) optimizer with `AllReduceAggregation`.
     Averages the reduced parameters over the world size, after aggregation.
     Can aggregate gradients or weights, by layers or all at once.
