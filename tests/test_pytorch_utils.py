@@ -1,7 +1,17 @@
-"""Tests for `mlbench_core.utils.pytorch.distributed`"""
+"""Tests for `mlbench_core.utils.pytorch.utils` package."""
 import torch
 
-from mlbench_core.utils.pytorch.distributed import pack_tensors, unpack_tensors
+from mlbench_core.utils.pytorch.utils import orthogonalize, pack_tensors, unpack_tensors
+
+
+def test_orthogonalize():
+    m = torch.rand(2, 2)
+    identity = torch.eye(2)
+
+    orthogonalize(m)
+
+    # check if m'*m = I
+    assert torch.allclose(torch.matmul(m.t(), m), identity, atol=1e-04)
 
 
 def test_pack_tensors():

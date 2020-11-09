@@ -14,3 +14,13 @@ updates:
       - "dependencies"
     reviewers:
       - "ehoelzl"
+
+  - package-ecosystem: "pip" # See documentation for possible values
+    directory: "/docs" # Location of package manifests
+    schedule:
+      interval: "monthly"
+
+    labels:
+      - "dependencies"
+    reviewers:
+      - "ehoelzl"

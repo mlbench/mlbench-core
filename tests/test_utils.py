@@ -1,17 +1,12 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-"""Tests for `mlbench_core.utils.pytorch.helpers` package."""
+"""Tests for `mlbench_core.utils` package."""
 
 import datetime
 
-import torch
 from freezegun import freeze_time
 
 from mlbench_core.evaluation.goals import task1_time_to_accuracy_light_goal
 from mlbench_core.evaluation.pytorch.metrics import TopKAccuracy
-from mlbench_core.utils import Tracker
-from mlbench_core.utils.pytorch.utils import orthogonalize
+from mlbench_core.utils import LogMetrics, Tracker
 
 
 def test_tracker():
@@ -54,6 +49,28 @@ def test_tracker_goal(mocker):
     assert tracker.goal_reached
 
 
+def _do_batch(tracker, frozen):
+    tracker.batch_start()
+    frozen.tick(delta=datetime.timedelta(seconds=0.5))
+    tracker.record_batch_load()
+    frozen.tick(delta=datetime.timedelta(seconds=0.5))
+    tracker.record_batch_init()
+    frozen.tick(delta=datetime.timedelta(seconds=0.5))
+    tracker.record_batch_fwd_pass()
+    frozen.tick(delta=datetime.timedelta(seconds=0.5))
+    tracker.record_batch_comp_loss()
+    frozen.tick(delta=datetime.timedelta(seconds=0.5))
+    tracker.record_batch_backprop()
+    frozen.tick(delta=datetime.timedelta(seconds=0.5))
+    tracker.record_batch_agg()
+    frozen.tick(delta=datetime.timedelta(seconds=0.5))
+    tracker.record_batch_opt_step()
+    frozen.tick(delta=datetime.timedelta(seconds=0.5))
+    tracker.record_batch_comp_metrics()
+    frozen.tick(delta=datetime.timedelta(seconds=0.5))
+    tracker.batch_end()
+
+
 def test_tracker_goal_times(mocker):
     patched = mocker.patch("mlbench_core.utils.tracker.LogMetrics")
 
@@ -67,50 +84,14 @@ def test_tracker_goal_times(mocker):
     tracker.train()
 
     with freeze_time(datetime.datetime.now()) as frozen:
-        tracker.batch_start()
-        frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.record_batch_load()
-        frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.record_batch_init()
-        frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.record_batch_fwd_pass()
-        frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.record_batch_comp_loss()
-        frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.record_batch_backprop()
-        frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.record_batch_agg()
-        frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.record_batch_opt_step()
-        frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.record_batch_comp_metrics()
-        frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.batch_end()
+        _do_batch(tracker, frozen)
 
         assert abs(tracker.get_total_preprocess_time() - 0.5) < 0.01
         assert abs(tracker.get_total_communication_time() - 0.5) < 0.01
         assert abs(tracker.get_total_compute_time() - 2.0) < 0.01
         assert abs(tracker.get_total_metrics_time() - 0.5) < 0.01
 
-        tracker.batch_start()
-        frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.record_batch_load()
-        frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.record_batch_init()
-        frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.record_batch_fwd_pass()
-        frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.record_batch_comp_loss()
-        frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.record_batch_backprop()
-        frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.record_batch_agg()
-        frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.record_batch_opt_step()
-        frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.record_batch_comp_metrics()
-        frozen.tick(delta=datetime.timedelta(seconds=0.5))
-        tracker.batch_end()
+        _do_batch(tracker, frozen)
 
         assert abs(tracker.get_total_preprocess_time() - 1.0) < 0.01
         assert abs(tracker.get_total_communication_time() - 1.0) < 0.01
@@ -124,11 +105,11 @@ def test_tracker_goal_times(mocker):
         assert any(filter(lambda c: c[1][3] == "TaskResult", patched.method_calls))
 
 
-def test_orthogonalize():
-    m = torch.rand(2, 2)
-    identity = torch.eye(2)
+def test_LogMetrics(mocker):
+    mocker.patch("mlbench_core.api.ApiClient")
 
-    orthogonalize(m)
+    LogMetrics.log("1", 1, 1, "loss", 123)
 
-    # check if m'*m = I
-    assert torch.allclose(torch.matmul(m.t(), m), identity, atol=1e-04)
+    mocker.patch.dict("os.environ", {"MLBENCH_IN_DOCKER": "True"})
+
+    LogMetrics.log("1", 1, 1, "loss", 123)

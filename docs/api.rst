@@ -12,6 +12,7 @@ MLBench Core API
 .. toctree::
    :maxdepth: 1
 
+   aggregation
    clientapi
    controlflow
    dataset
