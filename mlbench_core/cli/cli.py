@@ -22,7 +22,11 @@ from tabulate import tabulate
 
 import mlbench_core
 from mlbench_core.api import MLBENCH_BACKENDS, MLBENCH_IMAGES, ApiClient
-from mlbench_core.cli.aws_utils import aws_create_cluster, setup_aws_kube_client
+from mlbench_core.cli.aws_utils import (
+    aws_create_cluster,
+    deploy_nvidia_daemonset_aws,
+    setup_aws_kube_client,
+)
 from mlbench_core.cli.gcloud_utils import (
     deploy_nvidia_daemonset,
     gcloud_create_cluster,
@@ -733,7 +737,7 @@ def create_gcloud(
 @click.option("--num-cpus", "-c", default=1, type=int)
 @click.option("--num-gpus", "-g", default=0, type=int)
 @click.option("--custom-value", "-v", multiple=True)
-@click.option("--ami-id", "-a", default="ami-06d4f570358b1b626", type=str)
+@click.option("--ami-id", "-a", default="ami-0ef76ba092ce4e253", type=str)
 @click.option("--ssh-key", "-a", default="eksNodeKey", type=str)
 def create_aws(
     num_workers,
@@ -769,6 +773,9 @@ def create_aws(
         kubernetes_version,
     )
     kube_config.load_kube_config(context=kube_context)
+
+    if num_gpus > 0:
+        deploy_nvidia_daemonset_aws()
 
     deploy_chart(
         num_workers=num_workers - 1,
