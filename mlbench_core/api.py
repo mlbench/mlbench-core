@@ -11,12 +11,12 @@ MLBENCH_BACKENDS = ["MPI", "GLOO", "NCCL"]
 
 MLBENCH_IMAGES = {
     "PyTorch Cifar-10 ResNet-20": (
-        "mlbench/pytorch-cifar10-resnet:latest",
+        "mlbench/pytorch-cifar10-resnet20-all-reduce:latest",
         "/conda/bin/python /codes/main.py --run_id {run_id} --rank {rank} --hosts {hosts} --backend {backend}",
         True,
     ),
-    "PyTorch Cifar-10 ResNet-20 (Scaling LR)": (
-        "mlbench/pytorch-cifar10-resnet-scaling:latest",
+    "PyTorch Cifar-10 ResNet-20 (DDP)": (
+        "mlbench/pytorch-cifar10-resnet20-ddp:latest",
         "/conda/bin/python /codes/main.py --run_id {run_id} --rank {rank} --hosts {hosts} --backend {backend}",
         True,
     ),
