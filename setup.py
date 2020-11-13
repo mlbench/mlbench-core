@@ -35,10 +35,14 @@ requirements = [
     "supermutes==0.2.5",
     "tabulate>=0.8.5",
     "tensorpack==0.10.1",
+    "torchtext==0.6.0",
+    "torchvision==0.8.1",
 ]
 
 # Libraries used by torch
-torch_reqs = ["torch==1.7.0a0", "torchtext==0.6.0", "torchvision==0.6.1"]
+torch_reqs = [
+    "torch==1.7.0",
+]
 
 tensorflow_reqs = [
     "tensorflow==1.13.2",
@@ -111,6 +115,6 @@ setup(
     tests_require=test_requirements,
     extras_require=extras,
     url="https://github.com/mlbench/mlbench_core",
-    version="2.4.0-dev286",
+    version="2.4.0-dev290",
     zip_safe=False,
 )
