@@ -81,7 +81,7 @@ def _get_features_and_labels(data, is_sparse):
     return features, labels
 
 
-def _load_libsvm_data(root_path, name, data_type):
+def s_load_libsvm_data(root_path, name, data_type):
     data = _DATASET_MAP["{}_{}".format(name, data_type)]
     data_url = data["url"]
     is_sparse = data["sparse"]
@@ -144,7 +144,7 @@ def sequential_epsilon_or_rcv1(root_path, name, data_type):
     data = LIBSVMDataset(features, labels, is_sparse)
     lmdb_file_path = os.path.join(root_path, "{}_{}.lmdb".format(name, data_type))
 
-    ds1 = PrefetchDataZMQ(data, nr_proc=1)
+    ds1 = PrefetchDataZMQ(data)
     LMDBSerializer.save(ds1, lmdb_file_path)
 
     print("Dumped dataflow to {} for {}".format(lmdb_file_path, name))
@@ -170,7 +170,9 @@ def sequential_synthetic_dataset(root_path, dataset_name, data_type):
         root_path, "{}_{}.lmdb".format(dataset_name, data_type)
     )
 
-    ds1 = PrefetchDataZMQ(data, nr_proc=1)
+    ds1 = PrefetchDataZMQ(
+        data,
+    )
     LMDBSerializer.save(ds1, lmdb_file_path)
 
     print("Dumped dataflow to {} for {}".format(lmdb_file_path, dataset_name))
