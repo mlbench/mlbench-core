@@ -25,14 +25,6 @@ CheckpointsEvaluationControlFlow
 .. autoapiclass:: CheckpointsEvaluationControlFlow
     :members:
 
-TrainValidation (Deprecated)
-++++++++++++++++++++++++++++
-
-.. autoapiclass:: mlbench_core.controlflow.pytorch.train_validation.TrainValidation
-    :members:
-
-    .. autoapimethod:: __call__
-
 Helpers
 +++++++
 
