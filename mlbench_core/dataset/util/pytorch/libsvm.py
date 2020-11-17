@@ -81,7 +81,7 @@ def _get_features_and_labels(data, is_sparse):
     return features, labels
 
 
-def s_load_libsvm_data(root_path, name, data_type):
+def _load_libsvm_data(root_path, name, data_type):
     data = _DATASET_MAP["{}_{}".format(name, data_type)]
     data_url = data["url"]
     is_sparse = data["sparse"]
