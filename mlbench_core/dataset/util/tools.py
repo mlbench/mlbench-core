@@ -36,6 +36,9 @@ def extract_bz2_file(source, dest, delete=True):
     """
     assert source.endswith(".bz2"), "Extracting non bz2 archive"
 
+    if os.path.isfile(dest):
+        print("File {} already extracted to {}".format(source, dest))
+        return
     with open(dest, "wb") as d, open(source, "rb") as s:
         decompressor = bz2.BZ2Decompressor()
         for data in iter(lambda: s.read(1000 * 1024), b""):
@@ -75,6 +78,11 @@ def maybe_download_and_extract_bz2(root, file_name, data_url):
         os.makedirs(root)
 
     file_path = os.path.join(root, file_name)
+    file_basename = os.path.splitext(file_name)[0]
+    extracted_fpath = os.path.join(root, file_basename)
+
+    if os.path.isfile(extracted_fpath):
+        return extracted_fpath
 
     # Download file if not present
     if len([x for x in os.listdir(root) if x == file_name]) == 0:
@@ -82,9 +90,6 @@ def maybe_download_and_extract_bz2(root, file_name, data_url):
 
     # Extract downloaded file if compressed
     if file_name.endswith(".bz2"):
-        file_basename = os.path.splitext(file_name)[0]
-        extracted_fpath = os.path.join(root, file_basename)
-
         # Extract file
         extract_bz2_file(file_path, extracted_fpath, delete=True)
         file_path = extracted_fpath

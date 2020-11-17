@@ -29,7 +29,7 @@ def test_top1_accuracy():
     output_2 = torch.tensor([1, 1, 0, 1, 0]).reshape(5, 1)
     target = torch.tensor([0, 1, 0, 0, 1]).reshape(5, 1)
 
-    acc = TopKAccuracy()
+    acc = TopKAccuracy(topk=1)
     expected_score = (2 / 5) * 100
 
     actual_score_1 = acc(None, output_1, target)
@@ -37,3 +37,23 @@ def test_top1_accuracy():
 
     assert actual_score_1 == expected_score
     assert actual_score_2 == expected_score
+
+
+def test_top3_accuracy():
+    output_1 = torch.tensor(
+        [
+            [0.2, 0.2, 0.3, 0.1],
+            [0.15, 0.2, 0.05, 0.6],
+            [0.25, 0.3, 0.15, 0.3],
+            [0.3, 0.1, 0.2, 0.2],
+            [0.15, 0.15, 0.2, 0.5],
+        ]
+    ).reshape(5, 4)
+    target = torch.tensor([3, 1, 0, 2, 1]).reshape(5, 1)
+
+    acc = TopKAccuracy(topk=3)
+    expected_score = (3 / 5) * 100
+
+    actual_score_1 = acc(None, output_1, target)
+
+    assert actual_score_1 == expected_score

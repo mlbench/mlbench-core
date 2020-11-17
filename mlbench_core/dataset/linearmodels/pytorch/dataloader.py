@@ -2,11 +2,10 @@ import logging
 import os
 import pickle
 
-import cv2
 import lmdb
 import numpy as np
 import torch.utils.data
-from PIL import Image
+from scipy.sparse import coo_matrix, csr_matrix
 from tensorpack.utils.compatible_serialize import loads
 
 from mlbench_core.dataset.util.tools import progress_download
@@ -61,9 +60,7 @@ class LMDBDataset(torch.utils.data.Dataset):
         name,
         data_type,
         root,
-        is_image=False,
         target_transform=None,
-        download=True,
     ):
 
         root, self.transform = maybe_download_lmdb(name, data_type, root)
@@ -79,7 +76,6 @@ class LMDBDataset(torch.utils.data.Dataset):
                     root=lmdb_file,
                     transform=self.transform,
                     target_transform=target_transform,
-                    is_image=is_image,
                 )
             )
 
@@ -153,14 +149,12 @@ class LMDBPTClass(torch.utils.data.Dataset):
             E.g, ``transforms.RandomCrop``
         target_transform (callable, optional):
             A function/transform that takes in the target and transforms it.
-        is_image (bool): Whether the dataset file is an image or not
     """
 
-    def __init__(self, root, transform=None, target_transform=None, is_image=True):
+    def __init__(self, root, transform=None, target_transform=None):
         self.root = os.path.expanduser(root)
         self.transform = transform
         self.target_transform = target_transform
-        self.is_image = is_image
 
         # open lmdb env.
         self.env = self._open_lmdb()
@@ -199,25 +193,19 @@ class LMDBPTClass(torch.utils.data.Dataset):
                 self.keys = [key for key, _ in txn.cursor() if key != b"__keys__"]
             pickle.dump(self.keys, open(cache_file, "wb"))
 
-    def _image_decode(self, x):
-        image = cv2.imdecode(x, cv2.IMREAD_COLOR).astype("uint8")
-        return Image.fromarray(image, "RGB")
-
     def __getitem__(self, index):
         env = self.env
         with env.begin(write=False) as txn:
             bin_file = txn.get(self.keys[index])
 
-        image, target = loads(bin_file)
-        if self.is_image:
-            image = self._image_decode(image)
+        data, target = loads(bin_file)
 
         if self.transform is not None:
-            image = self.transform(image)
+            data = self.transform(data)
 
         if self.target_transform is not None:
             target = self.target_transform(target)
-        return image, target
+        return data, target
 
     def __len__(self):
         return self.length
@@ -227,7 +215,6 @@ class LMDBPTClass(torch.utils.data.Dataset):
 
 
 def construct_sparse_matrix(triplet, n_features):
-    from scipy.sparse import coo_matrix, csr_matrix
 
     data, row, col = triplet
     mat = coo_matrix((data, (row, col)), shape=(len(set(row)), n_features))

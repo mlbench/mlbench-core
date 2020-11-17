@@ -11,12 +11,16 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
+from mlbench_core.controlflow.pytorch.controlflow import (
+    compute_train_batch_metrics,
+    record_train_batch_stats,
+    validation_round,
+)
 from mlbench_core.controlflow.pytorch.helpers import (
     convert_dtype,
     iterate_dataloader,
     maybe_range,
 )
-from mlbench_core.controlflow.pytorch.train_validation import TrainValidation
 from mlbench_core.evaluation.pytorch.metrics import TopKAccuracy
 from mlbench_core.lr_scheduler.pytorch import multistep_learning_rates_with_warmup
 
@@ -55,49 +59,7 @@ def scheduler(optimizer):
     )
 
 
-def test_instantiation(mocker, model, optimizer, loss_function, metrics, scheduler):
-    mocker.patch("mlbench_core.controlflow.pytorch.train_validation.dist")
-
-    batch_size = 2
-
-    tv = TrainValidation(
-        model,
-        optimizer,
-        loss_function,
-        metrics,
-        scheduler,
-        batch_size,
-        10,
-        0,
-        1,
-        1,
-        "fp32",
-    )
-
-    assert tv is not None
-
-
-def test_training(mocker, model, optimizer, loss_function, metrics, scheduler):
-    mocker.patch("mlbench_core.controlflow.pytorch.train_validation.dist")
-    mocker.patch("mlbench_core.utils.pytorch.distributed.dist")
-    mocker.patch("mlbench_core.utils.tracker.LogMetrics")
-
-    batch_size = 2
-
-    tv = TrainValidation(
-        model,
-        optimizer,
-        loss_function,
-        metrics,
-        scheduler,
-        batch_size,
-        10,
-        0,
-        1,
-        1,
-        "fp32",
-    )
-
+def _create_random_sets():
     train_set = [random.random() for _ in range(100)]
     train_set = [
         (
@@ -116,18 +78,61 @@ def test_training(mocker, model, optimizer, loss_function, metrics, scheduler):
         for n in test_set
     ]
 
+    return train_set, test_set
+
+
+def test_compute_train_metrics(
+    mocker, model, optimizer, loss_function, metrics, scheduler
+):
+    mocker.patch("mlbench_core.utils.pytorch.distributed.dist")
+    mocker.patch("mlbench_core.utils.tracker.LogMetrics")
+
+    batch_size = 2
+
+    train_set, test_set = _create_random_sets()
+    train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True)
+
+    for i, (data, target) in enumerate(train_loader):
+        optimizer.zero_grad()
+        output = model(data)
+        loss = loss_function(output, target)
+
+        metric_values = compute_train_batch_metrics(loss, output, target, metrics)
+        metric_values = [(k, v) for k, v in metric_values.items() if k.name == "Prec@1"]
+        assert len(metric_values) == 1
+
+        metric, value = metric_values[0]
+
+        assert value == metrics[0](loss, output, target)
+
+
+def test_validation_round(mocker, model, optimizer, loss_function, metrics, scheduler):
+    mocker.patch("mlbench_core.utils.pytorch.distributed.dist")
+    mocker.patch("mlbench_core.utils.tracker.LogMetrics")
+
+    batch_size = 2
+
+    train_set, test_set = _create_random_sets()
     train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=False)
 
-    tv.run(
-        dataloader_train_fn=lambda: train_loader,
-        dataloader_val_fn=lambda: test_loader,
-        repartition_per_epoch=True,
+    for data, target in train_loader:
+        optimizer.zero_grad()
+        output = model(data)
+        loss = loss_function(output, target)
+
+        loss.backward()
+        optimizer.step()
+
+    metric_values, loss_values = validation_round(
+        test_loader,
+        model=model,
+        loss_function=loss_function,
+        metrics=metrics,
+        dtype="fp32",
     )
 
-    assert tv.tracker.current_epoch == 10
-    assert tv.tracker.best_epoch > -1
-    assert tv.tracker.best_metric_value > 50.0
+    assert "Prec@1" in [m.name for m in metric_values]
 
 
 def test_maybe_range():

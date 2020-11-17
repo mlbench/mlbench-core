@@ -11,6 +11,7 @@ with open("README.md") as readme_file:
 with open("CHANGELOG.md") as history_file:
     history = history_file.read()
 
+# Common libraries
 requirements = [
     "appdirs==1.4.4",
     "boto3==1.14.50",
@@ -25,6 +26,7 @@ requirements = [
     "google-cloud-container==1.0.1",
     "grpcio==1.31.0",
     "kubernetes==11.0.0",
+    "lmdb==1.0.0",
     "matplotlib==3.2.1",
     "numpy==1.19.2",
     "oauth2client==4.1.3",
@@ -32,10 +34,18 @@ requirements = [
     "spacy==2.3.2",
     "supermutes==0.2.5",
     "tabulate>=0.8.5",
-    "tensorflow==1.13.2",
-    "torch==1.5.1",
+    "tensorpack==0.10.1",
+]
+
+# Libraries used by torch
+torch_reqs = [
+    "torch==1.7.0",
     "torchtext==0.6.0",
-    "torchvision==0.6.1",
+    "torchvision==0.8.1",
+]
+
+tensorflow_reqs = [
+    "tensorflow==1.13.2",
 ]
 
 setup_requirements = [
@@ -47,18 +57,30 @@ lint_requirements = [
     "isort==5.6.4",
 ]
 
-test_requirements = [
-    "codecov==2.1.9",
-    "coverage==5.3",
-    "freezegun==1.0.0",
-    "pre-commit",
-    "pytest>=3",
-    "pytest-cov==2.10.1",
-    "pytest-mock==3.3.1",
-    "wcwidth==0.2.5",
-] + lint_requirements
+test_requirements = (
+    [
+        "codecov==2.1.9",
+        "coverage==5.3",
+        "freezegun==1.0.0",
+        "pre-commit",
+        "pytest>=3",
+        "pytest-cov==2.10.1",
+        "pytest-mock==3.3.1",
+        "wcwidth==0.2.5",
+    ]
+    + lint_requirements
+    + torch_reqs
+    + tensorflow_reqs
+)
 
-extras = {"test": test_requirements, "lint": lint_requirements}
+dev_requirements = torch_reqs + tensorflow_reqs + lint_requirements + test_requirements
+extras = {
+    "test": test_requirements,
+    "lint": lint_requirements,
+    "torch": torch_reqs,
+    "tensorflow": tensorflow_reqs,
+    "dev": dev_requirements,
+}
 
 setup(
     author="Ralf Grubenmann",
@@ -93,6 +115,6 @@ setup(
     tests_require=test_requirements,
     extras_require=extras,
     url="https://github.com/mlbench/mlbench_core",
-    version="2.4.0-dev264",
+    version="2.4.0-dev293",
     zip_safe=False,
 )

@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 
-from mlbench_core.models.pytorch.gnmt import attn_score
+import mlbench_core.models.pytorch.gnmt.attn_score as attn_score
 
 
 class AttentionScore(torch.autograd.Function):

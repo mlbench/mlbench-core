@@ -100,7 +100,7 @@ class ResidualRecurrentEncoder(nn.Module):
 
         # bidirectional layer
         x = self.dropout(x)
-        x = pack_padded_sequence(x, lengths, batch_first=False)
+        x = pack_padded_sequence(x, lengths.cpu(), batch_first=False)
         x, _ = self.rnn_layers[0](x)
         x, _ = pad_packed_sequence(x, batch_first=False)
 
