@@ -35,13 +35,13 @@ requirements = [
     "supermutes==0.2.5",
     "tabulate>=0.8.5",
     "tensorpack==0.10.1",
-    "torchtext==0.6.0",
-    "torchvision==0.8.1",
 ]
 
 # Libraries used by torch
 torch_reqs = [
     "torch==1.7.0",
+    "torchtext==0.6.0",
+    "torchvision==0.8.1",
 ]
 
 tensorflow_reqs = [
