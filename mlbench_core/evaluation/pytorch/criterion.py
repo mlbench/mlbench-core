@@ -12,6 +12,34 @@ except ImportError as e:
     apex_installed = False
 
 
+def _l2_regularization(l2, model):
+    """Computes the L2 regularization for the given model
+
+    Args:
+        l2 (float): L2 parameter
+        model (:obj:`torch.nn.Module`): Model to use
+
+    Returns:
+        float: L2 loss (i.e. (l2 * l2_norm(params)) / 2)
+    """
+    l2_loss = sum(param.norm(2) ** 2 for param in model.parameters())
+    return l2 / 2 * l2_loss
+
+
+def _l1_regularization(l1, model):
+    """Computes the L1 regularization for the given model
+
+    Args:
+        l1 (float): L1 parameter
+        model (:obj:`torch.nn.Module`): Model to use
+
+    Returns:
+        float: L1 loss (i.e. l1 * l1_norm(params))
+    """
+    l1_loss = sum(param.norm(1) for param in model.parameters())
+    return l1 * l1_loss
+
+
 class BCELossRegularized(_WeightedLoss):
     """Binary Cross Entropy (BCE) with l1/l2 regularization.
 
@@ -78,10 +106,9 @@ class BCELossRegularized(_WeightedLoss):
         output = F.binary_cross_entropy(
             input_, target.float(), weight=self.weight, reduction=self.reduction
         )
-        l2_loss = sum(param.norm(2) ** 2 for param in self.model.parameters())
-        output += self.l2 / 2 * l2_loss
-        l1_loss = sum(param.norm(1) for param in self.model.parameters())
-        output += self.l1 * l1_loss
+        l2_loss = _l2_regularization(self.l2, self.model)
+        l1_loss = _l1_regularization(self.l1, self.model)
+        output += l1_loss + l2_loss
         return output
 
 
@@ -149,10 +176,9 @@ class MSELossRegularized(_WeightedLoss):
 
     def forward(self, input_, target):
         output = F.mse_loss(input_, target, reduction=self.reduction)
-        l2_loss = sum(param.norm(2) ** 2 for param in self.model.parameters())
-        output += self.l2 / 2 * l2_loss
-        l1_loss = sum(param.norm(1) for param in self.model.parameters())
-        output += self.l1 * l1_loss
+        l2_loss = _l2_regularization(self.l2, self.model)
+        l1_loss = _l1_regularization(self.l1, self.model)
+        output += l1_loss + l2_loss
         return output
 
 
