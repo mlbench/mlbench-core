@@ -12,17 +12,8 @@ def _make_positions(tensor, padding_idx, left_pad):
     Padding symbols are ignored, but it is necessary to specify whether padding
     is added on the left side (left_pad=True) or right side (left_pad=False).
     """
-    max_pos = padding_idx + 1 + tensor.size(1)
-    if not hasattr(_make_positions, "range_buf"):
-        _make_positions.range_buf = tensor.new()
-    _make_positions.range_buf = _make_positions.range_buf.type_as(tensor)
-    if _make_positions.range_buf.numel() < max_pos:
-        torch.arange(padding_idx + 1, max_pos, out=_make_positions.range_buf)
-    mask = tensor.ne(padding_idx)
-    positions = _make_positions.range_buf[: tensor.size(1)].expand_as(tensor)
-    if left_pad:
-        positions = positions - mask.size(1) + mask.long().sum(dim=1).unsqueeze(1)
-    return tensor.clone().masked_scatter_(mask, positions[mask])
+    mask = tensor.ne(padding_idx).long()
+    return torch.cumsum(mask, dim=1) * mask + padding_idx
 
 
 class LearnedPositionalEmbedding(nn.Embedding):
@@ -103,8 +94,8 @@ class SinusoidalPositionalEmbedding(nn.Module):
                 self.embedding_dim,
                 self.padding_idx,
             )
-        self.weights = self.weights.type_as(self._float_tensor)
-
+        # self.weights = self.weights.type_as(self._float_tensor)
+        self.weights = self.weights.to(self._float_tensor, non_blocking=True)
         if incremental_state is not None:
             # positions is the same for every token when decoding a single step
             return self.weights[self.padding_idx + seq_len, :].expand(bsz, 1, -1)

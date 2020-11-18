@@ -75,7 +75,7 @@ class TransformerModel(nn.Module):
             (:obj:`torch.Tensor`, Optional[:obj:`torch.Tensor`]):
                 The model output, and attention weights if needed
         """
-        encoder_out = self.encoder(src_tokens, src_lengths=src_lengths)
+        encoder_out = self.encoder(src_tokens)
         decoder_out = self.decoder(prev_output_tokens, encoder_out=encoder_out)
         return decoder_out
 

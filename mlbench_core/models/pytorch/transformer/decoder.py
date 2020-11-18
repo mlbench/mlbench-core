@@ -89,6 +89,15 @@ class TransformerDecoder(nn.Module):
 
         # B x T x C -> T x B x C
         x = x.transpose(0, 1)
+
+        if x.size(1) == 1:
+            if x.is_contiguous():
+                x = x.view(x.size(0), x.size(1), x.size(2))
+            else:
+                x = x.contiguous()
+        else:
+            x = x.contiguous()
+
         attn = None
 
         # decoder layers
@@ -107,7 +116,6 @@ class TransformerDecoder(nn.Module):
 
         # T x B x C -> B x T x C
         x = x.transpose(0, 1)
-
         # project back to size of vocabulary
         if self.share_input_output_embed:
             x = F.linear(x, self.embed_tokens.weight)

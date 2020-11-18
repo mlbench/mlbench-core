@@ -55,12 +55,11 @@ class TransformerEncoder(nn.Module):
         if self.normalize:
             self.layer_norm = nn.LayerNorm(embed_dim)
 
-    def forward(self, src_tokens, src_lengths):
+    def forward(self, src_tokens):
         """Forward function of encoder
 
         Args:
             src_tokens (:obj:`torch.Tensor`): Source tokens
-            src_lengths (:obj:`torch.Tensor`): Source lengths
 
         Returns:
             (dict): {`encoder:out` (:obj:`torch.Tensor`), `encoder_padding_mask` (:obj:`torch.Tensor`)}
@@ -74,6 +73,14 @@ class TransformerEncoder(nn.Module):
 
         # B x T x C -> T x B x C
         x = x.transpose(0, 1)
+
+        if x.size(1) == 1:
+            if x.is_contiguous():
+                x = x.view(x.size(0), x.size(1), x.size(2))
+            else:
+                x = x.contiguous()
+        else:
+            x = x.contiguous()
 
         # compute padding mask
         encoder_padding_mask = src_tokens.eq(self.padding_idx)
