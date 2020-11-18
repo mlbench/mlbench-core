@@ -29,8 +29,8 @@ def parse_args():
 
     parser.add_argument(
         "--math",
-        default="amp_fp16",
-        choices=["fp32", "fp16", "amp_fp16"],
+        default="fp16",
+        choices=["fp32", "fp16"],
         help="arithmetic type",
     )
 
