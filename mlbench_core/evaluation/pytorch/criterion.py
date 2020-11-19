@@ -200,8 +200,11 @@ class LabelSmoothing(_Loss):
         self.smoothing = smoothing
         self.fast_xentropy = fast_xentropy
 
-        if fast_xentropy and apex_installed:
-            self.xentropy_func = SoftmaxCrossEntropyLoss.apply
+        if fast_xentropy:
+            if apex_installed:
+                self.xentropy_func = SoftmaxCrossEntropyLoss.apply
+            else:
+                raise ImportError("Cannot use fast xentropy without apex")
         else:
             self.xentropy_func = None
 
