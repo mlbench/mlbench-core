@@ -62,7 +62,11 @@ class TransformerEncoderLayer(nn.Module):
 
         x = self.maybe_layer_norm(0, x, before=True)
         x, _ = self.self_attn(
-            query=x, key=x, value=x, key_padding_mask=encoder_padding_mask
+            query=x,
+            key=x,
+            value=x,
+            key_padding_mask=encoder_padding_mask,
+            need_weights=False,
         )
 
         x = _dropout_add(x, residual, self.dropout, self.training)
@@ -152,6 +156,7 @@ class TransformerDecoderLayer(nn.Module):
             key=x,
             value=x,
             mask_future_timesteps=True,
+            key_padding_mask=None,
             incremental_state=incremental_state,
             need_weights=False,
         )
@@ -196,6 +201,3 @@ class TransformerDecoderLayer(nn.Module):
             return layer_norm(x)
         else:
             return x
-
-    def make_generation_fast_(self, need_attn=False, **kwargs):
-        self.need_attn = need_attn

@@ -160,9 +160,7 @@ class SequenceGenerator:
         context[1] = context[1].contiguous().view(batch_size * beam_size)
         # context[1]: (batch * beam)
 
-        accu_attn_scores = torch.zeros(
-            batch_size * beam_size, seq, dtype=torch.float32, device=device
-        )
+        accu_attn_scores = torch.zeros(batch_size * beam_size, seq, device=device)
 
         counter = 0
         for idx in range(1, self.max_seq_len):
@@ -204,7 +202,7 @@ class SequenceGenerator:
             new_scores = new_scores.view(-1, beam_size * beam_size)
             # index: (batch, beam)
             _, index = new_scores.topk(beam_size, dim=1)
-            source_beam = index / beam_size
+            source_beam = torch.floor_divide(index, beam_size)
 
             new_scores = new_scores.view(-1, beam_size * beam_size)
             best_scores = torch.gather(new_scores, 1, index)

@@ -226,11 +226,7 @@ class SequenceGenerator(object):
 
         # compute the encoder output for each beam
         encoder_out = self.model.encoder(
-            src_tokens.repeat(1, beam_size).view(-1, srclen),
-            src_lengths.expand(beam_size, src_lengths.numel())
-            .t()
-            .contiguous()
-            .view(-1),
+            src_tokens.repeat(1, beam_size).view(-1, srclen)
         )
 
         # initialize buffers
@@ -387,9 +383,6 @@ class SequenceGenerator(object):
         reorder_state = None
         batch_idxs = None
         for step in range(maxlen + 1):  # one extra step for EOS marker
-            # reorder decoder internal states based on the prev choice of beams
-            # if 'MultiheadAttention.1.attn_state' in incremental_state:
-            #     print(incremental_state['MultiheadAttention.1.attn_state'].keys())
             if reorder_state is not None:
                 if batch_idxs is not None:
                     # update beam indices to take into account removed sentences
@@ -528,7 +521,9 @@ class SequenceGenerator(object):
                         ),  # -1 so we never select pad
                         out=(cand_scores, cand_indices),
                     )
-                    torch.div(cand_indices, self.vocab_size, out=cand_beams)
+                    torch.floor_divide(
+                        cand_indices, self.vocab_size, out=cand_beams.resize_(0)
+                    )
                     cand_indices.fmod_(self.vocab_size)
             else:
                 # finalize all active hypotheses once we hit maxlen
@@ -558,13 +553,13 @@ class SequenceGenerator(object):
                 torch.masked_select(
                     cand_bbsz_idx[:, :beam_size],
                     mask=eos_mask[:, :beam_size],
-                    out=eos_bbsz_idx,
+                    out=eos_bbsz_idx.resize_(0),
                 )
                 if eos_bbsz_idx.numel() > 0:
                     torch.masked_select(
                         cand_scores[:, :beam_size],
                         mask=eos_mask[:, :beam_size],
-                        out=eos_scores,
+                        out=eos_scores.resize_(0),
                     )
                     finalized_sents = finalize_hypos(
                         step, eos_bbsz_idx, eos_scores, cand_scores
@@ -582,7 +577,8 @@ class SequenceGenerator(object):
                 # construct batch_idxs which holds indices of batches to keep for the next pass
                 batch_mask = torch.ones(bsz).type_as(cand_indices)
                 batch_mask[cand_indices.new(finalized_sents)] = 0
-                batch_idxs = batch_mask.nonzero().squeeze(-1)
+                batch_idxs = torch.nonzero(batch_mask).squeeze(-1)
+                # batch_idxs = batch_mask.nonzero().squeeze(-1)
 
                 eos_mask = eos_mask[batch_idxs]
                 cand_beams = cand_beams[batch_idxs]
@@ -614,7 +610,7 @@ class SequenceGenerator(object):
             torch.add(
                 eos_mask.type_as(cand_offsets) * cand_size,
                 cand_offsets[: eos_mask.size(1)],
-                out=active_mask,
+                out=active_mask.resize_(0),
             )
 
             # get the top beam_size active hypotheses, which are just the hypos
