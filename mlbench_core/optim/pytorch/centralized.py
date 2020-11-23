@@ -374,7 +374,7 @@ class CustomCentralizedOptimizer(GenericCentralizedOptimizer):
         average_custom=False,
         divide_before=False,
     ):
-        super(CustomCentralizedOptimizer, self).__init__(
+        super().__init__(
             model=model,
             world_size=world_size,
             use_cuda=use_cuda,
@@ -403,7 +403,7 @@ class CustomCentralizedOptimizer(GenericCentralizedOptimizer):
         """
 
         if self.agg_grad:
-            self.agg(self.model, self.agg_mode)
+            self.agg(self.model, self.agg_mode, denom=denom)
             if tracker:
                 tracker.record_batch_agg()
 

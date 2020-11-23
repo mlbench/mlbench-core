@@ -241,7 +241,7 @@ class MultistepLearningRatesWithWarmup(LambdaLR):
         self.warmup_scaled_lr = scaled_lr
 
         # overwrite initial lr
-        self.base_lr = warmup_init_lr if warmup_duration > 0 else scaled_lr
+        self.base_lr = scaled_lr
         for group in self.optimizer.param_groups:
             group["initial_lr"] = self.base_lr
             group["lr"] = self.base_lr
@@ -252,12 +252,13 @@ class MultistepLearningRatesWithWarmup(LambdaLR):
         # warmup_lr => lr or lr * world_size => ....
         if duration <= self.warmup_duration and self.warmup_duration > 0:
             progress = duration / self.warmup_duration
-            lr = progress * self.warmup_scaled_lr + (1 - progress) * self.warmup_init_lr
-        else:
-            lr = self.warmup_scaled_lr * self.gamma ** bisect_right(
-                self.milestones, duration
+            factor = (
+                progress
+                + ((1 - progress) * self.warmup_init_lr) / self.warmup_scaled_lr
             )
-        return lr / self.base_lr
+        else:
+            factor = self.gamma ** bisect_right(self.milestones, duration)
+        return factor
 
 
 class ReduceLROnPlateauWithWarmup(ReduceLROnPlateau):
