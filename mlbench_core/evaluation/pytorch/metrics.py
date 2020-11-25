@@ -104,7 +104,7 @@ class Perplexity(MLBenchMetric):
         return "Perplexity"
 
     def __call__(self, output, target):
-        """Computes the perplexity
+        """Computes the perplexity given output and target. Output should be logits
 
         Args:
             output (:obj:`torch.Tensor`): Not Used

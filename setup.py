@@ -41,7 +41,6 @@ requirements = [
 torch_reqs = [
     "sacrebleu==1.4.14",
     "torch==1.7.0",
-    "torchtext==0.6.0",
     "torchvision==0.8.1",
 ]
 

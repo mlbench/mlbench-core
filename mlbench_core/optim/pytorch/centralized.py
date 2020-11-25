@@ -87,6 +87,9 @@ class GenericCentralizedOptimizer(ABC):
             raise ValueError("Undefined Optimizer")
         return self.optimizer.__getattribute__(item)
 
+    def zero_grad(self):
+        self.optimizer.zero_grad()
+
 
 class CentralizedSparsifiedSGD(SparsifiedSGD):
     """Implements centralized sparsified version of stochastic gradient descent.
