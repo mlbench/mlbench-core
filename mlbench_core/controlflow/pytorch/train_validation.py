@@ -301,7 +301,6 @@ def train_round(
             scheduler.step()
 
         metrics_results = compute_train_batch_metrics(
-            loss.item(),
             output,
             target,
             metrics,

@@ -3,6 +3,7 @@
 from abc import abstractmethod
 
 import torch
+import torch.nn.functional as F
 
 from mlbench_core.utils import AverageMeter
 from mlbench_core.utils.pytorch.distributed import global_average
@@ -18,7 +19,7 @@ class MLBenchMetric(object):
         self.average_meter = AverageMeter()
 
     @abstractmethod
-    def __call__(self, loss, output, target):
+    def __call__(self, output, target):
         pass
 
     def reset(self):
@@ -48,11 +49,10 @@ class TopKAccuracy(MLBenchMetric):
         super(TopKAccuracy, self).__init__()
         self.topk = topk
 
-    def __call__(self, loss, output, target):
+    def __call__(self, output, target):
         """Computes the precision@k for the specified values of k
 
         Args:
-            loss (:obj:`torch.Tensor`): Not used for accuracy
             output (:obj:`torch.Tensor`): Predictions of a model
             target (:obj:`torch.Tensor`): Target labels
 
@@ -103,29 +103,25 @@ class Perplexity(MLBenchMetric):
         """str: Name of this metric."""
         return "Perplexity"
 
-    def __call__(self, loss, output, target):
+    def __call__(self, output, target):
         """Computes the perplexity
 
         Args:
-            loss (:obj:`torch.Tensor`): The loss of a language model.
             output (:obj:`torch.Tensor`): Not Used
             target (:obj:`torch.Tensor`): Not Used
 
         Returns:
             float
         """
-        if not isinstance(loss, torch.Tensor):
-            loss = torch.Tensor([loss])
-
+        loss = F.cross_entropy(output, target)
         return torch.exp(loss)
 
 
 class DiceCoefficient(MLBenchMetric):
-    def __call__(self, loss, output, target):
+    def __call__(self, output, target):
         """Computes the Dice Coefficient of a Binary classification problem
 
         Args:
-            loss (:obj:`torch.Tensor`): Not Used
             output (:obj:`torch.Tensor`): Output of model
             target (:obj:`torch.Tensor`): Target labels
 
@@ -157,11 +153,10 @@ class F1Score(MLBenchMetric):
         self.threshold = threshold
         self.eps = eps
 
-    def __call__(self, loss, output, target):
+    def __call__(self, output, target):
         """Computes the F1-Score of a Binary classification problem
 
         Args:
-            loss (:obj:`torch.Tensor`): Not Used
             output (:obj:`torch.Tensor`): Output of model
             target (:obj:`torch.Tensor`): Target labels
 
@@ -191,11 +186,10 @@ class BLEUScore(MLBenchMetric):
         super(BLEUScore, self).__init__()
         self.use_raw = use_raw
 
-    def __call__(self, loss, output, target):
+    def __call__(self, output, target):
         """Computes the BLEU score of a translation task
 
         Args:
-            loss (:obj:`torch.Tensor`): Not Used
             output (:obj:`torch.Tensor`): Translated output (not tokenized)
             target (:obj:`torch.Tensor`): Target labels
 

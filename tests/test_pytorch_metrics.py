@@ -9,7 +9,7 @@ def test_f1_score():
     target = torch.tensor([0, 0, 0, 0, 0]).reshape(5, 1)
 
     f1 = F1Score()
-    score = f1(None, output, target)
+    score = f1(output, target)
 
     assert score.item() == 0
 
@@ -19,7 +19,7 @@ def test_f1_score():
     precision = 2 / (2 + 2)
     recall = 2 / (2 + 1)
 
-    score = f1(None, output, target)
+    score = f1(output, target)
     expected_score = 2 * (precision * recall) / (precision + recall)
     np.testing.assert_almost_equal(score.item(), expected_score)
 
@@ -32,8 +32,8 @@ def test_top1_accuracy():
     acc = TopKAccuracy(topk=1)
     expected_score = (2 / 5) * 100
 
-    actual_score_1 = acc(None, output_1, target)
-    actual_score_2 = acc(None, output_2, target)
+    actual_score_1 = acc(output_1, target)
+    actual_score_2 = acc(output_2, target)
 
     assert actual_score_1 == expected_score
     assert actual_score_2 == expected_score
@@ -54,6 +54,6 @@ def test_top3_accuracy():
     acc = TopKAccuracy(topk=3)
     expected_score = (3 / 5) * 100
 
-    actual_score_1 = acc(None, output_1, target)
+    actual_score_1 = acc(output_1, target)
 
     assert actual_score_1 == expected_score
