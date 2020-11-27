@@ -1,7 +1,13 @@
 import numpy as np
 import torch
 
-from mlbench_core.evaluation.pytorch.metrics import F1Score, Perplexity, TopKAccuracy
+from mlbench_core.evaluation.pytorch.metrics import (
+    BLEUScore,
+    DiceCoefficient,
+    F1Score,
+    Perplexity,
+    TopKAccuracy,
+)
 
 
 def test_f1_score():
@@ -68,3 +74,24 @@ def test_perplexity():
     ppl_score = ppl(outputs, target)
 
     assert ppl_score == true_ppl
+
+
+def test_dice_coefficient():
+    target = torch.Tensor([1, 1, 1, 0, 0, 1]).view(-1, 1)
+    output = torch.Tensor([0.2, 0.6, 0.1, 0.15, 0.1, 0.8]).view(-1, 1)
+
+    dice = DiceCoefficient()
+
+    loss = dice(output, target).item()
+
+    assert round(loss, 1) == 0.6
+
+
+def test_raw_bleu_score():
+    outputs = ["the quick yellow fox jumps over the active dog"]
+    target = ["the quick brown fox jumps over the lazy dog"]
+
+    bl = BLEUScore(use_raw=True)
+    score = bl(outputs, target)
+
+    assert round(score.item(), 1) == 36.9

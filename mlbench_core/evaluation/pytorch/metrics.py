@@ -126,7 +126,7 @@ class DiceCoefficient(MLBenchMetric):
             target (:obj:`torch.Tensor`): Target labels
 
         Returns:
-            float: Dice Coefficient in [0,1]
+            loss (:obj:`torch.Tensor`): Dice Coefficient in [0,1]
         """
         eps = 0.0001
         output, target = output.float(), target.float()
@@ -161,7 +161,7 @@ class F1Score(MLBenchMetric):
             target (:obj:`torch.Tensor`): Target labels
 
         Returns:
-            float: F1-Score in [0,1]
+            loss (:obj:`torch.Tensor`): F1-Score in [0,1]
         """
 
         y_pred = torch.ge(output.float(), self.threshold).float()
@@ -194,7 +194,7 @@ class BLEUScore(MLBenchMetric):
             target (:obj:`torch.Tensor`): Target labels
 
         Returns:
-            float: BLEU score
+            loss (:obj:`torch.Tensor`): BLEU score
         """
         if self.use_raw:
             bleu_score = sacrebleu.raw_corpus_bleu(output, [target]).score
