@@ -75,6 +75,7 @@ class Wikitext2Dataset(object):
             raise ValueError("Please specify data type")
 
         self.data = None
+        self.sequence_lengths = []
         self.bptt = bptt
         self.min_seq_len = min_seq_len
 
@@ -102,7 +103,7 @@ class Wikitext2Dataset(object):
 
         return ids
 
-    def generate_batches(self, global_bsz, worker_bsz=None, rank=1):
+    def generate_batches(self, global_bsz, worker_bsz=None, rank=0):
         """Generates the batches given the batch size.
         Stores the matrix in `self.data`.
 
@@ -124,54 +125,54 @@ class Wikitext2Dataset(object):
         self.data = data.reshape(global_bsz, -1).t().contiguous()
 
         # Slice the batches for current worker
-        start, end = (rank - 1) * worker_bsz, rank * worker_bsz
+        start, end = rank * worker_bsz, (rank + 1) * worker_bsz
         self.data = self.data[:, start:end].contiguous()
 
-    def _get_batch(self, i, random_length=False, cuda=False):
-        """Gets a batch form the generated batches.
-        If `random_length`, the sequence length will be sampled from:
+    def generate_sequence_lengths(self, random=False):
+        """Generates sequence lengths for epoch
+        If `random`, the sequence lengths will be sampled from:
 
         Normal(x, 5) where `x = self.bptt if np.random.random() < 0.95 else self.bptt / 2`
+        otherwise, will be of bptt
+
+        Args:
+            random (bool): Sequence of random sizes.
+
+        """
+        # Generate sequence lengths
+        self.sequence_lengths = []
+        i = 0
+        while i < self.data.size(0) - 2:
+            seq_len = None
+
+            if random:
+                bptt_len = self.bptt if np.random.random() < 0.95 else self.bptt / 2.0
+                # Prevent excessively small or negative sequence lengths
+                seq_len = max(self.min_seq_len, int(np.random.normal(bptt_len, 5)))
+
+            seq_len = min(seq_len if seq_len else self.bptt, len(self.data) - 1 - i)
+            self.sequence_lengths.append(seq_len)
+            i += seq_len
+
+        self.sequence_lengths = torch.tensor(self.sequence_lengths, dtype=torch.int64)
+
+    def get_batch(self, i, cuda=False):
+        """Gets a batch form the generated batches.
 
         Args:
             i (int): Batch index
-            random_length (bool): Random sequence length. Default `False`
             cuda (bool): Use cuda acceleration
 
         Returns:
-            (:obj:`torch.Tensor`, :obj:`torch.Tensor`, int): Data and target tensors, with sequence length
+            (:obj:`torch.Tensor`, :obj:`torch.Tensor`): Data and target tensors
         """
-        seq_len = None
-        if random_length:
-            bptt_len = self.bptt if np.random.random() < 0.95 else self.bptt / 2.0
-            # Prevent excessively small or negative sequence lengths
-            seq_len = max(self.min_seq_len, int(np.random.normal(bptt_len, 5)))
-
-        seq_len = min(seq_len if seq_len else self.bptt, len(self.data) - 1 - i)
-        data = self.data[i : i + seq_len]
-        target = self.data[i + 1 : i + 1 + seq_len].view(-1)
+        seq_len = self.sequence_lengths[i]
+        index = sum(self.sequence_lengths[:i])
+        data = self.data[index : index + seq_len]
+        target = self.data[index + 1 : index + 1 + seq_len].view(-1)
         if cuda:
-            return data.cuda(), target.cuda(), seq_len
-        return data, target, seq_len
+            return data.cuda(), target.cuda()
+        return data, target
 
-    def get_loader(self, random_length=False, cuda=False):
-        """Returns an iterator over the batches
-
-        Args:
-            random_length (bool): Random sequence length. Default `False`
-            cuda (bool): Use cuda acceleration
-
-        Returns:
-            iterator over the batches
-        """
-
-        def _iterator():
-            i = 0
-            while i < self.data.size(0) - 2:
-                data, target, seq_len = self._get_batch(
-                    i, random_length=random_length, cuda=cuda
-                )
-                i += seq_len
-                yield data, target
-
-        return _iterator()
+    def num_batches(self):
+        return len(self.sequence_lengths)

@@ -2,6 +2,6 @@
 
 """Top-level package for mlbench_core."""
 
-__version__ = "2.4.0-dev302"
+__version__ = "2.4.0-dev307"
 
 from . import api, controlflow, dataset, evaluation, lr_scheduler, models, optim, utils
