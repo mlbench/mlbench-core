@@ -12,11 +12,10 @@ logger = logging.getLogger("mlbench")
 LOG_EVERY_N_BATCHES = 25
 
 
-def compute_train_batch_metrics(loss, output, target, metrics):
+def compute_train_batch_metrics(output, target, metrics):
     """Computes the given metrics on the given batch
 
     Args:
-        loss (float): The loss of the batch
         output (:obj:`torch.Tensor`): The model output
         target (:obj:`torch.Tensor`): The labels for the current batch
         metrics (list): List of metrics to track
@@ -28,7 +27,7 @@ def compute_train_batch_metrics(loss, output, target, metrics):
     # Compute metrics for one batch
     result = {}
     for metric in metrics:
-        metric_value = metric(loss, output, target).item()
+        metric_value = metric(output, target).item()
         result[metric] = metric_value
     return result
 
@@ -139,7 +138,7 @@ def validation_round(
 
             # Update metrics
             for metric in metrics:
-                metric_value = metric(loss, output, target)
+                metric_value = metric(output, target)
                 metric.update(metric_value, data.size(0))
 
     # Aggregate metrics and loss for all workers

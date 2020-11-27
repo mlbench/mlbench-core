@@ -97,13 +97,13 @@ def test_compute_train_metrics(
         output = model(data)
         loss = loss_function(output, target)
 
-        metric_values = compute_train_batch_metrics(loss, output, target, metrics)
+        metric_values = compute_train_batch_metrics(output, target, metrics)
         metric_values = [(k, v) for k, v in metric_values.items() if k.name == "Prec@1"]
         assert len(metric_values) == 1
 
         metric, value = metric_values[0]
 
-        assert value == metrics[0](loss, output, target)
+        assert value == metrics[0](output, target)
 
 
 def test_validation_round(mocker, model, optimizer, loss_function, metrics, scheduler):
