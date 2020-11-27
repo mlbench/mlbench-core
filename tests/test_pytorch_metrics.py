@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from mlbench_core.evaluation.pytorch.metrics import F1Score, TopKAccuracy
+from mlbench_core.evaluation.pytorch.metrics import F1Score, Perplexity, TopKAccuracy
 
 
 def test_f1_score():
@@ -57,3 +57,14 @@ def test_top3_accuracy():
     actual_score_1 = acc(output_1, target)
 
     assert actual_score_1 == expected_score
+
+
+def test_perplexity():
+    target = torch.randint(high=1000, size=(100, 1))
+    outputs = torch.randn((100, 1000, 1))
+
+    true_ppl = torch.exp(torch.nn.functional.cross_entropy(outputs, target))
+    ppl = Perplexity()
+    ppl_score = ppl(outputs, target)
+
+    assert ppl_score == true_ppl
