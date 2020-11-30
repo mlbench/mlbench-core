@@ -2,9 +2,12 @@
 """
 
 from .lr import (
+    ExponentialWarmupMultiStepLR,
+    LRLinearWarmUp,
+    MultiStepLRLinearWarmUp,
+    ReduceLROnPlateauWithWarmup,
+    SparsifiedSGDLR,
     SQRTTimeDecayLR,
+    SQRTTimeDecayLRWithWarmup,
     TimeDecayLR,
-    cyclical_learning_rates,
-    multistep_learning_rates_with_warmup,
-    triangular_learning_rates,
 )
