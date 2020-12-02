@@ -46,7 +46,7 @@ jobs:
       with:
        python-version: 3.7
     - name: Bump version
-      run: pip install bumpversion && bumpversion ${{ github.event.patch }}
+      run: pip install bumpversion && bumpversion --allow-dirty --no-tag --no-commit ${{ github.event.patch }}
     # Generate changelog
     - name: Generate Change log
       uses: heinrichreimer/github-changelog-generator-action@v2.1.1
