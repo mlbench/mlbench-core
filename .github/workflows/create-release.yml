@@ -55,16 +55,14 @@ jobs:
       with:
         repository: mlbench/mlbench-core
       id: previousTag
+    - name: Setup Ruby environment with ruby-build
+      # You may pin to the exact commit or the version.
+      # uses: clupprich/ruby-build-action@d2971553edbe27a9cb7e277f22b549114bfd3ccf
+      uses: clupprich/ruby-build-action@v1.3.0
     - name: Generate Change log
-      uses: heinrichreimer/github-changelog-generator-action@v2.1.1
-      with:
-       token: ${{ secrets.GITHUB_TOKEN }}
-       futureRelease: v${{ github.event.inputs.futureRelease }}
-       releaseBranch: release/v${{ github.event.inputs.futureRelease}}
-       base: CHANGELOG.md
-       user: mlbench
-       project: mlbench-core
-       sinceTag: ${{ steps.previousTag.outputs.tag }}
+      run: gem install github_changelog_generator && github_changelog_generator -u mlbench -p mlbench-core -t ${{ secrets.GITHUB_TOKEN }} \
+            --release-branch release/v${{ github.event.inputs.futureRelease}} --future-release v${{ github.event.inputs.futureRelease }} \
+            --since-tag ${{ steps.previousTag.outputs.tag }} --base CHANGELOG.md
     - name: Commit Changes
       uses: stefanzweifel/git-auto-commit-action@v4.7.2
       with:
