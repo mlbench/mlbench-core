@@ -1,0 +1,60 @@
+# This is a basic workflow that is manually triggered
+
+name: Create a new MLBench release
+
+# Controls when the action will run. Workflow runs when manually triggered using the UI
+# or API.
+on:
+  workflow_dispatch:
+    # Inputs the workflow accepts.
+    inputs:
+      patch:
+        # Friendly description to be shown in the UI instead of 'name'
+        description: 'Patch [major].[minor].[patch]-[dev]'
+        # Input has to be provided for the workflow to run
+        required: true
+      futureRelease:
+        description: 'Future release Number'
+        required: true
+        
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "greet"
+  create-release:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    # Create release branch
+    - name: Create Release Branch
+      uses: peterjgrainger/action-create-branch@v2.0.1
+      with:
+        branch: release/v${{ github.event.inputs.futureRelease}}
+    # Checkout Branch
+    - name: Checkout release branch
+      uses: actions/checkout@v2.3.4
+      with:
+        ref: release/v${{ github.event.inputs.futureRelease}}
+    # Bump version
+    - name: setup python
+      uses: actions/setup-python@v2
+      with:
+       python-version: 3.7
+    - name: Bump version
+      run: pip install bumpversion && bumpversion ${{ github.event.patch }}
+    # Generate changelog
+    - name: Generate Change log
+      uses: heinrichreimer/github-changelog-generator-action@v2.1.1
+      with:
+       token: ${{ secrets.GITHUB_TOKEN }}
+       futureRelease: v${{ github.event.inputs.futureRelease }}
+       releaseBranch: release/v${{ github.event.inputs.futureRelease}}
+       base: CHANGELOG.md
+       user: mlbench
+       project: mlbench-core
+    - name: Commit Changes
+      uses: stefanzweifel/git-auto-commit-action@v4.7.2
+      with:
+        commit_message: 'Bump version and update Changelog'
+   
