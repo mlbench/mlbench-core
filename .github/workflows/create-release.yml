@@ -29,6 +29,8 @@ jobs:
     # Create release branch
     - name: Create Release Branch
       uses: peterjgrainger/action-create-branch@v2.0.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         branch: release/v${{ github.event.inputs.futureRelease}}
     # Checkout Branch
