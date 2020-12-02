@@ -48,9 +48,13 @@ jobs:
     - name: Bump version
       run: pip install bumpversion && bumpversion --allow-dirty --no-tag --no-commit ${{ github.event.inputs.patch }}
     # Generate changelog
-    - name: 'Get latest tag'
-      id: previoustag
-      uses: "WyriHaximus/github-action-get-previous-tag@master"
+    - name: Find Latest Tag
+      # You may pin to the exact commit or the version.
+      # uses: oprypin/find-latest-tag@cc85180adff5be91282940868529accfc5ab40a7
+      uses: oprypin/find-latest-tag@v1.0.4
+      with:
+        repository: mlbench/mlbench-core
+      id: previousTag
     - name: Generate Change log
       uses: heinrichreimer/github-changelog-generator-action@v2.1.1
       with:
@@ -60,7 +64,7 @@ jobs:
        base: CHANGELOG.md
        user: mlbench
        project: mlbench-core
-       sinceTag: ${{ steps.previoustag.outputs.tag }}
+       sinceTag: ${{ steps.previousTag.outputs.tag }}
     - name: Commit Changes
       uses: stefanzweifel/git-auto-commit-action@v4.7.2
       with:
