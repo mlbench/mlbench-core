@@ -119,7 +119,7 @@ class CentralizedSparsifiedSGD(SparsifiedSGD):
         self.average_world = average_world
         self.world_size = dist.get_world_size()
         self.random_sparse = random_sparse
-        super(CentralizedSparsifiedSGD, self).__init__(
+        super().__init__(
             params, lr, weight_decay, sparse_grad_size
         )
 
@@ -209,7 +209,7 @@ class CentralizedSGD(GenericCentralizedOptimizer):
         by_layer=False,
         agg_grad=True,
     ):
-        super(CentralizedSGD).__init__(
+        super().__init__(
             model=model,
             world_size=world_size,
             use_cuda=use_cuda,
@@ -260,7 +260,7 @@ class CentralizedAdam(GenericCentralizedOptimizer):
         by_layer=False,
         agg_grad=True,
     ):
-        super(GenericCentralizedOptimizer, self).__init__(
+        super().__init__(
             model=model,
             world_size=world_size,
             use_cuda=use_cuda,
@@ -316,7 +316,7 @@ class PowerSGD(SGD):
         if weight_decay < 0.0:
             raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
 
-        super(PowerSGD, self).__init__(
+        super().__init__(
             model.parameters(), lr, momentum, dampening, weight_decay, nesterov
         )
         if average_world:
@@ -340,7 +340,7 @@ class PowerSGD(SGD):
         self.agg(self.model, self.agg_mode)
         if tracker:
             tracker.record_batch_agg()
-        loss = super(PowerSGD, self).step(closure=closure)
+        loss = super().step(closure=closure)
         if tracker:
             tracker.record_batch_opt_step()
         return loss
