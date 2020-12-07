@@ -2,6 +2,7 @@ import bz2
 import os
 import sys
 import tarfile
+import zipfile
 from urllib.request import urlretrieve
 
 
@@ -97,6 +98,13 @@ def maybe_download_and_extract_bz2(root, file_name, data_url):
 
 
 def maybe_download_and_extract_tar_gz(root, file_name, data_url):
+    """Downloads file from given URL and extracts if compressed as tar.gz
+
+    Args:
+        root (str): The root directory
+        file_name (str): File name to download to
+        data_url (str): Url of data
+    """
     if not os.path.exists(root):
         os.makedirs(root)
 
@@ -110,3 +118,25 @@ def maybe_download_and_extract_tar_gz(root, file_name, data_url):
         with tarfile.open(file_path, "r:gz") as tar:
             dirs = [member for member in tar.getmembers()]
             tar.extractall(path=root, members=dirs)
+
+
+def maybe_download_and_extract_zip(root, file_name, data_url):
+    """Downloads file from given URL and extracts if compressed as zip
+
+    Args:
+        root (str): The root directory
+        file_name (str): File name to download to
+        data_url (str): Url of data
+    """
+    if not os.path.exists(root):
+        os.makedirs(root)
+
+    file_path = os.path.join(root, file_name)
+
+    # Download file if not present
+    if len([x for x in os.listdir(root) if x == file_name]) == 0:
+        progress_download(data_url, file_path)
+
+    if file_name.endswith(".zip"):
+        with zipfile.ZipFile(file_path, "r") as zip:
+            zip.extractall(root)

@@ -22,7 +22,6 @@ from mlbench_core.controlflow.pytorch.helpers import (
     maybe_range,
 )
 from mlbench_core.evaluation.pytorch.metrics import TopKAccuracy
-from mlbench_core.lr_scheduler.pytorch import multistep_learning_rates_with_warmup
 
 
 @pytest.fixture
@@ -43,20 +42,6 @@ def loss_function():
 @pytest.fixture
 def metrics():
     return [TopKAccuracy(topk=1)]
-
-
-@pytest.fixture
-def scheduler(optimizer):
-    return multistep_learning_rates_with_warmup(
-        optimizer,
-        1,
-        0.1,
-        0.1,
-        [5, 10],
-        warmup_duration=2,
-        warmup_linear_scaling=False,
-        warmup_lr=0.2,
-    )
 
 
 def _create_random_sets():
@@ -81,9 +66,7 @@ def _create_random_sets():
     return train_set, test_set
 
 
-def test_compute_train_metrics(
-    mocker, model, optimizer, loss_function, metrics, scheduler
-):
+def test_compute_train_metrics(mocker, model, optimizer, loss_function, metrics):
     mocker.patch("mlbench_core.utils.pytorch.distributed.dist")
     mocker.patch("mlbench_core.utils.tracker.LogMetrics")
 
@@ -106,7 +89,7 @@ def test_compute_train_metrics(
         assert value == metrics[0](output, target)
 
 
-def test_validation_round(mocker, model, optimizer, loss_function, metrics, scheduler):
+def test_validation_round(mocker, model, optimizer, loss_function, metrics):
     mocker.patch("mlbench_core.utils.pytorch.distributed.dist")
     mocker.patch("mlbench_core.utils.tracker.LogMetrics")
 

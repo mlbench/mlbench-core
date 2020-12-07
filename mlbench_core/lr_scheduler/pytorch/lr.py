@@ -3,200 +3,51 @@
 import math
 from bisect import bisect_right
 
-import numpy as np
 from torch.optim.lr_scheduler import LambdaLR, ReduceLROnPlateau
 
 
-def const(optimizer):
-    return LambdaLR(optimizer, lr_lambda=lambda x: 1.0)
+class LRLinearWarmUp(LambdaLR):
+    """Applies linear warmup to learning rate.
 
-
-def triangular_learning_rates(
-    optimizer, base_lr, max_lr, cycle_length, scale_fn, extra, mode
-):
-    """Linearily Scale Learning Rate
-
-    If one cycle is applied with length smaller than the total number of iterations, then
-    use small learning rate for the remaining iterations.
-
-    Args:
-        optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
-        base_lr (float): Lower bound and initial learning rate in a cycle.
-        max_lr (float): Upper bound in a cycle
-        cycle_length (int): Length of a cycle in terms of batches.
-        scale_fn(:func:`Function`): The scaling function.
-        extra (int): The number of extra epochs to perform after a cycle
-        mode (str): The scaling mode to use. One of `linear`, `triangular`, `one_cycle`,
-            `triangular2` or `exp_range`
-
-    Returns:
-        A learning rate scheduler (:obj:`torch.optim.lr_scheduler.LambdaLR`)
-    """
-    step_size = cycle_length / 2
-
-    if mode == "one_cycle":
-
-        def f(iterations):
-            if iterations <= cycle_length:
-                cycle = np.floor(1 + iterations / (2 * step_size))
-                x = np.abs(iterations / step_size - 2 * cycle + 1)
-                lr = base_lr + (max_lr - base_lr) * np.maximum(0, (1 - x)) * scale_fn(
-                    cycle, iterations
-                )
-            else:
-                lr = base_lr * extra
-            return lr / base_lr
-
-    else:
-
-        def f(iterations):
-            cycle = np.floor(1 + iterations / (2 * step_size))
-            x = np.abs(iterations / step_size - 2 * cycle + 1)
-            lr = base_lr + (max_lr - base_lr) * np.maximum(0, (1 - x)) * scale_fn(
-                cycle, iterations
-            )
-            return lr / base_lr
-
-    # Use base_lr to overwrite the --lr
-    for group in optimizer.param_groups:
-        group["initial_lr"] = base_lr
-    optimizer.base_lrs = [base_lr for _ in optimizer.param_groups]
-    return LambdaLR(optimizer, lr_lambda=f)
-
-
-def cyclical_learning_rates(
-    optimizer, mode, gamma, cycle_length, base_lr, max_lr, extra_epochs
-):
-    """Cyclically Scale Learning Rate
-
-    If one cycle is applied with length smaller than the total number of iterations, then
-    use small learning rate for the remaining iterations.
-
-    Since :cite:`smith2017cyclical` mentioned that triangular, Welch, Hann windows produce equivalent results,
-    we only implement triangular learning rate policy, also known as **linear cycle**.
-
-    The original implementation of :cite:`smith2017cyclical` can be found from
-    `here <https://github.com/bckenstler/CLR>`_.
-
-    :cite:`smith2017super` uses one cycle with extra epochs.
-
-    Args:
-        optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
-        mode (str): The scaling mode to use. One of `linear`, `triangular`, `one_cycle`,
-            `triangular2` or `exp_range`
-        base_lr (float): Lower bound and initial learning rate in a cycle.
-        max_lr (float): Upper bound in a cycle
-        max_lr (float): The maximum learning rate
-        extra_epochs (int): The number of extra epochs to perform after a cycle
-
-    Returns:
-        A learning rate scheduler (:obj:`torch.optim.lr_scheduler.LambdaLR`)
-    """
-    if mode in ["linear", "triangular", "one_cycle"]:
-
-        def scale_fn(cycle, iterations):
-            return 1.0
-
-    elif mode == "triangular2":
-
-        def scale_fn(cycle, iterations):
-            return 1 / (2.0 ** (cycle - 1))
-
-    elif mode == "exp_range":
-
-        def scale_fn(cycle, iterations):
-            return gamma ** iterations
-
-    else:
-        raise ValueError("Cycle mode {} not support.".format(mode))
-
-    return triangular_learning_rates(
-        optimizer,
-        base_lr,
-        max_lr,
-        cycle_length=cycle_length,
-        scale_fn=scale_fn,
-        extra=extra_epochs,
-        mode=mode,
-    )
-
-
-def multistep_learning_rates_with_warmup(
-    optimizer,
-    world_size,
-    lr,
-    gamma,
-    milestones,
-    warmup_duration=None,
-    warmup_lr=None,
-    warmup_linear_scaling=False,
-):
-    """Multistep Learning Rate Schedule with warmup
+    At the first iteration, lr will be `initial_lr`, and will linearly increase to `scaled_lr`
+    at iteration `warmup_duration + 1` (i.e `warmup_duration` steps of warm-up)
 
     In :cite:`goyal2017accurate`, warmup is used in order to apply the ``Linear Scaling Rule``.
     Starting from the ``base_lr``, lr gradually increases to ``base_lr * scaling_factor``.
-    Then use multiply the learning rate by ``gamma`` at specified milestones.
-    See :cite:`ginsburg2018large`
 
     Args:
-        optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
-        world_size (int): The total number of workers
-        lr (float): The initial learning rate
-        gamma (float): Decay factor for learning rate
-        milestones (:obj:`list` of :obj:`int`): The epochs/steps at which to reduce the
-            learning rate
-        warmup_duration (int): The number of epochs to perform warmup before regular
-            lr scaling starts. Default: `None`
-        warmup_lr (float): The learning rate to use for the warmup epochs. Default: `None`
-        warmup_linear_scaling (bool): Whether or not to linearily scale lr during
-            warmup. Default: `False`
-    Returns:
-        A learning rate scheduler (:obj:`torch.optim.lr_scheduler.LambdaLR`)
+        init_lr (float): Initial LR at beginning of warmup
+        scaled_lr (float): LR at end of warmup
+        warmup_duration (float): Duration of warmup
     """
-    if bool(warmup_duration) != bool(warmup_lr):
-        raise ValueError(
-            "Either both or none of warmup_duration and warmup_lr have to be set"
-        )
 
-    scaling_factor = 1
+    def __init__(self, optimizer, init_lr, scaled_lr, warmup_duration):
+        self.warmup_duration = warmup_duration
+        self.scaled_lr = scaled_lr
+        self.init_lr = init_lr
+        self.optimizer = optimizer
 
-    if warmup_linear_scaling:
-        scaling_factor = world_size
+        # overwrite initial lr
+        for group in self.optimizer.param_groups:
+            group["initial_lr"] = self.scaled_lr
+            group["lr"] = self.scaled_lr
 
-    base_lr = lr * scaling_factor
+        super().__init__(self.optimizer, self.f)
 
-    warmup_init_lr = lr
-    if warmup_lr:
-        warmup_init_lr = warmup_lr
+    def f(self, duration):
+        factor = 1
+        if self.warmup_duration > 0 and duration <= self.warmup_duration:
+            progress = duration / self.warmup_duration
+            factor = progress + ((1 - progress) * self.init_lr) / self.scaled_lr
+        return factor
 
-    if list(milestones) != sorted(milestones):
-        raise ValueError(
-            "Milestones should be a list of increasing integers."
-            "Got {}".format(milestones)
-        )
-
-    if warmup_duration >= milestones[0]:
-        raise ValueError(
-            "The scaling phase should be earlier than the first milestone."
-            "Got {} and {}".format(warmup_duration, milestones[0])
-        )
-
-    def f(duration):
-        if warmup_lr and duration <= warmup_duration:
-            warmup_progress = duration / warmup_duration
-            lr = warmup_progress * base_lr + (1 - warmup_progress) * warmup_init_lr
-        else:
-            lr = base_lr * gamma ** bisect_right(milestones, duration)
-        return lr / base_lr
-
-    for group in optimizer.param_groups:
-        group["initial_lr"] = base_lr
-    optimizer.base_lrs = [base_lr for _ in optimizer.param_groups]
-    return LambdaLR(optimizer, lr_lambda=f)
+    @property
+    def duration(self):
+        return self.warmup_duration
 
 
-class MultistepLearningRatesWithWarmup(LambdaLR):
-    """Multistep Learningrate Scheduler with Warmup Period
+class MultiStepLRLinearWarmUp(LambdaLR):
+    """Multi-step Learning rate Scheduler with Linear Warm-up Period
 
     Args:
         optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
@@ -207,8 +58,6 @@ class MultistepLearningRatesWithWarmup(LambdaLR):
         warmup_init_lr (float): The initial learning rate to use for the warmup epochs. Default: 0
         warmup_duration (int): The number of epochs to perform warmup before regular
             lr scaling starts. Default: 0
-    Returns:
-        A learning rate scheduler (:obj:`torch.optim.lr_scheduler.LambdaLR`)
     """
 
     def __init__(
@@ -232,32 +81,24 @@ class MultistepLearningRatesWithWarmup(LambdaLR):
                 "Got {} and {}".format(warmup_duration, milestones[0])
             )
 
-        self.optimizer = optimizer
         self.gamma = gamma
         self.milestones = milestones
-        self.warmup_duration = warmup_duration
-        self.warmup_init_lr = warmup_init_lr
+        self.warmup = LRLinearWarmUp(
+            optimizer=optimizer,
+            init_lr=warmup_init_lr,
+            scaled_lr=scaled_lr,
+            warmup_duration=warmup_duration,
+        )
 
-        self.warmup_scaled_lr = scaled_lr
-
-        # overwrite initial lr
-        self.base_lr = warmup_init_lr if warmup_duration > 0 else scaled_lr
-        for group in self.optimizer.param_groups:
-            group["initial_lr"] = self.base_lr
-            group["lr"] = self.base_lr
-
-        super(MultistepLearningRatesWithWarmup, self).__init__(self.optimizer, self.f)
+        super(MultiStepLRLinearWarmUp, self).__init__(optimizer, self.f)
 
     def f(self, duration):
         # warmup_lr => lr or lr * world_size => ....
-        if duration <= self.warmup_duration and self.warmup_duration > 0:
-            progress = duration / self.warmup_duration
-            lr = progress * self.warmup_scaled_lr + (1 - progress) * self.warmup_init_lr
+        if duration <= self.warmup.duration:
+            factor = self.warmup.f(duration)
         else:
-            lr = self.warmup_scaled_lr * self.gamma ** bisect_right(
-                self.milestones, duration
-            )
-        return lr / self.base_lr
+            factor = self.gamma ** bisect_right(self.milestones, duration)
+        return factor
 
 
 class ReduceLROnPlateauWithWarmup(ReduceLROnPlateau):
@@ -379,49 +220,29 @@ class TimeDecayLR(LambdaLR):
 
     Args:
         optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
-        alpha (float): The constant value in the numerator of the learning rate schedule formula
         beta (float): The constant value in the denominator of the learning rate schedule formula
     Returns:
         A learning rate scheduler (:obj:`torch.optim.lr_scheduler.LambdaLR`)
     """
 
-    def __init__(self, optimizer, alpha, beta):
-        self.alpha = alpha
+    def __init__(self, optimizer, beta):
         self.beta = beta
-        self.optimizer = optimizer
-
-        for group in self.optimizer.param_groups:
-            group["initial_lr"] = alpha / beta
-
-        self.optimizer.base_lrs = [alpha / beta for _ in self.optimizer.param_groups]
-
-        super(TimeDecayLR, self).__init__(self.optimizer, self.f)
+        super(TimeDecayLR, self).__init__(optimizer, self.f)
 
     def f(self, iteration):
-        return self.beta / (self.beta + iteration)
+        return 1 / (self.beta + iteration)
 
 
 class SQRTTimeDecayLR(LambdaLR):
     """
     Time based decay learning rate schedule for SGD (alpha / sqrt(t))
 
-    Args:
-        optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
-        alpha (float): The constant value in the numerator of the learning rate schedule formula
     Returns:
         A learning rate scheduler (:obj:`torch.optim.lr_scheduler.LambdaLR`)
     """
 
-    def __init__(self, optimizer, alpha):
-        self.alpha = alpha
-        self.optimizer = optimizer
-
-        for group in self.optimizer.param_groups:
-            group["initial_lr"] = alpha
-
-        self.optimizer.base_lrs = [alpha for _ in self.optimizer.param_groups]
-
-        super(SQRTTimeDecayLR, self).__init__(self.optimizer, self.f)
+    def __init__(self, optimizer):
+        super(SQRTTimeDecayLR, self).__init__(optimizer, self.f)
 
     def f(self, iteration):
         return 1.0 / math.sqrt(max(1, iteration))
@@ -514,7 +335,7 @@ class ExponentialWarmupMultiStepLR(LambdaLR):
 
 
 class SQRTTimeDecayLRWithWarmup(LambdaLR):
-    """SQRT learning rate scheduler with warm-up steps
+    """SQRT learning rate scheduler with Linear warm-up steps
 
         During warmup:
           ```
@@ -523,10 +344,10 @@ class SQRTTimeDecayLRWithWarmup(LambdaLR):
           ```
         After warmup:
           ```
-          lr = decay_factor / sqrt(update_num)
+          lr = base_lr * decay_factor
           ```
         where
-          ```decay_factor = base_lr * sqrt(warmup_steps)```
+          ```decay_factor = sqrt(warmup_steps / current_iteration)```
 
     Args:
         optimizer (:obj:`torch.optim`): The optimizer
@@ -537,21 +358,19 @@ class SQRTTimeDecayLRWithWarmup(LambdaLR):
     """
 
     def __init__(self, optimizer, base_lr, warmup_init_lr, warmup_steps):
-        self.warmup_steps = warmup_steps
-
-        self.lr_step = (base_lr - warmup_init_lr) / warmup_steps
-        self.init_lr = warmup_init_lr
-        self.base_lr = base_lr
-        self.optimizer = optimizer
+        self.warmup = LRLinearWarmUp(
+            optimizer=optimizer,
+            init_lr=warmup_init_lr,
+            scaled_lr=base_lr,
+            warmup_duration=warmup_steps,
+        )
 
         super(SQRTTimeDecayLRWithWarmup, self).__init__(optimizer, self.f)
 
     def f(self, iteration):
         # Warmup
-        if iteration < self.warmup_steps:
-            # Linear increase with the steps
-            lr = self.init_lr + self.lr_step * iteration
-            factor = lr / self.base_lr
+        if iteration <= self.warmup.duration:
+            factor = self.warmup.f(iteration)
         else:
-            factor = (self.warmup_steps / iteration) ** 0.5
+            factor = (self.warmup.duration / iteration) ** 0.5
         return factor

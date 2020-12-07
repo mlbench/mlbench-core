@@ -9,35 +9,41 @@ pytorch
 .. autoapimodule:: mlbench_core.lr_scheduler.pytorch.lr
 .. currentmodule:: mlbench_core.lr_scheduler.pytorch.lr
 
+LRLinearWarmUp
+++++++++++++++
+
+.. autoapiclass:: LRLinearWarmUp
+    :members:
+
+MultiStepLRLinearWarmUp
++++++++++++++++++++++++
+
+.. autoapiclass:: MultiStepLRLinearWarmUp
+    :members:
+
+ReduceLROnPlateauWithWarmup
++++++++++++++++++++++++++++
+
+.. autoapiclass:: ReduceLROnPlateauWithWarmup
+    :members:
+
 SparsifiedSGDLR
 +++++++++++++++
 
 .. autoapiclass:: SparsifiedSGDLR
     :members:
 
+TimeDecayLR
++++++++++++
 
-triangular_learning_rates
-+++++++++++++++++++++++++
+.. autoapiclass:: TimeDecayLR
+    :members:
 
-.. autoapifunction:: triangular_learning_rates
+SQRTTimeDecayLR
++++++++++++++++
 
-cyclical_learning_rates
-+++++++++++++++++++++++
-
-.. autoapifunction:: cyclical_learning_rates
-
-
-multistep_learning_rates_with_warmup
-++++++++++++++++++++++++++++++++++++
-
-.. autoapifunction:: multistep_learning_rates_with_warmup
-
-
-.. rubric:: References
-
-
-.. bibliography:: lr_scheduler.bib
-   :cited:
+.. autoapiclass:: SQRTTimeDecayLR
+    :members:
 
 ExponentialWarmupMultiStepLR
 ++++++++++++++++++++++++++++
@@ -61,3 +67,10 @@ manual_stepping
 +++++++++++++++
 
 .. autoapifunction:: manual_stepping
+
+
+.. rubric:: References
+
+
+.. bibliography:: lr_scheduler.bib
+   :cited:

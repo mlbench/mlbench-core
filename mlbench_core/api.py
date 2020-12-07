@@ -25,6 +25,11 @@ MLBENCH_IMAGES = {
         "/conda/bin/python /codes/main.py --run_id {run_id} --rank {rank} --hosts {hosts} --backend {backend}",
         True,
     ),
+    "PyTorch Language Modeling (AWD-LSTM)": (
+        "mlbench/pytorch-wikitext2-lstm-all-reduce:latest",
+        "/conda/bin/python /codes/main.py --run_id {run_id} --rank {rank} --hosts {hosts} --backend {backend}",
+        True,
+    ),
     "PyTorch Machine Translation GNMT": (
         "mlbench/pytorch-wmt16-gnmt-all-reduce:latest",
         "/conda/bin/python /codes/main.py --run_id {run_id} --rank {rank} --hosts {hosts} --backend {backend}",

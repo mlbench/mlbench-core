@@ -31,7 +31,6 @@ requirements = [
     "numpy==1.19.2",
     "oauth2client==4.1.3",
     "sklearn==0.0",
-    "spacy==2.3.2",
     "supermutes==0.2.5",
     "tabulate>=0.8.5",
     "tensorpack==0.10.1",
@@ -41,7 +40,6 @@ requirements = [
 torch_reqs = [
     "sacrebleu==1.4.14",
     "torch==1.7.0",
-    "torchtext==0.6.0",
     "torchvision==0.8.1",
 ]
 
@@ -91,12 +89,10 @@ setup(
         "Intended Audience :: Developers",
         "License :: OSI Approved :: Apache Software License",
         "Natural Language :: English",
-        "Programming Language :: Python :: 2",
-        "Programming Language :: Python :: 2.7",
-        "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
     ],
     description="A public and reproducible collection of reference implementations and benchmark suite for distributed machine learning systems.",
     entry_points={
@@ -116,6 +112,6 @@ setup(
     tests_require=test_requirements,
     extras_require=extras,
     url="https://github.com/mlbench/mlbench_core",
-    version="2.4.0-dev301",
+    version="2.4.0-dev309",
     zip_safe=False,
 )
