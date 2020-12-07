@@ -441,7 +441,7 @@ def list_clusters():
     sections = [
         s.split(".", 1)
         for s in config.sections()
-        if s.startswith("gke.") or s.startswith("aws.")
+        if s.startswith("gke.") or s.startswith("aws.") or s.startswith("kind.")
     ]
 
     if len(sections) == 0:
