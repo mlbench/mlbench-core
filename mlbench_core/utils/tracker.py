@@ -1,7 +1,13 @@
+import math
 import time
 from collections import defaultdict
 
 from .log_metrics import LogMetrics
+
+_DEFAULT_COMM_STEPS = ["agg"]
+_DEFAULT_COMPUTE_STEPS = ["fwd_pass", "comp_loss", "backprop", "opt_step"]
+_DEFAULT_COMPUTE_METRICS_STEPS = ["comp_metrics"]
+_DEFAULT_PREPROCESS_STEPS = ["batch_load"]
 
 
 class AverageMeter(object):
@@ -25,6 +31,13 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
+def _get_times(steps, tracker_stats):
+    _times = None
+    if steps:
+        _times = [t[1][1] - t[0][1] for t in tracker_stats if t[1][0] in steps]
+    return _times
+
+
 class Tracker(object):
     """A class to track running stats and metrics.
 
@@ -42,8 +55,11 @@ class Tracker(object):
         run_id,
         rank,
         goal=None,
-        communication_steps=["opt_step"],
-        compute_steps=["fwd_pass", "comp_loss", "backprop"],
+        communication_steps=None,
+        compute_steps=None,
+        metrics_steps=None,
+        preprocess_steps=None,
+        minimize=False,
     ):
         self.batch_times = []
         self.validation_times = []
@@ -54,14 +70,22 @@ class Tracker(object):
         self.cumulative_train_time = []
         self.cumulative_compute_time = []
         self.cumulative_communication_time = []
+        self.cumulative_metrics_time = []
+        self.cumulative_preprocess_time = []
         self.cumulative_val_time = []
         self.best_epoch = 0
         self.current_epoch = 0
-        self.best_metric_value = 0
+        self.minimize = minimize
+        if self.minimize:
+            self.best_metric_value = math.inf
+        else:
+            self.best_metric_value = 0
         self.is_training = True
 
         self.communication_steps = []
         self.compute_steps = []
+        self.metrics_steps = []
+        self.preprocess_steps = []
 
         self.train_prefix = "train_"
         self.val_prefix = "val_"
@@ -74,17 +98,42 @@ class Tracker(object):
         self.goal = goal
         self.goal_reached = False
 
-        self.primary_metric = metrics[0]
+        if len(metrics) > 0:
+            self.primary_metric = metrics[0]
+        else:
+            self.primary_metric = None
+
+        if communication_steps is None:
+            communication_steps = _DEFAULT_COMM_STEPS
 
         if not isinstance(communication_steps, list):
             communication_steps = [communication_steps]
 
         self.communication_steps = communication_steps
 
+        if compute_steps is None:
+            compute_steps = _DEFAULT_COMPUTE_STEPS
+
         if not isinstance(compute_steps, list):
             compute_steps = [compute_steps]
 
         self.compute_steps = compute_steps
+
+        if metrics_steps is None:
+            metrics_steps = _DEFAULT_COMPUTE_METRICS_STEPS
+
+        if not isinstance(metrics_steps, list):
+            metrics_steps = [metrics_steps]
+
+        self.metrics_steps = metrics_steps
+
+        if preprocess_steps is None:
+            preprocess_steps = _DEFAULT_PREPROCESS_STEPS
+
+        if not isinstance(preprocess_steps, list):
+            preprocess_steps = [preprocess_steps]
+
+        self.preprocess_steps = preprocess_steps
 
     def start(self):
         """ Starts Tracking """
@@ -124,31 +173,30 @@ class Tracker(object):
         if len(self.batch_times) > 1:
             metric = "CumulativeTrainTimeEpoch"
 
+            # batch times
+            self.batch_times.sort(key=lambda x: x[1])
+
             self.cumulative_train_time.append(
                 self.batch_times[-1][1] - self.batch_times[0][1]
             )
             time_diff = self.cumulative_train_time[-1]
 
-            # batch times
-            self.batch_times.sort(key=lambda x: x[1])
-
             tracker_stats = list(zip(self.batch_times[:-1], self.batch_times[1:]))
 
-            if self.compute_steps:
-                compute_times = [
-                    t[1][1] - t[0][1]
-                    for t in tracker_stats
-                    if t[1][0] in self.compute_steps
-                ]
-                self.cumulative_compute_time.append(sum(compute_times))
+            # Get the times for each category of steps
+            compute_times = _get_times(self.compute_steps, tracker_stats)
+            communication_times = _get_times(self.communication_steps, tracker_stats)
+            metric_times = _get_times(self.metrics_steps, tracker_stats)
+            preprocess_times = _get_times(self.preprocess_steps, tracker_stats)
 
-            if self.communication_steps:
-                communication_times = [
-                    t[1][1] - t[0][1]
-                    for t in tracker_stats
-                    if t[1][0] in self.communication_steps
-                ]
+            if compute_times:
+                self.cumulative_compute_time.append(sum(compute_times))
+            if communication_times:
                 self.cumulative_communication_time.append(sum(communication_times))
+            if metric_times:
+                self.cumulative_metrics_time.append(sum(metric_times))
+            if preprocess_times:
+                self.cumulative_preprocess_time.append(sum(preprocess_times))
 
             if len(self.epoch_metrics[metric]) < self.current_epoch + 1:
                 self.epoch_metrics[metric].append(0.0)
@@ -216,16 +264,17 @@ class Tracker(object):
         if log_to_api:
             LogMetrics.log(self.run_id, self.rank, self.current_epoch, name, value)
 
-        if self.goal and self.rank == 0:
+        if self.goal:
             goal_result = self.goal(name, value, self)
 
             if goal_result is not None and not self.goal_reached:
                 self.goal_reached = True
-                print("goal reached1")
+                print("goal reached!")
                 print(log_to_api)
                 print(goal_result)
 
-                if log_to_api:
+                if self.rank == 0 and log_to_api:
+                    time.sleep(2)
                     LogMetrics.log(
                         self.run_id,
                         self.rank,
@@ -234,6 +283,7 @@ class Tracker(object):
                         goal_result,
                     )
 
+                    time.sleep(1)
                     LogMetrics.log(
                         self.run_id,
                         self.rank,
@@ -253,6 +303,7 @@ class Tracker(object):
                             "global_cum_{}".format(k),
                             sum(v),
                         )
+                        time.sleep(0.5)
 
     def record_loss(self, value, n=1, log_to_api=False):
         """Records a loss value
@@ -277,17 +328,22 @@ class Tracker(object):
         """
         self.record_stat(metric.name, value, n, log_to_api)
 
-        if metric.name == self.primary_metric.name and not self.is_training:
+        is_primary = (
+            self.primary_metric is not None and metric.name == self.primary_metric.name
+        )
+        if is_primary and not self.is_training:
             self.update_primary_metric(value)
 
     def update_primary_metric(self, new_metric_value):
-        """ Updates the primary (main) metric
+        """Updates the primary (main) metric
 
         Args:
             new_metric_value (number): The new value of the metric
         """
 
-        if new_metric_value > self.best_metric_value:
+        if (not self.minimize and new_metric_value > self.best_metric_value) or (
+            self.minimize and new_metric_value < self.best_metric_value
+        ):
             self.best_metric_value = new_metric_value
             self.best_epoch = self.current_epoch
 
@@ -303,6 +359,12 @@ class Tracker(object):
 
     def get_total_communication_time(self):
         return sum(self.cumulative_communication_time)
+
+    def get_total_metrics_time(self):
+        return sum(self.cumulative_metrics_time)
+
+    def get_total_preprocess_time(self):
+        return sum(self.cumulative_preprocess_time)
 
     def get_total_val_time(self):
         return sum(self.cumulative_val_time)
@@ -338,3 +400,32 @@ class Tracker(object):
         )
 
         return " | ".join(str_builder)
+
+    def record_batch_init(self):
+        """Records the time taken for initializing batch"""
+        self.record_batch_step("init")
+
+    def record_batch_fwd_pass(self):
+        """Records time taken for forward pass"""
+        self.record_batch_step("fwd_pass")
+
+    def record_batch_comp_loss(self):
+        """Records time taken for loss computation"""
+        self.record_batch_step("comp_loss")
+
+    def record_batch_backprop(self):
+        """Record time taken for backpropagation"""
+        self.record_batch_step("backprop")
+
+    def record_batch_opt_step(self):
+        """Records time taken for optimization"""
+        self.record_batch_step("opt_step")
+
+    def record_batch_load(self):
+        self.record_batch_step("batch_load")
+
+    def record_batch_comp_metrics(self):
+        self.record_batch_step("comp_metrics")
+
+    def record_batch_agg(self):
+        self.record_batch_step("agg")

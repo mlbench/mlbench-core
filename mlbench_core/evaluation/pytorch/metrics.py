@@ -1,10 +1,17 @@
 """Utilities for measuring the performance of a model."""
 
+from abc import abstractmethod
+
 import torch
+import torch.nn.functional as F
 
 from mlbench_core.utils import AverageMeter
 from mlbench_core.utils.pytorch.distributed import global_average
-from abc import abstractmethod
+
+try:
+    import sacrebleu
+except ImportError as e:
+    pass
 
 
 class MLBenchMetric(object):
@@ -12,7 +19,7 @@ class MLBenchMetric(object):
         self.average_meter = AverageMeter()
 
     @abstractmethod
-    def __call__(self, loss, output, target):
+    def __call__(self, output, target):
         pass
 
     def reset(self):
@@ -42,11 +49,10 @@ class TopKAccuracy(MLBenchMetric):
         super(TopKAccuracy, self).__init__()
         self.topk = topk
 
-    def __call__(self, loss, output, target):
+    def __call__(self, output, target):
         """Computes the precision@k for the specified values of k
 
         Args:
-            loss (:obj:`torch.Tensor`): Not used for accuracy
             output (:obj:`torch.Tensor`): Predictions of a model
             target (:obj:`torch.Tensor`): Target labels
 
@@ -67,8 +73,8 @@ class TopKAccuracy(MLBenchMetric):
 
         _, pred = output.topk(self.topk, 1, True, True)
         pred = pred.t().float()
-        correct = pred.eq(target.view(1, -1).expand_as(pred).float())
-        correct_k = correct[: self.topk].view(-1).float().sum(0, keepdim=True)
+        correct = pred.eq(target.reshape(1, -1).expand_as(pred).float())
+        correct_k = correct[: self.topk].reshape(-1).float().sum(0, keepdim=True)
         return correct_k.mul_(100.0 / batch_size)
 
     def _preprocess_output(self, output):
@@ -97,31 +103,30 @@ class Perplexity(MLBenchMetric):
         """str: Name of this metric."""
         return "Perplexity"
 
-    def __call__(self, loss, output, target):
-        """Computes the perplexity
+    def __call__(self, output, target):
+        """Computes the perplexity given output and target. Output should be logits
 
         Args:
-            loss (:obj:`torch.Tensor`): The loss of a language model.
             output (:obj:`torch.Tensor`): Not Used
             target (:obj:`torch.Tensor`): Not Used
 
         Returns:
             float
         """
+        loss = F.cross_entropy(output, target)
         return torch.exp(loss)
 
 
 class DiceCoefficient(MLBenchMetric):
-    def __call__(self, loss, output, target):
-        """ Computes the Dice Coefficient of a Binary classification problem
+    def __call__(self, output, target):
+        """Computes the Dice Coefficient of a Binary classification problem
 
         Args:
-            loss (:obj:`torch.Tensor`): Not Used
             output (:obj:`torch.Tensor`): Output of model
             target (:obj:`torch.Tensor`): Target labels
 
         Returns:
-            float: Dice Coefficient in [0,1]
+            loss (:obj:`torch.Tensor`): Dice Coefficient in [0,1]
         """
         eps = 0.0001
         output, target = output.float(), target.float()
@@ -139,7 +144,7 @@ class DiceCoefficient(MLBenchMetric):
 
 class F1Score(MLBenchMetric):
     def __init__(self, threshold=0.5, eps=1e-9):
-        """ F1-Score metric
+        """F1-Score metric
 
         Args:
             threshold (float): Threshold for prediction probability
@@ -148,16 +153,15 @@ class F1Score(MLBenchMetric):
         self.threshold = threshold
         self.eps = eps
 
-    def __call__(self, loss, output, target):
-        """ Computes the F1-Score of a Binary classification problem
+    def __call__(self, output, target):
+        """Computes the F1-Score of a Binary classification problem
 
         Args:
-            loss (:obj:`torch.Tensor`): Not Used
             output (:obj:`torch.Tensor`): Output of model
             target (:obj:`torch.Tensor`): Target labels
 
         Returns:
-            float: F1-Score in [0,1]
+            loss (:obj:`torch.Tensor`): F1-Score in [0,1]
         """
 
         y_pred = torch.ge(output.float(), self.threshold).float()
@@ -174,3 +178,32 @@ class F1Score(MLBenchMetric):
     @property
     def name(self):
         return "F1-Score"
+
+
+class BLEUScore(MLBenchMetric):
+    def __init__(self, use_raw=False):
+        """ Bilingual Evaluation Understudy score"""
+        super(BLEUScore, self).__init__()
+        self.use_raw = use_raw
+
+    def __call__(self, output, target):
+        """Computes the BLEU score of a translation task
+
+        Args:
+            output (:obj:`torch.Tensor`): Translated output (not tokenized)
+            target (:obj:`torch.Tensor`): Target labels
+
+        Returns:
+            loss (:obj:`torch.Tensor`): BLEU score
+        """
+        if self.use_raw:
+            bleu_score = sacrebleu.raw_corpus_bleu(output, [target]).score
+        else:
+            bleu_score = sacrebleu.corpus_bleu(
+                output, [target], tokenize="intl", lowercase=True
+            ).score
+        return torch.tensor([bleu_score])
+
+    @property
+    def name(self):
+        return "BLEU-Score"

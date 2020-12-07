@@ -2,6 +2,7 @@ import enum
 import json
 import os
 import shutil
+
 import dill
 import torch
 
@@ -14,7 +15,7 @@ class CheckpointFreq(enum.IntEnum):
 
 
 class Checkpointer(object):
-    """ A class for handling checkpoint saving and loading.
+    """A class for handling checkpoint saving and loading.
 
     Args:
         ckpt_run_dir (str): The path of the checkpoint directory.
@@ -31,7 +32,7 @@ class Checkpointer(object):
         # self.runtime = {'cumu_time_val': []}
 
     def save(self, tracker, model, optimizer, scheduler, epoch, is_best):
-        """ Saves a checkpoint
+        """Saves a checkpoint
 
         Args:
             tracker (:obj:`mlbench_core.utils.pytorch.helpers.Tracker`): The
@@ -77,7 +78,7 @@ class Checkpointer(object):
 
     @staticmethod
     def load(ckpt_run_dir, rank, model, optimizer, scheduler):
-        """ Loads a checkpoint
+        """Loads a checkpoint
 
         Args:
             ckpt_run_dir (str): Folder path of checkpoint directory
@@ -115,7 +116,7 @@ class Checkpointer(object):
 
     @staticmethod
     def load_model_by_epoch(ckpt_run_dir, rank, epoch, model):
-        """ Loads a checkpoint
+        """Loads a checkpoint
 
         Args:
             ckpt_run_dir (str): Folder path of checkpoint directory
@@ -142,7 +143,7 @@ class Checkpointer(object):
 
     @staticmethod
     def checkpoint_exists(ckpt_run_dir, rank, epoch):
-        """ Check if a checkpoint exists.
+        """Check if a checkpoint exists.
 
         Args:
             ckpt_run_dir (str): Folder path of checkpoint directory

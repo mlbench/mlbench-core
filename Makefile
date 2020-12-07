@@ -50,8 +50,9 @@ clean-test: ## remove test and coverage artifacts
 	rm -fr htmlcov/
 	rm -fr .pytest_cache
 
-lint: ## check style with flake8
-	flake8 --max-line-length=120 mlbench_core tests
+lint: ## check style with black, sort imports
+	black --check .
+	isort --check-only .
 
 test: ## run tests quickly with the default Python
 	py.test
@@ -66,12 +67,6 @@ coverage: ## check code coverage quickly with the default Python
 	$(BROWSER) htmlcov/index.html
 
 docs: ## generate Sphinx HTML documentation, including API docs
-	# rm -f docs/mlbench.rst
-	# rm -f docs/modules.rst
-	# sphinx-apidoc -o docs/ mlbench
-	# rm -rf docs/refimpls/*
-	# sphinx-apidoc -o docs/refimpls mlbench/refimpls/pytorch
-	# echo "   refimpls" >> docs/modules.rst
 	$(MAKE) -C docs clean
 	$(MAKE) -C docs html
 	$(BROWSER) docs/_build/html/index.html

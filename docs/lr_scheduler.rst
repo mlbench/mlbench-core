@@ -1,41 +1,72 @@
 mlbench_core.lr_scheduler
 -------------------------
-.. automodule:: mlbench_core.lr_scheduler
+.. autoapimodule:: mlbench_core.lr_scheduler
 .. currentmodule:: mlbench_core.lr_scheduler
 
 pytorch
 ~~~~~~~
 
-.. automodule:: mlbench_core.lr_scheduler.pytorch
-.. currentmodule:: mlbench_core.lr_scheduler.pytorch
+.. autoapimodule:: mlbench_core.lr_scheduler.pytorch.lr
+.. currentmodule:: mlbench_core.lr_scheduler.pytorch.lr
+
+LRLinearWarmUp
+++++++++++++++
+
+.. autoapiclass:: LRLinearWarmUp
+    :members:
+
+MultiStepLRLinearWarmUp
++++++++++++++++++++++++
+
+.. autoapiclass:: MultiStepLRLinearWarmUp
+    :members:
+
+ReduceLROnPlateauWithWarmup
++++++++++++++++++++++++++++
+
+.. autoapiclass:: ReduceLROnPlateauWithWarmup
+    :members:
 
 SparsifiedSGDLR
 +++++++++++++++
 
-.. autoclass:: SparsifiedSGDLR
+.. autoapiclass:: SparsifiedSGDLR
     :members:
 
-SGDLR
-+++++
+TimeDecayLR
++++++++++++
 
-.. autoclass:: SGDLR
+.. autoapiclass:: TimeDecayLR
     :members:
 
+SQRTTimeDecayLR
++++++++++++++++
 
-triangular_learning_rates
+.. autoapiclass:: SQRTTimeDecayLR
+    :members:
+
+ExponentialWarmupMultiStepLR
+++++++++++++++++++++++++++++
+
+.. autoapiclass:: ExponentialWarmupMultiStepLR
+    :members:
+
+SQRTTimeDecayLRWithWarmup
 +++++++++++++++++++++++++
 
-.. autofunction:: triangular_learning_rates
+.. autoapiclass:: SQRTTimeDecayLRWithWarmup
+    :members:
 
-cyclical_learning_rates
-+++++++++++++++++++++++
+tensorflow
+~~~~~~~~~~
 
-.. autofunction:: cyclical_learning_rates
+.. autoapimodule:: mlbench_core.lr_scheduler.tensorflow
+.. currentmodule:: mlbench_core.lr_scheduler.tensorflow
 
-multistep_learning_rates_with_warmup
-++++++++++++++++++++++++++++++++++++
+manual_stepping
++++++++++++++++
 
-.. autofunction:: multistep_learning_rates_with_warmup
+.. autoapifunction:: manual_stepping
 
 
 .. rubric:: References
@@ -43,15 +74,3 @@ multistep_learning_rates_with_warmup
 
 .. bibliography:: lr_scheduler.bib
    :cited:
-
-
-tensorflow
-~~~~~~~~~~
-
-.. automodule:: mlbench_core.lr_scheduler.tensorflow
-.. currentmodule:: mlbench_core.lr_scheduler.tensorflow
-
-manual_stepping
-+++++++++++++++
-
-.. autofunction:: manual_stepping

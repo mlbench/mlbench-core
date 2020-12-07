@@ -6,14 +6,25 @@ import logging
 import os
 import sys
 import tarfile
-from six.moves import urllib, xrange
+
 import tensorflow as tf
+from six.moves import urllib, xrange
 
 
 class DatasetCifar(object):
     """
     This clas is adapted from the following script
     https://github.com/tensorflow/models/blob/master/tutorials/image/cifar10/cifar10_input.py
+
+    Args:
+        dataset (str): Name of the dataset e.g. `cifar-10`, `cifar-100`.
+        dataset_root (str): Root directory to the dataset.
+        batch_size (int): Size of batch.
+        world_size (int): Size of the world size.
+        rank (int): Rank of the process.
+        seed (int): Seed of random number.
+        tf_dtype (tensorflow.python.framework.dtypes.DType, optional): Defaults to tf.float32.
+            Datatypes of the tensor.
     """
 
     def __init__(
@@ -26,18 +37,6 @@ class DatasetCifar(object):
         seed,
         tf_dtype=tf.float32,
     ):
-        """
-        Args:
-            dataset (str): Name of the dataset e.g. `cifar-10`, `cifar-100`.
-            dataset_root (str): Root directory to the dataset.
-            batch_size (int): Size of batch.
-            world_size (int): Size of the world size.
-            rank (int): Rank of the process.
-            seed (int): Seed of random number.
-            tf_dtype (tensorflow.python.framework.dtypes.DType, optional): Defaults to tf.float32.
-                Datatypes of the tensor.
-        """
-
         # define image size and some commonly used parameters.
         self.data_url = "http://www.cs.toronto.edu/~kriz/{}-binary.tar.gz".format(
             dataset

@@ -1,6 +1,6 @@
 from .partition import (
+    DataPartitioner,
     Partition,
     Partitioner,
-    DataPartitioner,
     partition_dataset_by_rank,
 )

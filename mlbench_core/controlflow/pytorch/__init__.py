@@ -1,10 +1,17 @@
-from .controlflow import TrainValidation, train_round, validation_round
 from .checkpoints_evaluation import CheckpointsEvaluationControlFlow
+from .controlflow import (
+    compute_train_batch_metrics,
+    record_train_batch_stats,
+    record_validation_stats,
+    validation_round,
+)
+from .helpers import prepare_batch
 
 __all__ = [
-    "TrainValidation",
     "CheckpointsEvaluationControlFlow",
-    "train_round",
+    "compute_train_batch_metrics",
+    "record_validation_stats",
+    "record_train_batch_stats",
     "validation_round",
-    "create_train_validation_step",
+    "prepare_batch",
 ]

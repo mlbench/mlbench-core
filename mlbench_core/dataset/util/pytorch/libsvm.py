@@ -8,10 +8,10 @@ https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary.html
 import os
 
 import click
+from sklearn.datasets import load_svmlight_file, make_classification
+from tensorpack.dataflow import LMDBSerializer, PrefetchDataZMQ
+
 from mlbench_core.dataset.util.tools import maybe_download_and_extract_bz2
-from sklearn.datasets import load_svmlight_file
-from sklearn.datasets import make_classification
-from tensorpack.dataflow import PrefetchDataZMQ, LMDBSerializer
 
 _DATASET_MAP = {
     "australian_train": {
@@ -144,7 +144,7 @@ def sequential_epsilon_or_rcv1(root_path, name, data_type):
     data = LIBSVMDataset(features, labels, is_sparse)
     lmdb_file_path = os.path.join(root_path, "{}_{}.lmdb".format(name, data_type))
 
-    ds1 = PrefetchDataZMQ(data, nr_proc=1)
+    ds1 = PrefetchDataZMQ(data)
     LMDBSerializer.save(ds1, lmdb_file_path)
 
     print("Dumped dataflow to {} for {}".format(lmdb_file_path, name))
@@ -170,7 +170,9 @@ def sequential_synthetic_dataset(root_path, dataset_name, data_type):
         root_path, "{}_{}.lmdb".format(dataset_name, data_type)
     )
 
-    ds1 = PrefetchDataZMQ(data, nr_proc=1)
+    ds1 = PrefetchDataZMQ(
+        data,
+    )
     LMDBSerializer.save(ds1, lmdb_file_path)
 
     print("Dumped dataflow to {} for {}".format(lmdb_file_path, dataset_name))
@@ -181,7 +183,7 @@ def sequential_synthetic_dataset(root_path, dataset_name, data_type):
 @click.argument("data_type")
 @click.argument("data_dir")
 def generate_lmdb_from_libsvm(data, data_type, data_dir):
-    """ Utility script that downloads data from LIBSVM and transforms them
+    """Utility script that downloads data from LIBSVM and transforms them
     into `.lmdb` files.
 
     Args:

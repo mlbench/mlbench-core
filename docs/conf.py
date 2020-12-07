@@ -5,16 +5,13 @@
 # Imports
 #
 
-import sys
 import os
-
-from os.path import abspath, join, dirname
-
-sys.path.insert(0, abspath(join(dirname(__file__))))
-sys.path.insert(0, abspath(join(dirname(__file__), "..")))
-
 import sys
+from os.path import abspath, dirname, join
 from unittest.mock import MagicMock
+
+sys.path.insert(0, abspath(join(dirname(__file__), ".")))
+sys.path.insert(0, abspath(join(dirname(__file__), "..")))
 
 
 class Mock(MagicMock):
@@ -42,9 +39,6 @@ MOCK_MODULES = [
 ]
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
-import mlbench_core
-
-
 # -- RTD configuration ------------------------------------------------
 
 # on_rtd is whether we are on readthedocs.org, this line of code grabbed from docs.readthedocs.org
@@ -68,8 +62,12 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinxcontrib.napoleon",
     "sphinxcontrib.bibtex",
+    "autoapi.extension",
 ]
 
+autoapi_dirs = ["../mlbench_core"]
+autoapi_generate_api_docs = False
+autoapi_ignore = ["*migrations*", "*/preprocess/*.py"]
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 html_static_path = ["_static"]
@@ -91,7 +89,7 @@ napoleon_google_docstring = True
 napoleon_numpy_docstring = False
 
 
-autoclass_content = "both"
+autoapiclass_content = "both"
 
 intersphinx_mapping = {}
 
@@ -166,17 +164,17 @@ epub_exclude_files = ["search.html"]
 
 # -- Custom Document processing ----------------------------------------------
 
-import gensidebar
+import gensidebar  # isort:skip
 
 gensidebar.generate_sidebar(globals(), "mlbench_core")
 
-import sphinx.addnodes
-import docutils.nodes
+import sphinx.addnodes  # isort:skip
+import docutils.nodes  # isort:skip
 
 
 def process_child(node):
     """This function changes class references to not have the
-       intermediate module name by hacking at the doctree"""
+    intermediate module name by hacking at the doctree"""
 
     # Edit descriptions to be nicer
     if isinstance(node, sphinx.addnodes.desc_addname):

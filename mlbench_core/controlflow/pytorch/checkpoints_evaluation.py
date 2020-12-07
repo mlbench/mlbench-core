@@ -1,11 +1,11 @@
 """Evaluate training/validation set using models in checkpoints"""
 import logging
 
-from mlbench_core.utils.pytorch.distributed import AllReduceAggregation
-from mlbench_core.utils.pytorch.distributed import global_average
-from mlbench_core.utils.pytorch.helpers import iterate_dataloader
-
 import torch
+
+from mlbench_core.aggregation.pytorch.centralized import AllReduceAggregation
+from mlbench_core.controlflow.pytorch.helpers import iterate_dataloader
+from mlbench_core.utils.pytorch.distributed import global_average
 
 logger = logging.getLogger("mlbench")
 
@@ -53,7 +53,7 @@ class CheckpointsEvaluationControlFlow(object):
         self.max_batch_per_epoch = max_batch_per_epoch
         self.use_cuda = use_cuda
 
-        self.model_agg_fn = AllReduceAggregation(world_size=world_size).agg_model
+        self.model_agg_fn = AllReduceAggregation(world_size=world_size).agg_model()
 
         self._check_checkpoints()
 
@@ -68,7 +68,7 @@ class CheckpointsEvaluationControlFlow(object):
         )
 
         # aggregate models
-        self.model_agg_fn(model, op="avg")
+        self.model_agg_fn(model, op="avg_world")
         return model
 
     def evaluate_by_epochs(self, dataloader):

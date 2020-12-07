@@ -10,8 +10,10 @@ MLBench Core API
    examples
 
 .. toctree::
+   :caption: Core API
    :maxdepth: 1
 
+   aggregation
    clientapi
    controlflow
    dataset
