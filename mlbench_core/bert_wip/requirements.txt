@@ -1,0 +1,7 @@
+requests
+h5py
+tqdm
+numpy
+torch
+wikiextractor
+ntlk
