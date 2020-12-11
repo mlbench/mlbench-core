@@ -5,9 +5,7 @@ import configparser
 import json
 import os
 import pickle
-import subprocess
 import sys
-from os.path import expanduser
 from pathlib import Path
 
 import boto3
@@ -15,7 +13,6 @@ import botocore.exceptions
 import click
 import matplotlib.pyplot as plt
 import urllib3
-import yaml
 from appdirs import user_data_dir
 from kubernetes import config as kube_config
 from tabulate import tabulate
@@ -624,7 +621,7 @@ def create_cluster():
 @create_cluster.command("gcloud")
 @click.argument("num_workers", type=int, metavar="num-workers")
 @click.argument("release", type=str)
-@click.option("--kubernetes-version", "-k", type=str, default="1.19")
+@click.option("--kubernetes-version", "-k", type=str, default="1.16")
 @click.option("--machine-type", "-t", default="n1-standard-4", type=str)
 @click.option("--disk-size", "-d", default=50, type=int)
 @click.option("--num-cpus", "-c", default=4, type=int)
@@ -671,7 +668,7 @@ def create_gcloud(
 
     click.echo("Creating Cluster")
 
-    gclient, fw_name, firewalls = gcloud_create_cluster(
+    cluster, fw_name, firewalls = gcloud_create_cluster(
         name=name,
         name_path=name_path,
         num_workers=num_workers,
@@ -684,7 +681,7 @@ def create_gcloud(
         project=project,
     )
 
-    cluster = gclient.get_cluster(None, None, None, name=os.path.join(name_path, name))
+    # cluster = gclient.get_cluster(None, None, None, name=os.path.join(name_path, name))
     kube_context = setup_gcloud_kube_client(
         cluster.endpoint, cluster.name, cluster.zone, project
     )
