@@ -4,4 +4,4 @@ tqdm
 numpy
 torch
 wikiextractor
-ntlk
+nltk
