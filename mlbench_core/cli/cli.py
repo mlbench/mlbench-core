@@ -681,7 +681,6 @@ def create_gcloud(
         project=project,
     )
 
-    # cluster = gclient.get_cluster(None, None, None, name=os.path.join(name_path, name))
     kube_context = setup_gcloud_kube_client(
         cluster.endpoint, cluster.name, cluster.zone, project
     )

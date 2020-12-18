@@ -119,7 +119,6 @@ class ApiClient(object):
         if load_config:
             config.load_incluster_config()
 
-        # configuration = client.Configuration()
         k8s_client = client.CoreV1Api()
         namespaced_pods = k8s_client.list_namespaced_pod(
             k8s_namespace, label_selector=label_selector
@@ -136,7 +135,6 @@ class ApiClient(object):
         if load_config:
             config.load_kube_config()
 
-        # configuration = client.Configuration()
         k8s_client = client.CoreV1Api()
         ret = k8s_client.list_service_for_all_namespaces(label_selector=label_selector)
 
