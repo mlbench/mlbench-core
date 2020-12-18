@@ -92,6 +92,7 @@ def create_gcloud_test_helper(mocker, gcloud_mock, args, option_dict=None):
 
     cluster = container_v1.types.Cluster
     get_operation = container_v1.ClusterManagerClient.return_value.get_operation
+    get_operation_request = container_v1.types.GetOperationRequest
     nodeconfig = container_v1.types.NodeConfig
     accelerator = container_v1.types.AcceleratorConfig
 
@@ -129,14 +130,14 @@ def create_gcloud_test_helper(mocker, gcloud_mock, args, option_dict=None):
     assert deploy_chart.call_args[1]["num_cpus"] == option_dict["num_cpus"] - 1
 
     get_operation.assert_called()
-    assert option_dict["zone"] in get_operation.call_args[1]["name"]
-    assert project in get_operation.call_args[1]["name"]
+    assert option_dict["zone"] in get_operation_request.call_args[0][0]["name"]
+    assert project in get_operation_request.call_args[0][0]["name"]
 
     if option_dict["num_gpus"] > 0:
         num_gpus = option_dict["num_gpus"]
         gpu_type = option_dict["gpu_type"]
         accelerator.assert_called_once_with(
-            accelerator_count=num_gpus, accelerator_type=gpu_type
+            {"accelerator_count": num_gpus, "accelerator_type": gpu_type}
         )
 
 
@@ -176,15 +177,15 @@ def gcloud_mock(mocker, gcloud_auth):
     response_get_op = gclient.get_operation.return_value
 
     response_create.status = 0
-    response_create.DONE = 1
+    response_create.Status.DONE = 1
     response_create.name = "test-create-name"  # for concatenation
 
     response_delete.status = 0
-    response_delete.DONE = 1
+    response_delete.Status.DONE = 1
     response_delete.name = "test-delete-name"
 
     response_get_op.status = 1
-    response_get_op.DONE = 1
+    response_get_op.Status.DONE = 1
     response_get_op.name = "test-get-op-name"
 
     return {
@@ -235,7 +236,10 @@ def test_delete_gcloud_cluster(gcloud_mock):
     """Tests deleting a gcloud cluster"""
 
     gclient = gcloud_mock["gclient"]
+    container_v1 = gcloud_mock["containerv1"]
     delete_cluster = gclient.delete_cluster
+    get_operation_request = container_v1.types.GetOperationRequest
+    delete_cluster_request = container_v1.types.DeleteClusterRequest
     get_operation = gclient.get_operation
 
     args = ["test-name"]
@@ -250,8 +254,11 @@ def test_delete_gcloud_cluster(gcloud_mock):
     get_operation.assert_called_once()
 
     for arg in list(opts.values()):
-        assert arg in delete_cluster.call_args[1]["name"]
-        assert arg in get_operation.call_args[1]["name"]
+        assert arg in delete_cluster_request.call_args[0][0]["name"]
+        assert arg in get_operation_request.call_args[0][0]["name"]
 
-    assert args[0] in delete_cluster.call_args[1]["name"]
-    assert delete_cluster.return_value.name in get_operation.call_args[1]["name"]
+    assert args[0] in delete_cluster_request.call_args[0][0]["name"]
+    assert (
+        delete_cluster.return_value.name
+        in get_operation_request.call_args[0][0]["name"]
+    )
