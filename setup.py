@@ -14,7 +14,7 @@ with open("CHANGELOG.md") as history_file:
 # Common libraries
 requirements = [
     "appdirs==1.4.4",
-    "boto3==1.14.50",
+    "boto3==1.16.63",
     "Click>=6.0",
     "deprecation>=2.0.6",
     "dill==0.3.2",
