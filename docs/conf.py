@@ -64,6 +64,7 @@ extensions = [
     "sphinxcontrib.bibtex",
     "autoapi.extension",
 ]
+bibtex_bibfiles = ["lr_scheduler.bib", "models.bib", "optim.bib"]
 
 autoapi_dirs = ["../mlbench_core"]
 autoapi_generate_api_docs = False
