@@ -124,7 +124,7 @@ def gcloud_create_cluster(
         project (str): GCLoud project
 
     Returns:
-        (:obj:`google.container_v1.ClusterManagementClient`, str, :obj:): The client for cluster communication,
+        (:obj:`google.container_v1.cluster_service.Cluster`, str, :obj:): The cluster,
             firewall name, and cluster firewalls
     """
     assert num_workers >= 2, "Number of workers should be at least 2"
@@ -137,7 +137,7 @@ def gcloud_create_cluster(
     if num_gpus > 0:
         extraargs["accelerators"] = [
             container_v1.types.AcceleratorConfig(
-                accelerator_count=num_gpus, accelerator_type=gpu_type
+                {"accelerator_count": num_gpus, "accelerator_type": gpu_type}
             )
         ]
 
@@ -159,7 +159,16 @@ def gcloud_create_cluster(
                 sleep(5)
                 response = {}
         while hasattr(response, "status") and response.status < response.DONE:
-            response = gclient.get_operation(None, None, None, name=response.selfLink)
+            response = gclient.get_operation(
+                request=container_v1.GetOperationRequest(
+                    {
+                        "project_id": None,
+                        "zone": None,
+                        "operation_id": None,
+                        "name": response.selfLink,
+                    }
+                )
+            )
             sleep(1)
 
     # create cluster
@@ -193,8 +202,13 @@ def gcloud_create_cluster(
         monitoring_service=None,
         initial_cluster_version=kubernetes_version,
     )
+
     try:
-        response = gclient.create_cluster(cluster, parent=name_path)
+        response = gclient.create_cluster(
+            request=container_v1.types.CreateClusterRequest(
+                {"cluster": cluster, "parent": name_path}
+            )
+        )
     except AlreadyExists as e:
         click.echo("Exception from Google: " + str(e))
         click.echo(
@@ -206,16 +220,33 @@ def gcloud_create_cluster(
         sys.exit(1)
 
     # wait for cluster to load
-    while response.status < response.DONE:
+    while response.status < response.Status.DONE:
         response = gclient.get_operation(
-            None, None, None, name=os.path.join(name_path, response.name)
+            request=container_v1.types.GetOperationRequest(
+                {
+                    "project_id": None,
+                    "zone": None,
+                    "operation_id": None,
+                    "name": os.path.join(name_path, response.name),
+                }
+            )
         )
         sleep(1)
 
-    if response.status != response.DONE:
+    if response.status != response.Status.DONE:
         raise ValueError("Cluster creation failed!")
 
-    return gclient, fw_name, firewalls
+    cluster = gclient.get_cluster(
+        request=container_v1.GetClusterRequest(
+            {
+                "project_id": None,
+                "zone": None,
+                "cluster_id": None,
+                "name": os.path.join(name_path, name),
+            }
+        )
+    )
+    return cluster, fw_name, firewalls
 
 
 def deploy_nvidia_daemonset():
@@ -258,7 +289,16 @@ def gcloud_delete_cluster(name, zone, project):
     cluster_path = os.path.join(name_path, name)
 
     try:
-        response = gclient.delete_cluster(None, None, None, name=cluster_path)
+        response = gclient.delete_cluster(
+            request=container_v1.types.DeleteClusterRequest(
+                {
+                    "project_id": None,
+                    "zone": None,
+                    "cluster_id": None,
+                    "name": cluster_path,
+                }
+            )
+        )
     except NotFound as e:
         click.echo("Exception from Google: " + str(e))
         click.echo("Double-check your project, zone and cluster name")
@@ -268,11 +308,18 @@ def gcloud_delete_cluster(name, zone, project):
         sys.exit(1)
 
     # wait for operation to complete
-    while response.status < response.DONE:
+    while response.status < response.Status.DONE:
         response = gclient.get_operation(
-            None, None, None, name=os.path.join(name_path, response.name)
+            request=container_v1.types.GetOperationRequest(
+                {
+                    "project_id": None,
+                    "zone": None,
+                    "operation_id": None,
+                    "name": os.path.join(name_path, response.name),
+                }
+            )
         )
         sleep(1)
 
-    if response.status != response.DONE:
+    if response.status != response.Status.DONE:
         raise ValueError("Cluster deletion failed!")

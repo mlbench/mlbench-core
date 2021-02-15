@@ -59,17 +59,6 @@ Note:
     Format: ``{name: (image_name, command, run_on_all, GPU_supported)}``"""
 
 
-class _CustomApiClient(client.ApiClient):
-    """
-    Deals with a bug introduced by a fix in swagger.
-    https://github.com/kubernetes-client/python/issues/411
-    https://github.com/swagger-api/swagger-codegen/issues/6392
-    """
-
-    def __del__(self):
-        pass
-
-
 class ApiClient(object):
     """Client for the mlbench Master/Dashboard REST API
 
@@ -95,9 +84,6 @@ class ApiClient(object):
             ``component=master,app=mlbench``
         k8s_namespace (str): K8s namespace mlbench is running in.
             Default: ``default``
-        service_name (str): Name of the master service, usually something
-            like ``release-mlbench-master``. Only needed when running
-            outside of a cluster. Default: ``None``
         url (str): ip:port/path or hostname:port/path that overrides
             automatic endpoint detection, pointing to the root of the
             master/dashboard node. Default: ``None``"""
@@ -133,8 +119,7 @@ class ApiClient(object):
         if load_config:
             config.load_incluster_config()
 
-        configuration = client.Configuration()
-        k8s_client = client.CoreV1Api(_CustomApiClient(configuration))
+        k8s_client = client.CoreV1Api()
         namespaced_pods = k8s_client.list_namespaced_pod(
             k8s_namespace, label_selector=label_selector
         )
@@ -150,8 +135,7 @@ class ApiClient(object):
         if load_config:
             config.load_kube_config()
 
-        configuration = client.Configuration()
-        k8s_client = client.CoreV1Api(_CustomApiClient(configuration))
+        k8s_client = client.CoreV1Api()
         ret = k8s_client.list_service_for_all_namespaces(label_selector=label_selector)
 
         if len(ret.items) == 0:

@@ -112,16 +112,15 @@ class CentralizedSparsifiedSGD(SparsifiedSGD):
         weight_decay=0,
         sparse_grad_size=10,
         random_sparse=False,
+        world_size=1,
         average_world=True,
     ):
         if not params:
             raise ValueError('"params" not set for optimizer')
         self.average_world = average_world
-        self.world_size = dist.get_world_size()
+        self.world_size = world_size
         self.random_sparse = random_sparse
-        super(CentralizedSparsifiedSGD, self).__init__(
-            params, lr, weight_decay, sparse_grad_size
-        )
+        super().__init__(params, lr, weight_decay, sparse_grad_size)
 
     def step(self, closure=None):
         """Aggregates the gradients and performs a single optimization step.
@@ -209,7 +208,7 @@ class CentralizedSGD(GenericCentralizedOptimizer):
         by_layer=False,
         agg_grad=True,
     ):
-        super(CentralizedSGD).__init__(
+        super().__init__(
             model=model,
             world_size=world_size,
             use_cuda=use_cuda,
@@ -260,7 +259,7 @@ class CentralizedAdam(GenericCentralizedOptimizer):
         by_layer=False,
         agg_grad=True,
     ):
-        super(GenericCentralizedOptimizer, self).__init__(
+        super().__init__(
             model=model,
             world_size=world_size,
             use_cuda=use_cuda,
@@ -307,6 +306,7 @@ class PowerSGD(SGD):
         use_cuda=False,
         by_layer=False,
         reuse_query=False,
+        world_size=1,
         rank=1,
     ):
         if not model:
@@ -316,7 +316,7 @@ class PowerSGD(SGD):
         if weight_decay < 0.0:
             raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
 
-        super(PowerSGD, self).__init__(
+        super().__init__(
             model.parameters(), lr, momentum, dampening, weight_decay, nesterov
         )
         if average_world:
@@ -326,7 +326,11 @@ class PowerSGD(SGD):
 
         self.model = model
         self.agg = PowerAggregation(
-            model=model, use_cuda=use_cuda, reuse_query=reuse_query, rank=rank
+            model=model,
+            use_cuda=use_cuda,
+            reuse_query=reuse_query,
+            world_size=world_size,
+            rank=rank,
         ).agg_grad(by_layer=by_layer)
 
     def step(self, closure=None, tracker=None):
@@ -340,7 +344,7 @@ class PowerSGD(SGD):
         self.agg(self.model, self.agg_mode)
         if tracker:
             tracker.record_batch_agg()
-        loss = super(PowerSGD, self).step(closure=closure)
+        loss = super().step(closure=closure)
         if tracker:
             tracker.record_batch_opt_step()
         return loss

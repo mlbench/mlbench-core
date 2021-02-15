@@ -132,14 +132,14 @@ class PowerAggregation(Aggregation):
             rank (int): The rank of the gradient approximation
     """
 
-    def __init__(self, model, use_cuda=False, reuse_query=False, rank=1):
+    def __init__(self, model, use_cuda=False, reuse_query=False, world_size=1, rank=1):
         super(PowerAggregation, self).__init__(use_cuda=use_cuda)
         self.p_memory = None
         self.q_memory = None
         self.reuse_query = reuse_query
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.rng = np.random.RandomState(1)
-        self.n_workers = dist.get_world_size()
+        self.n_workers = world_size
         self.rank = rank
         self.memories = [torch.zeros_like(param) for param in model.parameters()]
         self.send_buffers = [torch.zeros_like(param) for param in model.parameters()]

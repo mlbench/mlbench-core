@@ -374,3 +374,72 @@ class SQRTTimeDecayLRWithWarmup(LambdaLR):
         else:
             factor = (self.warmup.duration / iteration) ** 0.5
         return factor
+
+
+class PolyDecayLRLinearWarmup(LambdaLR):
+    """Polynomial decay of learning rate with linear warmup.
+
+    During warmup:
+      ```
+      lrs = torch.linspace(warmup_init_lr, base_lr, warmup_steps)
+      lr = lrs[update_num]
+      ```
+    After warmup:
+      ```
+      lr = base_lr * decay_factor
+      ```
+    where
+      ```decay_factor = (1 - ((iteration - warmup_duration) / decay_steps))^pow```
+
+    """
+
+    def __init__(
+        self,
+        optimizer,
+        init_lr,
+        scaled_lr,
+        warmup_duration,
+        decay_steps,
+        min_lr=0,
+        power=2,
+    ):
+        """
+
+        Args:
+            optimizer (:obj:`torch.optim.Optimizer`): Optimizer to use
+            init_lr (float): Initial LR at start of training
+            scaled_lr (float): Scaled LR to reach after warmup
+            warmup_duration (int): Warm-up steps
+            decay_steps (int): Decay steps for power decay
+            power (float): Power to use
+        """
+        self.warmup = LRLinearWarmUp(
+            optimizer=optimizer,
+            init_lr=init_lr,
+            scaled_lr=scaled_lr,
+            warmup_duration=warmup_duration,
+        )
+        self.pow = power
+        self.decay_steps = decay_steps
+        self.min_lr = min_lr
+        super(PolyDecayLRLinearWarmup, self).__init__(optimizer, self.f)
+
+        self.factor = 1
+
+    def f(self, iteration):
+        # Warmup
+        if iteration <= self.warmup.duration:
+            self.factor = self.warmup.f(iteration)
+        else:
+            diff = iteration - self.warmup.duration
+
+            # If remaining decay steps
+            if diff <= self.decay_steps:
+                progress = diff / self.decay_steps
+                self.factor = math.pow(
+                    (1 - progress)
+                    + math.pow(self.min_lr / self.warmup.scaled_lr, 1 / self.pow)
+                    * progress,
+                    self.pow,
+                )
+        return self.factor
