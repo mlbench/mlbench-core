@@ -29,26 +29,23 @@ class Checkpointer(object):
         self.rank = rank
         self.freq = freq
         self.save_stats = save_stats
-        # self.runtime = {'cumu_time_val': []}
 
-    def save(self, tracker, model, optimizer, scheduler, epoch, is_best):
+    def save(self, tracker, model, optimizer, scheduler, is_best):
         """Saves a checkpoint
 
         Args:
             tracker (:obj:`mlbench_core.utils.pytorch.helpers.Tracker`): The
                 metrics tracker object
             model (:obj:`torch.nn.Module`): a pytorch model to be trained and validated.
-            optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
-            scheduler (:obj:`mlbench_core.lr_scheduler.pytorch.lr.*`): a scheduler for
-                hyperparameters.
-            epoch (int): The current epoch
+            optimizer (:obj:`torch.optim.Optimizer`, optional): an optimizer for the given model.
+            scheduler (:obj:`mlbench_core.lr_scheduler.pytorch.lr.*`, optional): a scheduler for hyper-parameters.
             is_best (bool): Whether the current model is a new best scoring one
         """
         state = {
             "tracker": tracker,
             "model": model.state_dict(),
-            "optimizer": optimizer.state_dict(),
-            "scheduler": scheduler.state_dict(),
+            "optimizer": optimizer.state_dict() if optimizer is not None else None,
+            "scheduler": scheduler.state_dict() if scheduler is not None else None,
             "freq": self.freq,
         }
 
@@ -84,9 +81,8 @@ class Checkpointer(object):
             ckpt_run_dir (str): Folder path of checkpoint directory
             rank (int): The rank of the current worker
             model (:obj:`torch.nn.Module`): a pytorch model to be trained and validated.
-            optimizer (:obj:`torch.optim.Optimizer`): an optimizer for the given model.
-            scheduler (:obj:`mlbench_core.lr_scheduler.pytorch.lr.*`): a scheduler for
-                hyperparameters.
+            optimizer (:obj:`torch.optim.Optimizer`, optional): an optimizer for the given model.
+            scheduler (:obj:`mlbench_core.lr_scheduler.pytorch.lr.*`, optional): a scheduler for hyper-parameters.
 
         Returns:
             A tuple of `(Checkpointer, model, optimizer, scheduler)`
@@ -102,15 +98,16 @@ class Checkpointer(object):
         checkpoint = torch.load(checkpoint_path, pickle_module=dill)
 
         model.load_state_dict(checkpoint["model"])
-        optimizer.load_state_dict(checkpoint["optimizer"])
-        scheduler.load_state_dict(checkpoint["scheduler"])
+        if optimizer is not None:
+            optimizer.load_state_dict(checkpoint["optimizer"])
+
+        if scheduler is not None:
+            scheduler.load_state_dict(checkpoint["scheduler"])
 
         tracker = checkpoint["tracker"]
-
         freq = checkpoint["freq"]
 
         checkpointer = Checkpointer(ckpt_run_dir, rank, freq)
-        # checkpointer.runtime['cumu_time_val'] = checkpoint['tracker']['cumu_time_val']
 
         return checkpointer, model, optimizer, scheduler, tracker
 
