@@ -175,7 +175,8 @@ def run(name, num_workers, gpu, num_cpus, light, dashboard_url):
 @cli_group.command()
 @click.argument("name", type=str, required=False)
 @click.option("--dashboard-url", "-u", default=None, type=str)
-def status(name, dashboard_url):
+@click.option("--metric", "-m", default="Prec@1", type=str, help="Metric Name")
+def status(name, dashboard_url, metric):
     """Get the status of a benchmark run, or all runs if no name is given"""
     loaded = setup_client_from_config()
 
@@ -207,7 +208,7 @@ def status(name, dashboard_url):
         run["id"], metric_filter="val_global_loss @ 0", last_n=1
     )
     prec = client.get_run_metrics(
-        run["id"], metric_filter="val_global_Prec@1 @ 0", last_n=1
+        run["id"], metric_filter="val_global_{} @ 0".format(metric), last_n=1
     )
 
     loss = loss.result()
@@ -222,11 +223,11 @@ def status(name, dashboard_url):
         )
     else:
         click.echo("No Validation Loss Data yet")
-    if prec.status_code < 300 and "val_global_Prec@1 @ 0" in prec.json():
-        val = prec.json()["val_global_Prec@1 @ 0"][0]
+    if prec.status_code < 300 and "val_global_{} @ 0".format(metric) in prec.json():
+        val = prec.json()["val_global_{} @ 0".format(metric)][0]
         click.echo(
-            "Current Global Precision: {0:.2f} ({1})".format(
-                float(val["value"]), val["date"]
+            "Current Global {0}: {1:.2f} ({2})".format(
+                metric, float(val["value"]), val["date"]
             )
         )
     else:

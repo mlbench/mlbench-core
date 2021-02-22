@@ -46,6 +46,7 @@ class GenericCentralizedOptimizer(ABC):
         self.agg_mode = AVG_WORLD
         self.model = model
         self.agg_grad = agg_grad
+        self.world_size = world_size
         agg = AllReduceAggregation(
             world_size=world_size, use_cuda=use_cuda, divide_before=divide_before
         )  # Divide after reduction
@@ -66,9 +67,12 @@ class GenericCentralizedOptimizer(ABC):
             tracker (:obj:`mlbench_core.utils.Tracker`, optional) The current tracker
         """
         if self.agg_grad:
-            self.agg(self.model, self.agg_mode)
-            if tracker:
-                tracker.record_batch_agg()
+
+            if self.world_size > 1:
+                self.agg(self.model, self.agg_mode)
+                if tracker:
+                    tracker.record_batch_agg()
+
             loss = self.optimizer.step(closure=closure)
             if tracker:
                 tracker.record_batch_opt_step()
@@ -76,9 +80,11 @@ class GenericCentralizedOptimizer(ABC):
             loss = self.optimizer.step(closure=closure)
             if tracker:
                 tracker.record_batch_opt_step()
-            self.agg(self.model, self.agg_mode)
-            if tracker:
-                tracker.record_batch_agg()
+
+            if self.world_size > 1:
+                self.agg(self.model, self.agg_mode)
+                if tracker:
+                    tracker.record_batch_agg()
         return loss
 
     def __getattr__(self, item):
@@ -324,6 +330,7 @@ class PowerSGD(SGD):
         else:
             raise NotImplementedError("Only average model is supported right now.")
 
+        self.world_size = world_size
         self.model = model
         self.agg = PowerAggregation(
             model=model,
@@ -341,9 +348,10 @@ class PowerSGD(SGD):
                 and returns the loss.
             tracker (:obj:`mlbench_core.utils.Tracker`, optional) The current tracker
         """
-        self.agg(self.model, self.agg_mode)
-        if tracker:
-            tracker.record_batch_agg()
+        if self.world_size > 1:
+            self.agg(self.model, self.agg_mode)
+            if tracker:
+                tracker.record_batch_agg()
         loss = super().step(closure=closure)
         if tracker:
             tracker.record_batch_opt_step()
@@ -410,9 +418,10 @@ class CustomCentralizedOptimizer(GenericCentralizedOptimizer):
         """
 
         if self.agg_grad:
-            self.agg(self.model, self.agg_mode, denom=denom)
-            if tracker:
-                tracker.record_batch_agg()
+            if self.world_size > 1:
+                self.agg(self.model, self.agg_mode, denom=denom)
+                if tracker:
+                    tracker.record_batch_agg()
 
             # Clip norm
             if self.grad_clip != float("inf"):
@@ -425,8 +434,9 @@ class CustomCentralizedOptimizer(GenericCentralizedOptimizer):
             self.optimizer.step(closure=closure)
             if tracker:
                 tracker.record_batch_opt_step()
-            self.agg(self.model, self.agg_mode)
-            if tracker:
-                tracker.record_batch_agg()
+            if self.world_size > 1:
+                self.agg(self.model, self.agg_mode)
+                if tracker:
+                    tracker.record_batch_agg()
 
         return True

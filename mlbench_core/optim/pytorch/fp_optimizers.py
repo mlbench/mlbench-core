@@ -95,7 +95,7 @@ class FP16Optimizer:
         self.grad_clip = grad_clip
 
         self.optimizer = None
-
+        self.world_size = world_size
         if use_horovod:
             self.agg = AllReduceAggregationHVD(
                 world_size=world_size, use_cuda=use_cuda, divide_before=divide_before
@@ -207,11 +207,12 @@ class FP16Optimizer:
 
         scaling_factor = self.loss_scaler.loss_scale * multiplier
 
-        # Aggregate gradients
-        self.agg(self.fp16_model, self.agg_mode, denom=denom)
+        if self.world_size > 1:
+            # Aggregate gradients
+            self.agg(self.fp16_model, self.agg_mode, denom=denom)
 
-        if tracker:
-            tracker.record_batch_agg()
+            if tracker:
+                tracker.record_batch_agg()
 
         # Cast fp16 grads to fp32 for optimizer
         self.fp16_to_fp32_flat_grad(self.fp32_params, self.fp16_model)
