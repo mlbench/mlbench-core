@@ -18,7 +18,7 @@ requirements = [
     "Click>=6.0",
     "deprecation>=2.0.6",
     "dill==0.3.2",
-    "docker==4.2.0",
+    "docker==4.4.3",
     "GitPython==3.1.7",
     "google-api-python-client==1.12.8",
     "google-auth==1.23.0",
@@ -112,6 +112,6 @@ setup(
     tests_require=test_requirements,
     extras_require=extras,
     url="https://github.com/mlbench/mlbench_core",
-    version="3.0.0-dev8",
+    version="3.0.0-dev13",
     zip_safe=False,
 )
