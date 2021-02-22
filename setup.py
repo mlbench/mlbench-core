@@ -21,7 +21,7 @@ requirements = [
     "docker==4.2.0",
     "GitPython==3.1.7",
     "google-api-python-client==1.12.8",
-    "google-auth==1.23.0",
+    "google-auth==1.27.0",
     "google-cloud==0.34.0",
     "google-cloud-container==2.3.0",
     "grpcio==1.34.0",
@@ -112,6 +112,6 @@ setup(
     tests_require=test_requirements,
     extras_require=extras,
     url="https://github.com/mlbench/mlbench_core",
-    version="3.0.0-dev8",
+    version="3.0.0-dev13",
     zip_safe=False,
 )
