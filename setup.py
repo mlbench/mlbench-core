@@ -14,7 +14,7 @@ with open("CHANGELOG.md") as history_file:
 # Common libraries
 requirements = [
     "appdirs==1.4.4",
-    "boto3==1.14.50",
+    "boto3==1.17.12",
     "Click>=6.0",
     "deprecation>=2.0.6",
     "dill==0.3.2",
@@ -112,6 +112,6 @@ setup(
     tests_require=test_requirements,
     extras_require=extras,
     url="https://github.com/mlbench/mlbench_core",
-    version="3.0.0-dev8",
+    version="3.0.0-dev13",
     zip_safe=False,
 )
