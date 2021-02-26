@@ -32,7 +32,7 @@ class PretrainingDataset(Dataset):
     """Represents the Pretraining Dataset used to train BERT on language modelling
     Implementation taken from https://github.com/mlperf/training_results_v0.7/blob/master/NVIDIA/benchmarks/bert/implementations/pytorch/run_pretraining.py.
 
-    The files need to be in HD5 format and pre-processed. Please read the doc for more info on preprocessing
+    The files need to be in HDF5 format and pre-processed. Please read the doc for more info on preprocessing
     """
 
     def __init__(self, root, max_pred_length, worker_seed):
