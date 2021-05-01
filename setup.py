@@ -21,7 +21,7 @@ requirements = [
     "docker==4.2.0",
     "GitPython==3.1.7",
     "google-api-python-client==1.12.8",
-    "google-auth==1.23.0",
+    "google-auth==1.30.0",
     "google-cloud==0.34.0",
     "google-cloud-container==2.3.0",
     "grpcio==1.34.0",
