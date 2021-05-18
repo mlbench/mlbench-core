@@ -14,7 +14,7 @@ with open("CHANGELOG.md") as history_file:
 # Common libraries
 requirements = [
     "appdirs==1.4.4",
-    "boto3==1.14.50",
+    "boto3==1.17.74",
     "Click>=6.0",
     "deprecation>=2.0.6",
     "dill==0.3.2",
@@ -40,7 +40,7 @@ requirements = [
 torch_reqs = [
     "sacrebleu==1.4.14",
     "torch==1.7.0",
-    "torchvision==0.8.1",
+    "torchvision==0.9.1",
 ]
 
 tensorflow_reqs = [
