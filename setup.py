@@ -26,7 +26,7 @@ requirements = [
     "google-cloud-container==2.3.0",
     "grpcio==1.34.0",
     "kubernetes==12.0.1",
-    "lmdb==1.0.0",
+    "lmdb==1.2.1",
     "matplotlib==3.2.1",
     "numpy==1.19.2",
     "oauth2client==4.1.3",
