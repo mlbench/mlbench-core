@@ -622,7 +622,7 @@ def create_cluster():
 @create_cluster.command("gcloud")
 @click.argument("num_workers", type=int, metavar="num-workers")
 @click.argument("release", type=str)
-@click.option("--kubernetes-version", "-k", type=str, default="1.16")
+@click.option("--kubernetes-version", "-k", type=str, default="1.19")
 @click.option("--machine-type", "-t", default="n1-standard-4", type=str)
 @click.option("--disk-size", "-d", default=50, type=int)
 @click.option("--num-cpus", "-c", default=4, type=int)
