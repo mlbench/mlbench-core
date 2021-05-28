@@ -4,12 +4,12 @@ import numpy as np
 
 
 def _roundup(x, multiple):
-    """ Round up `x` to multiple of `multiple`"""
+    """Round up `x` to multiple of `multiple`"""
     return int((x + multiple - 1) // multiple * multiple)
 
 
 def _rounddown(x, multiple):
-    """ Round down `x` to multiple of `multiple`"""
+    """Round down `x` to multiple of `multiple`"""
     return int(x // multiple * multiple)
 
 

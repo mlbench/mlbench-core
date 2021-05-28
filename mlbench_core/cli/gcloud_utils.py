@@ -250,7 +250,7 @@ def gcloud_create_cluster(
 
 
 def deploy_nvidia_daemonset():
-    """ Deploys the NVIDIA daemon set to the cluster"""
+    """Deploys the NVIDIA daemon set to the cluster"""
     with request.urlopen(GCLOUD_NVIDIA_DAEMONSET) as r:
         dep = yaml.safe_load(r)
         dep["spec"]["selector"] = {
