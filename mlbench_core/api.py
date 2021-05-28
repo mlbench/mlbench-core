@@ -115,7 +115,7 @@ class ApiClient(object):
         self.endpoint = "http://{url}/api/".format(url=url)
 
     def __get_in_cluster_url(self, label_selector, k8s_namespace, load_config):
-        """Get the API url for the dashboard when running in a cluster """
+        """Get the API url for the dashboard when running in a cluster"""
         if load_config:
             config.load_incluster_config()
 
@@ -131,7 +131,7 @@ class ApiClient(object):
         return master_pod.status.pod_ip + ":80"
 
     def __get_out_of_cluster_url(self, label_selector, k8s_namespace, load_config):
-        """Get the API url for the dashboard when running out of a cluster """
+        """Get the API url for the dashboard when running out of a cluster"""
         if load_config:
             config.load_kube_config()
 

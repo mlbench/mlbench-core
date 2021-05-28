@@ -42,7 +42,7 @@ class Partitioner(object):
     """Use a partition of dataset."""
 
     def consistent_indices(self, rank, indices, shuffle):
-        r""" synchronize indices among workers. """
+        r"""synchronize indices among workers."""
         if rank == 0 and shuffle:
             random.shuffle(indices)
 
