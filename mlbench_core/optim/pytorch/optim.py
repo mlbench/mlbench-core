@@ -179,7 +179,10 @@ class SignSGD(SGD):
         dampening (float, optional): dampening for momentum (default: 0)
         nesterov (bool, optional): enables Nesterov momentum (default: False)
     """
-    def __init__(self, params, lr, momentum=0, weight_decay=0, dampening=0, nesterov=False):
+
+    def __init__(
+        self, params, lr, momentum=0, weight_decay=0, dampening=0, nesterov=False
+    ):
         super(SignSGD, self).__init__(
             params, lr, momentum, dampening, weight_decay, nesterov
         )
