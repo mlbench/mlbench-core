@@ -180,6 +180,13 @@ class SignSGD(SGD):
         nesterov (bool, optional): enables Nesterov momentum (default: False)
     """
 
+    def __init__(
+        self, params, lr, momentum=0, weight_decay=0, dampening=0, nesterov=False
+    ):
+        super(SignSGD, self).__init__(
+            params, lr, momentum, dampening, weight_decay, nesterov
+        )
+
     def step(self, closure=None):
         """Performs a single optimization step.
 
