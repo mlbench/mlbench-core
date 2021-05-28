@@ -18,7 +18,7 @@ requirements = [
     "Click>=6.0",
     "deprecation>=2.0.6",
     "dill==0.3.2",
-    "docker==4.2.0",
+    "docker==5.0.0",
     "GitPython==3.1.7",
     "google-api-python-client==1.12.8",
     "google-auth==1.30.1",
