@@ -25,6 +25,7 @@ try:
                 "-O2",
             ],
             "nvcc": [
+                '-I/app/cutlass/',
                 "--gpu-architecture=compute_70",
                 "--gpu-code=sm_70",
                 "-O3",
