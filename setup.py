@@ -52,7 +52,7 @@ setup_requirements = [
 ]
 
 lint_requirements = [
-    "black==21.5b1",
+    "black==21.5b2",
     "isort==5.6.4",
 ]
 
