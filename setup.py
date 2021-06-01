@@ -38,7 +38,7 @@ requirements = [
 
 # Libraries used by torch
 torch_reqs = [
-    "sacrebleu==1.4.14",
+    "sacrebleu==1.5.1",
     "torch==1.8.1",
     "torchvision==0.9.1",
 ]
