@@ -283,7 +283,7 @@ class ResNetCIFAR(nn.Module):
 
 
 class PreActBlock(nn.Module):
-    r""""Pre-activation Resnet Block used in ResNet-18"""
+    r""" "Pre-activation Resnet Block used in ResNet-18"""
 
     def __init__(self, in_channels, out_channels, stride=1):
         super(PreActBlock, self).__init__()

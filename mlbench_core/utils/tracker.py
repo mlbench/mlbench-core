@@ -136,14 +136,14 @@ class Tracker(object):
         self.preprocess_steps = preprocess_steps
 
     def start(self):
-        """ Starts Tracking """
+        """Starts Tracking"""
         if self.start_time is not None:
             raise Exception("Tracking already started")
 
         self.start_time = time.time()
 
     def train(self):
-        """ Switch Tracker to training mode"""
+        """Switch Tracker to training mode"""
         self.is_training = True
 
     def validation(self):
@@ -221,7 +221,7 @@ class Tracker(object):
         self.reset_epoch_stats()
 
     def reset_epoch_stats(self):
-        """ Resets all epoch stats"""
+        """Resets all epoch stats"""
         stat_names = [k for k in ["loss"] + [m.name for m in self.metrics]]
 
         stat_names = [self.train_prefix + k for k in stat_names] + [
@@ -348,7 +348,7 @@ class Tracker(object):
             self.best_epoch = self.current_epoch
 
     def is_best(self):
-        """ Whether the current epoch is the best epoch so far"""
+        """Whether the current epoch is the best epoch so far"""
         return self.current_epoch == self.best_epoch
 
     def get_total_train_time(self):
@@ -370,7 +370,7 @@ class Tracker(object):
         return sum(self.cumulative_val_time)
 
     def __str__(self):
-        """ String representation of current epoch"""
+        """String representation of current epoch"""
         prefix = self.train_prefix
 
         if not self.is_training:

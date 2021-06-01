@@ -33,7 +33,7 @@ class SparsifiedSGD(Optimizer):
         self.num_coordinates = sparse_grad_size
 
     def __create_weighted_average_params(self):
-        """ Create a memory to keep the weighted average of parameters in each iteration """
+        """Create a memory to keep the weighted average of parameters in each iteration"""
         for group in self.param_groups:
             for p in group["params"]:
                 param_state = self.state[p]
@@ -42,7 +42,7 @@ class SparsifiedSGD(Optimizer):
                 param_state["estimated_w"].copy_(p.data)
 
     def __create_gradients_memory(self):
-        """ Create a memory to keep gradients that are not used in each iteration """
+        """Create a memory to keep gradients that are not used in each iteration"""
         for group in self.param_groups:
             for p in group["params"]:
                 param_state = self.state[p]
@@ -159,7 +159,7 @@ class SparsifiedSGD(Optimizer):
                 )
 
     def get_estimated_weights(self):
-        """ Returns the weighted average parameter tensor """
+        """Returns the weighted average parameter tensor"""
         estimated_params = []
         for group in self.param_groups:
             for param in group["params"]:
@@ -179,6 +179,13 @@ class SignSGD(SGD):
         dampening (float, optional): dampening for momentum (default: 0)
         nesterov (bool, optional): enables Nesterov momentum (default: False)
     """
+
+    def __init__(
+        self, params, lr, momentum=0, weight_decay=0, dampening=0, nesterov=False
+    ):
+        super(SignSGD, self).__init__(
+            params, lr, momentum, dampening, weight_decay, nesterov
+        )
 
     def step(self, closure=None):
         """Performs a single optimization step.

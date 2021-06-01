@@ -182,7 +182,7 @@ class F1Score(MLBenchMetric):
 
 class BLEUScore(MLBenchMetric):
     def __init__(self, use_raw=False):
-        """ Bilingual Evaluation Understudy score"""
+        """Bilingual Evaluation Understudy score"""
         super(BLEUScore, self).__init__()
         self.use_raw = use_raw
 

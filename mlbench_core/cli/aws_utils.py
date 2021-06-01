@@ -332,7 +332,7 @@ def _create_kube_config_aws_entry(name):
 
 
 def deploy_nvidia_daemonset_aws():
-    """ Deploys the NVIDIA daemon set to the AWS cluster"""
+    """Deploys the NVIDIA daemon set to the AWS cluster"""
     with request.urlopen(AWS_NVIDIA_DAEMONSET) as r:
         dep = yaml.safe_load(r)
         dep["spec"]["selector"] = {

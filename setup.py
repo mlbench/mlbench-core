@@ -14,19 +14,19 @@ with open("CHANGELOG.md") as history_file:
 # Common libraries
 requirements = [
     "appdirs==1.4.4",
-    "boto3==1.14.50",
+    "boto3==1.17.74",
     "Click>=6.0",
     "deprecation>=2.0.6",
     "dill==0.3.2",
-    "docker==4.2.0",
+    "docker==5.0.0",
     "GitPython==3.1.7",
     "google-api-python-client==1.12.8",
-    "google-auth==1.23.0",
+    "google-auth==1.30.1",
     "google-cloud==0.34.0",
     "google-cloud-container==2.3.0",
     "grpcio==1.34.0",
     "kubernetes==12.0.1",
-    "lmdb==1.0.0",
+    "lmdb==1.2.1",
     "matplotlib==3.2.1",
     "numpy==1.20.3",
     "oauth2client==4.1.3",
@@ -52,7 +52,7 @@ setup_requirements = [
 ]
 
 lint_requirements = [
-    "black==20.8b1",
+    "black==21.5b1",
     "isort==5.6.4",
 ]
 
