@@ -33,7 +33,7 @@ requirements = [
     "sklearn==0.0",
     "supermutes==0.2.5",
     "tabulate>=0.8.5",
-    "tensorpack==0.10.1",
+    "tensorpack==0.11",
 ]
 
 # Libraries used by torch
