@@ -19,7 +19,7 @@ requirements = [
     "deprecation>=2.0.6",
     "dill==0.3.2",
     "docker==5.0.0",
-    "GitPython==3.1.7",
+    "GitPython==3.1.17",
     "google-api-python-client==1.12.8",
     "google-auth==1.30.1",
     "google-cloud==0.34.0",
