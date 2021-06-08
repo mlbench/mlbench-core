@@ -28,7 +28,7 @@ requirements = [
     "kubernetes==12.0.1",
     "lmdb==1.2.1",
     "matplotlib==3.2.1",
-    "numpy==1.19.2",
+    "numpy==1.20.3",
     "oauth2client==4.1.3",
     "sklearn==0.0",
     "supermutes==0.2.5",
@@ -39,8 +39,8 @@ requirements = [
 # Libraries used by torch
 torch_reqs = [
     "sacrebleu==1.5.1",
-    "torch==1.7.0",
-    "torchvision==0.8.1",
+    "torch==1.8.1",
+    "torchvision==0.9.1",
 ]
 
 tensorflow_reqs = [
@@ -112,6 +112,6 @@ setup(
     tests_require=test_requirements,
     extras_require=extras,
     url="https://github.com/mlbench/mlbench_core",
-    version="3.0.0-dev15",
+    version="3.0.0-dev23",
     zip_safe=False,
 )
