@@ -23,7 +23,7 @@ requirements = [
     "google-api-python-client==1.12.8",
     "google-auth==1.30.1",
     "google-cloud==0.34.0",
-    "google-cloud-container==2.3.0",
+    "google-cloud-container==2.5.0",
     "grpcio==1.34.0",
     "kubernetes==12.0.1",
     "lmdb==1.2.1",
