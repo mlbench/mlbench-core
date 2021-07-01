@@ -17,7 +17,7 @@ requirements = [
     "boto3==1.17.74",
     "Click>=6.0",
     "deprecation>=2.0.6",
-    "dill==0.3.2",
+    "dill==0.3.4",
     "docker==5.0.0",
     "GitPython==3.1.17",
     "google-api-python-client==1.12.8",
