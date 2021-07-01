@@ -27,7 +27,7 @@ requirements = [
     "grpcio==1.34.0",
     "kubernetes==12.0.1",
     "lmdb==1.2.1",
-    "matplotlib==3.2.1",
+    "matplotlib==3.4.2",
     "numpy==1.20.3",
     "oauth2client==4.1.3",
     "sklearn==0.0",
