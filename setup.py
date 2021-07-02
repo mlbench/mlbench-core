@@ -40,7 +40,7 @@ requirements = [
 torch_reqs = [
     "sacrebleu==1.5.1",
     "torch==1.9.0",
-    "torchvision==0.9.1",
+    "torchvision==0.10.0",
 ]
 
 tensorflow_reqs = [
