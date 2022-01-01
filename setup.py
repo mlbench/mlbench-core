@@ -20,7 +20,7 @@ requirements = [
     "dill==0.3.4",
     "docker==5.0.0",
     "GitPython==3.1.17",
-    "google-api-python-client==1.12.8",
+    "google-api-python-client==2.33.0",
     "google-auth==1.32.1",
     "google-cloud==0.34.0",
     "google-cloud-container==2.5.0",
