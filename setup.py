@@ -60,7 +60,7 @@ test_requirements = (
     [
         "codecov==2.1.9",
         "coverage==5.5",
-        "freezegun==1.0.0",
+        "freezegun==1.2.1",
         "pre-commit",
         "pytest>=3",
         "pytest-cov==2.10.1",
