@@ -28,7 +28,7 @@ requirements = [
     "kubernetes==12.0.1",
     "lmdb==1.2.1",
     "matplotlib==3.4.2",
-    "numpy==1.20.3",
+    "numpy==1.24.2",
     "oauth2client==4.1.3",
     "sklearn==0.0",
     "supermutes==0.2.5",
